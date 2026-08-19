@@ -4,10 +4,87 @@ Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials,
 
 ---
 
+## What you need
+
+| Requirement       | Details                                                |
+| ----------------- | ------------------------------------------------------ |
+| Python            | 3.11 or newer                                          |
+| Oracle CPQ access | REST API enabled; integration user with Basic Auth     |
+| Network           | VPN if your CPQ site requires it                       |
+| IDE               | Cursor, VS Code (Copilot Agent), or Google Antigravity |
+| Git               | Optional but recommended (`git clone`)                 |
+
+---
+
+## Step 1 — Get the code
+
+### 1.1 Create a workspace folder
+
+Pick a folder on your machine where you keep projects. Examples:
+
+| OS | Example path |
+|----|----------------|
+| Windows | `C:\Users\YourName\workspaces` |
+| macOS / Linux | `~/workspaces` |
+
+**IDE terminal** (or any shell) — create the folder if it does not exist:
+
+```bash
+mkdir -p ~/workspaces          # macOS / Linux
+# Windows PowerShell:
+mkdir C:\Users\YourName\workspaces
+```
+
+### 1.2 Download the repository
+
+**Option A: Git clone (recommended)**
+
+```bash
+cd ~/workspaces                # or cd C:\Users\YourName\workspaces on Windows
+git clone https://github.com/singhramandeep/oracleCPQMCP.git oracleCPQMCP
+cd oracleCPQMCP
+```
+
+**Option B: Download ZIP**
+
+1. Open https://github.com/singhramandeep/oracleCPQMCP
+2. Click **Code → Download ZIP**
+3. Extract to `~/workspaces/oracleCPQMCP` (or your chosen folder)
+4. In your IDE: **File → Open Folder** → select the `oracleCPQMCP` folder
+
+### 1.3 Open the project in your IDE
+
+**File → Open Folder** → choose the `oracleCPQMCP` folder you just cloned or extracted.
+
+This folder is your **project root** — all commands in later steps run from here.
+
+**Repository layout (key paths):**
+
+```
+oracleCPQMCP/                  ← project root (open this folder in your IDE)
+├── pyproject.toml             ← Python project file (confirms you are in the right folder)
+├── .config/                   ← CPQ credentials (YOU create *.env here)
+│   └── .env.example           ← Template (safe to commit)
+├── .cursor/
+│   ├── mcp.json.example       ← Copy → mcp.json (Windows)
+│   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
+├── scripts/
+│   ├── mcp-server.cmd         ← MCP launcher (Windows)
+│   └── mcp-server.sh          ← MCP launcher (macOS/Linux)
+├── .vscode/
+│   ├── mcp.json.example       ← Copy → mcp.json (Windows)
+│   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
+├── .agents/
+│   └── mcp_config.example.json  ← Copy for Antigravity (workspace)
+├── mcp/oracle_cpq_mcp/        ← MCP server package
+└── docs/QUICKSTART.md         ← This file
+```
+
+---
+
 ## Running commands (IDE terminal)
 
-All setup commands below are meant to run in your **IDE integrated terminal** — you do not need a separate PowerShell or Command Prompt window outside the IDE.
-
+All setup commands below run in your **IDE integrated terminal** — you do not need a separate PowerShell or Command Prompt window outside the IDE.
 
 | IDE             | Open terminal                 |
 | --------------- | ----------------------------- |
@@ -15,8 +92,17 @@ All setup commands below are meant to run in your **IDE integrated terminal** �
 | **VS Code**     | `View → Terminal` or `Ctrl+`` |
 | **Antigravity** | Terminal panel or `Ctrl+``    |
 
+Before each command, confirm you are in the **project root** — the `oracleCPQMCP` folder you opened in Step 1.3. You should see `pyproject.toml` if you list files:
 
-Before running commands, confirm the terminal cwd is the **repository root** (the folder that contains `pyproject.toml`). If not:
+```bash
+# macOS / Linux / Git Bash
+ls pyproject.toml
+
+# Windows PowerShell
+dir pyproject.toml
+```
+
+If you are in the wrong folder, change into the project root:
 
 ```bash
 cd path/to/oracleCPQMCP
@@ -32,94 +118,9 @@ Then retry `.venv\Scripts\Activate.ps1`.
 
 ---
 
-## Before you commit (git safety checklist)
-
-If you are initializing git for the first time, confirm these rules **before** `git add`:
-
-
-| Path                                             | Commit?                    | Why                                   |
-| ------------------------------------------------ | -------------------------- | ------------------------------------- |
-| `.config/.env.example`                           | Yes                        | Template only — placeholder passwords |
-| `.config/mycompany.env` (or any `*.env` profile) | **Never**                  | Contains real CPQ passwords           |
-| `.cursor/mcp.json`                               | **Never** (copy from `.example`) | Local MCP config — profile name only |
-| `.vscode/mcp.json`                               | **Never** (use `.example`) | May get local secrets later           |
-| `.agents/mcp_config.json`                        | **Never** (use `.example`) | Antigravity local config              |
-| `.venv/`                                         | Never                      | Recreate with `pip install`           |
-| `exports/`, `*.xlsx`                             | Never                      | Generated downloads                   |
-
-
-**IDE terminal** (repo root) — verify ignore rules:
-
-```bash
-git check-ignore -v .config/mycompany.env
-# Expected: .gitignore:... .config/*.env
-
-git status
-# mycompany.env and other *.env profiles must NOT appear as tracked files
-```
-
-The repo `[.gitignore](../.gitignore)` blocks `.config/*.env`, `.venv/`, exports, and local MCP override files.
-
----
-
-## What you need
-
-
-| Requirement       | Details                                                |
-| ----------------- | ------------------------------------------------------ |
-| Python            | 3.11 or newer                                          |
-| Oracle CPQ access | REST API enabled; integration user with Basic Auth     |
-| Network           | VPN if your CPQ site requires it                       |
-| IDE               | Cursor, VS Code (Copilot Agent), or Google Antigravity |
-
-
----
-
-## Step 1 — Download the repository
-
-### Option A: Git clone
-
-**IDE terminal** (or any shell):
-
-```bash
-cd ~/workspaces          # or C:\Users\YourName\workspaces on Windows
-git clone <your-repo-url> oracleCPQMCP
-cd oracleCPQMCP
-```
-
-### Option B: Download ZIP
-
-1. Download the repository ZIP from your Git host.
-2. Extract to a folder (e.g. `~/workspaces/oracleCPQMCP`).
-3. In your IDE: **File → Open Folder** → select `oracleCPQMCP`.
-
-**Repository layout (key paths):**
-
-```
-oracleCPQMCP/
-├── .config/                 ← CPQ credentials (YOU create *.env here)
-│   └── .env.example         ← Template (safe to commit)
-├── .cursor/
-│   ├── mcp.json.example         ← Copy → mcp.json (Windows)
-│   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
-├── scripts/
-│   ├── mcp-server.cmd       ← MCP launcher (Windows)
-│   └── mcp-server.sh        ← MCP launcher (macOS/Linux)
-├── .vscode/
-│   ├── mcp.json.example         ← Copy → mcp.json (Windows)
-│   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
-├── .agents/
-│   └── mcp_config.example.json  ← Copy for Antigravity (workspace)
-├── mcp/oracle_cpq_mcp/      ← MCP server package
-├── docs/QUICKSTART.md       ← This file
-└── pyproject.toml
-```
-
----
-
 ## Step 2 — Create Python environment and install
 
-**IDE terminal** (repo root):
+**IDE terminal** (project root):
 
 ```bash
 python -m venv .venv
@@ -157,7 +158,7 @@ Credentials live in **one file per customer**, never in MCP JSON.
 
 ### 3.1 Copy the template
 
-**IDE terminal** (repo root):
+**IDE terminal** (project root):
 
 
 | Shell                    | Command                                           |
@@ -218,7 +219,7 @@ Switch at runtime with `CPQ_CUSTOMER_PROFILE=mycompany` in MCP config.
 
 ## Step 4 — Smoke test (verify CPQ connectivity)
 
-**IDE terminal** (repo root, venv activated):
+**IDE terminal** (project root, venv activated):
 
 ```bash
 oracle-cpq-smoke --profile mycompany --env dev
@@ -267,7 +268,7 @@ Set these env vars in MCP config (all clients):
 
 **Config file:** `.cursor/mcp.json` — **you create this locally** (not committed). Use the cross-platform launcher scripts so the same repo works on every OS.
 
-**IDE terminal** (repo root) — copy the example for your OS:
+**IDE terminal** (project root) — copy the example for your OS:
 
 | Shell | Command |
 | ----- | ------- |
@@ -316,11 +317,11 @@ Example `.cursor/mcp.json` (Windows — uses `mcp-server.cmd`):
 
 ### VS Code (GitHub Copilot Agent)
 
-VS Code uses `**servers**` (not `mcpServers`) and requires `"type": "stdio"`.
+VS Code uses **`servers`** (not `mcpServers`) and requires `"type": "stdio"`.
 
 **Config file:** copy example → local (local file is gitignored).
 
-**IDE terminal** (repo root):
+**IDE terminal** (project root):
 
 | Shell | Command |
 | ----- | ------- |
@@ -371,7 +372,7 @@ Antigravity supports workspace-level config at `.agents/mcp_config.json` or glob
 
 **Recommended:** workspace config (keeps CPQ setup per project).
 
-**IDE terminal** (repo root):
+**IDE terminal** (project root):
 
 
 | Shell                    | Command                                                                              |
@@ -506,6 +507,34 @@ See [SECURITY.md](../SECURITY.md) and [README.md](../README.md#safe-execution).
 | Schema integrity startup failure      | Run manifest update (see [SECURITY_TESTING.md](../SECURITY_TESTING.md))                     |
 | Stale tools after code change         | IDE terminal: `pip install -e ".[dev]"` then restart IDE                                    |
 
+
+---
+
+## Before you commit (git safety checklist)
+
+If you fork or contribute changes, confirm these rules **before** `git add`:
+
+| Path                                             | Commit?                    | Why                                   |
+| ------------------------------------------------ | -------------------------- | ------------------------------------- |
+| `.config/.env.example`                           | Yes                        | Template only — placeholder passwords |
+| `.config/mycompany.env` (or any `*.env` profile) | **Never**                  | Contains real CPQ passwords           |
+| `.cursor/mcp.json`                               | **Never** (copy from `.example`) | Local MCP config — profile name only |
+| `.vscode/mcp.json`                               | **Never** (use `.example`) | May get local secrets later           |
+| `.agents/mcp_config.json`                        | **Never** (use `.example`) | Antigravity local config              |
+| `.venv/`                                         | Never                      | Recreate with `pip install`           |
+| `exports/`, `*.xlsx`                             | Never                      | Generated downloads                   |
+
+**IDE terminal** (project root) — verify ignore rules:
+
+```bash
+git check-ignore -v .config/mycompany.env
+# Expected: .gitignore:... .config/*.env
+
+git status
+# mycompany.env and other *.env profiles must NOT appear as tracked files
+```
+
+The repo [`.gitignore`](../.gitignore) blocks `.config/*.env`, `.venv/`, exports, and local MCP override files.
 
 ---
 
