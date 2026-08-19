@@ -13,10 +13,11 @@ from oracle_cpq_mcp.registry.tool_registry import (
 
 
 def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
-    assert len(CPQ_API_TOOLS) == 14
+    assert len(CPQ_API_TOOLS) == 18
     assert "discover_tools" in TOOL_CATALOG
     assert "get_all_bml_code" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 15
+    assert "get_commerce_attributes" in TOOL_CATALOG
+    assert len(TOOL_CATALOG) == 19
 
 
 def test_filter_users_read_tools() -> None:
@@ -50,6 +51,16 @@ def test_search_bml_returns_bml_tool() -> None:
     results = search_tools("bml")
     assert results
     assert results[0].name == "get_all_bml_code"
+
+
+def test_filter_commerce_read_tools() -> None:
+    names = {spec.name for spec in filter_tools(domain="commerce", operation="read")}
+    assert names == {
+        "get_commerce_actions",
+        "get_commerce_attributes",
+        "get_line_actions",
+        "get_line_attributes",
+    }
 
 
 def test_search_group_members() -> None:

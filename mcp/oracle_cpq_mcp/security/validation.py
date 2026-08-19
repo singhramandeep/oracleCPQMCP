@@ -150,13 +150,39 @@ class DeployDatatablesInput(_StrictModel):
 
 class DiscoverToolsInput(_StrictModel):
     query: str | None = Field(default=None, max_length=500)
-    domain: Literal["users", "groups", "datatables", "bml", "all"] = "all"
+    domain: Literal["users", "groups", "datatables", "bml", "commerce", "all"] = "all"
     operation: Literal["read", "write", "all"] = "all"
     limit: int = Field(default=20, ge=1, le=50)
 
 
 class GetAllBmlCodeInput(_StrictModel):
     delivery: Literal["zip", "json"] = "zip"
+
+
+class CommerceMetadataInput(_StrictModel):
+    process_var_name: str | None = Field(default=None, max_length=128)
+    doc_var_name: str = Field(default="transaction", max_length=128)
+    expand_all: bool = False
+
+    @field_validator("process_var_name", "doc_var_name")
+    @classmethod
+    def validate_commerce_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid commerce identifier: {v}")
+        return v
+
+
+class LineMetadataInput(_StrictModel):
+    process_var_name: str | None = Field(default=None, max_length=128)
+    doc_var_name: str = Field(default="transactionLine", max_length=128)
+    expand_all: bool = False
+
+    @field_validator("process_var_name", "doc_var_name")
+    @classmethod
+    def validate_commerce_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid commerce identifier: {v}")
+        return v
 
 
 TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
@@ -174,6 +200,10 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_datatable_rows": GetDatatableRowsInput,
     "deploy_datatables": DeployDatatablesInput,
     "get_all_bml_code": GetAllBmlCodeInput,
+    "get_commerce_attributes": CommerceMetadataInput,
+    "get_commerce_actions": CommerceMetadataInput,
+    "get_line_attributes": LineMetadataInput,
+    "get_line_actions": LineMetadataInput,
     "discover_tools": DiscoverToolsInput,
 }
 

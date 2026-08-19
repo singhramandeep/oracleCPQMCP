@@ -8,9 +8,9 @@ from typing import Any, Literal
 
 from mcp.types import ToolAnnotations
 
-DomainName = Literal["users", "groups", "datatables", "bml", "meta"]
+DomainName = Literal["users", "groups", "datatables", "bml", "commerce", "meta"]
 OperationName = Literal["read", "write"]
-DomainFilter = Literal["users", "groups", "datatables", "bml", "all"]
+DomainFilter = Literal["users", "groups", "datatables", "bml", "commerce", "all"]
 OperationFilter = Literal["read", "write", "all"]
 RiskLevel = Literal[
     "READ_ONLY",
@@ -282,6 +282,70 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/adminMeta",
+    ),
+    "get_commerce_attributes": _spec(
+        "get_commerce_attributes",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get metadata for all attributes on a Commerce main document "
+            "(default doc_var_name='transaction'). Uses "
+            "GET /commerceProcesses/{process}/documents/{doc}/attributes. "
+            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
+            "Set expand_all=true to include translations (expand=all*)."
+        ),
+        tags={"metadata", "commerce", "attributes"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/attributes",
+    ),
+    "get_commerce_actions": _spec(
+        "get_commerce_actions",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get metadata for all actions on a Commerce main document "
+            "(default doc_var_name='transaction'). Uses "
+            "GET /commerceProcesses/{process}/documents/{doc}/actionDefs. "
+            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
+            "Set expand_all=true to include translations (expand=all*)."
+        ),
+        tags={"metadata", "commerce", "actions"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/actionDefs",
+    ),
+    "get_line_attributes": _spec(
+        "get_line_attributes",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get metadata for all attributes on a Commerce line document "
+            "(default doc_var_name='transactionLine'). Uses "
+            "GET /commerceProcesses/{process}/documents/{doc}/attributes. "
+            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
+            "Set expand_all=true to include translations (expand=all*)."
+        ),
+        tags={"metadata", "commerce", "attributes", "line"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/attributes",
+    ),
+    "get_line_actions": _spec(
+        "get_line_actions",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get metadata for all actions on a Commerce line document "
+            "(default doc_var_name='transactionLine'). Uses "
+            "GET /commerceProcesses/{process}/documents/{doc}/actionDefs. "
+            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
+            "Set expand_all=true to include translations (expand=all*)."
+        ),
+        tags={"metadata", "commerce", "actions", "line"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/actionDefs",
     ),
     "discover_tools": _spec(
         "discover_tools",
