@@ -48,18 +48,62 @@ python -m oracle_cpq_mcp
 
 ## MCP tools (summary)
 
-| Domain | Read | Write |
-|--------|------|-------|
-| Users | `list_users`, `get_user`, `get_user_groups`, `export_users_excel` | `update_user` |
-| Groups | `list_groups`, `get_group`, `list_group_users` | `create_group` |
-| Data tables | `list_datatables`, `get_datatable`, `get_datatable_rows` | `deploy_datatables` |
-| BML | `get_all_bml_code` | — |
-| Commerce | `get_commerce_attributes`, `get_commerce_actions`, `get_line_attributes`, `get_line_actions` | — |
-| Meta | `discover_tools` | — |
+**19 tools** across six domains. Use `discover_tools(domain="users", operation="read")`, `discover_tools(domain="bml")`, or `discover_tools(domain="commerce")` in Agent mode to filter the catalog.
 
-BML zip delivery returns `[object envelope, File attachment]`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME` in your profile.
+Write tools default to **dry-run preflight** (`dry_run=true`). Mutations require user confirmation, `dry_run=false`, and a `confirmation_token` from preflight. Blocked when `READ_ONLY=true` (default).
 
-Use `discover_tools(domain="users", operation="read")`, `discover_tools(domain="bml")`, or `discover_tools(domain="commerce")` in Agent mode to explore the catalog.
+BML zip export returns `[object envelope, File attachment]`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME` in your profile.
+
+### Users
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `list_users` | Read | List users across all companies on the CPQ site. Defaults to **active users only**. Returns one page (`limit`, `offset`); use `pagination.nextOffset` when `hasMore` is true. Optional `q_expr` filter and `status_filter` (`active`, `inactive`, `all`). **API:** `GET /users` |
+| `get_user` | Read | Fetch a single user record by **party number** (CPQ `partyNumber`, not login name). Returns profile fields such as login, name, email, and status. **API:** `GET /users/{partyNumber}` |
+| `get_user_groups` | Read | List all groups assigned to a user. Paginated — call again with increased `offset` when `hasMore` is true. **API:** `GET /users/{partyNumber}/groups` |
+| `export_users_excel` | Read | Export users to a downloadable **Excel (.xlsx)** file. Auto-paginates up to 10,000 rows. Defaults to active users. Returns `[summary envelope, File attachment]`. **API:** `GET /users` (paginated internally) |
+| `update_user` | Write | **Patch-update** an existing user — include only fields you intend to change in `patch_body`. Preflight validates the user exists and previews the mutation; apply with confirmation token. **API:** `PATCH /users/{partyNumber}` |
+
+### Groups
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `list_groups` | Read | List groups for the configured company (`COMPANY_LOGIN_NAME` in profile, default `_host`). Paginated. **API:** `GET /companies/{company}/groups` |
+| `get_group` | Read | Get metadata for one group by its **variable name** (`groupVarName`). **API:** `GET /companies/{company}/groups/{groupVarName}` |
+| `list_group_users` | Read | List users who belong to a group. Paginated. **API:** `GET /companies/{company}/groups/{groupVarName}/users` |
+| `create_group` | Write | Create a new group for the configured company. Requires admin permissions. Preflight previews the create; apply with confirmation token. **API:** `POST /companies/{company}/groups` |
+
+### Data tables
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `list_datatables` | Read | List data tables defined on the CPQ site. Paginated. **API:** `GET /datatables` |
+| `get_datatable` | Read | Get **schema/metadata** for a data table (columns, types, labels). Defaults to `CUSTOM_DATA_TABLE_NAME` from profile when `table_name` is omitted. **API:** `GET /datatables/{tableName}` |
+| `get_datatable_rows` | Read | Read **deployed row data** from a custom data table. Paginated. Defaults to profile `CUSTOM_DATA_TABLE_NAME`. **API:** `GET /adminCustom{tableName}` |
+| `deploy_datatables` | Write | **Deploy** one or more data tables to the live CPQ site — admin-only, changes production configuration. Destructive/privileged. Preflight previews; apply with confirmation token. **API:** `POST /datatables/actions/deploy` |
+
+### BML
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `get_all_bml_code` | Read | Download or retrieve **BML source code**. `delivery='zip'` (default) exports all Commerce BML and BMLT files via `GET /adminMeta` — equivalent to **cpq-toolkit pull** — and returns a zip `File` attachment. `delivery='json'` returns util library functions with inline `scriptText` (paginated `/bml/library/functions` fetch). Requires admin permissions. |
+
+### Commerce metadata
+
+Read-only metadata for Commerce process documents. All tools default `process_var_name` from profile (`COMMERCE_PROCESS_VAR_NAME`) and accept optional `doc_var_name` and `expand_all` (include translations via `expand=all*`).
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `get_commerce_attributes` | Read | List **attribute definitions** on a Commerce **main document** (default `doc_var_name='transaction'`). Names, types, constraints, display metadata. **API:** `GET /commerceProcesses/{process}/documents/{doc}/attributes` |
+| `get_commerce_actions` | Read | List **action definitions** on a Commerce **main document** (default `transaction`). **API:** `GET /commerceProcesses/{process}/documents/{doc}/actionDefs` |
+| `get_line_attributes` | Read | List **attribute definitions** on a Commerce **line document** (default `doc_var_name='transactionLine'`). **API:** `GET /commerceProcesses/{process}/documents/{doc}/attributes` |
+| `get_line_actions` | Read | List **action definitions** on a Commerce **line document** (default `transactionLine`). **API:** `GET /commerceProcesses/{process}/documents/{doc}/actionDefs` |
+
+### Meta
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `discover_tools` | Read | Search and filter this server's tool catalog by **domain**, **operation** (`read` / `write`), or free-text query. Use before calling tools to find read-only vs write capabilities, HTTP methods, and API paths. Does not call CPQ. |
 
 <details>
 <summary><strong>Configuration reference</strong></summary>
