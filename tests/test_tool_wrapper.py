@@ -74,6 +74,25 @@ def test_wrap_if_list_return_for_dict_tools() -> None:
     assert _wrap_if_list_return(dict_tool, error) == error
 
 
+def test_register_tool_wraps_success_payload() -> None:
+    class FakeMcp:
+        def tool(self, **kwargs: Any):
+            def decorator(fn: Any) -> Any:
+                return fn
+
+            return decorator
+
+    def ok_tool(party_number: str) -> dict[str, Any]:
+        return {"partyNumber": party_number}
+
+    ok_tool.__doc__ = "test"
+    wrapped = register_tool(FakeMcp(), ok_tool, "get_user")
+    result = wrapped(party_number="user123")
+    assert result["status"] == "ok"
+    assert result["tool"] == "get_user"
+    assert result["data"]["partyNumber"] == "user123"
+
+
 def test_register_tool_passes_output_schema() -> None:
     captured: dict[str, Any] = {}
 

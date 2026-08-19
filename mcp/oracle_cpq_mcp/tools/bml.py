@@ -11,6 +11,7 @@ from oracle_cpq_mcp.core.bml_fetchers import (
     fetch_all_util_library_code,
 )
 from oracle_cpq_mcp.core.cpq_client import CPQClient
+from oracle_cpq_mcp.core.progress import report_tool_progress
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
 
@@ -22,7 +23,9 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
 
     def get_all_bml_code(delivery: BmlDelivery = "zip") -> list[str | File] | dict[str, Any]:
         if delivery == "zip":
+            report_tool_progress(0, 1, message="Downloading BML/BMLT site export")
             zip_bytes = client.get_bytes("/adminMeta")
+            report_tool_progress(1, 1, message="BML export download complete")
             filename = bml_export_filename(client.profile)
             summary = (
                 f"Downloaded all Commerce BML and BMLT files from "

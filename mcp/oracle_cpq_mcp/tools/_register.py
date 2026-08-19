@@ -11,6 +11,7 @@ from typing import Any, TypeVar, get_origin, get_type_hints
 from oracle_cpq_mcp.core.config import CPQProfile
 from oracle_cpq_mcp.core.errors import CPQAPIError, exception_to_tool_error
 from oracle_cpq_mcp.core.preflight import attach_confirmation_to_response
+from oracle_cpq_mcp.core.responses import wrap_tool_success
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG, ToolSpec, mcp_tool_kwargs
 from oracle_cpq_mcp.security.audit import emit_audit_event
 from oracle_cpq_mcp.security.authorization import authorize_tool
@@ -150,6 +151,12 @@ def register_tool(mcp: Any, fn: F, spec_name: str) -> F:
             if isinstance(result, dict) and result.get("status") == "error":
                 execution_result = "error"
                 error_code = result.get("code")
+            elif isinstance(result, list) and result and isinstance(result[0], dict):
+                if result[0].get("status") == "error":
+                    execution_result = "error"
+                    error_code = result[0].get("code")
+            else:
+                result = wrap_tool_success(spec_name, result)
             return result
 
         except SecurityError as exc:

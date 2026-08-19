@@ -53,7 +53,9 @@ def test_get_commerce_attributes_uses_profile_process(client: CPQClient) -> None
     fn = mcp.tools["get_commerce_attributes"]
     result = fn()
     assert route.called
-    assert result["items"][0]["variableName"] == "status"
+    assert result["status"] == "ok"
+    assert result["tool"] == "get_commerce_attributes"
+    assert result["data"]["items"][0]["variableName"] == "status"
 
 
 @respx.mock

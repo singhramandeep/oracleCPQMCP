@@ -74,9 +74,19 @@ def test_mcp_tool_kwargs_read_only_hint() -> None:
     kwargs = mcp_tool_kwargs(spec)
     assert kwargs["annotations"].readOnlyHint is True
     assert kwargs["annotations"].destructiveHint is False
+    assert kwargs["annotations"].idempotentHint is True
+    assert kwargs["annotations"].openWorldHint is True
+    assert kwargs["annotations"].title == "List Users"
     assert kwargs["meta"]["domain"] == "users"
     assert "users" in kwargs["tags"]
     assert "read" in kwargs["tags"]
+
+
+def test_mcp_tool_kwargs_meta_tool_open_world_false() -> None:
+    spec = TOOL_CATALOG["discover_tools"]
+    kwargs = mcp_tool_kwargs(spec)
+    assert kwargs["annotations"].openWorldHint is False
+    assert kwargs["annotations"].idempotentHint is True
 
 
 def test_mcp_tool_kwargs_destructive_write_tool() -> None:

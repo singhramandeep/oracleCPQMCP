@@ -17,41 +17,43 @@ class ToolErrorOutput(BaseModel):
     details: dict[str, Any] | None = None
 
 
-class CpqCollectionOutput(BaseModel):
-    """Paginated CPQ collection response (list_* tools, metadata actionDefs/attributes)."""
+class ToolSuccessEnvelope(BaseModel):
+    """Standard read-tool success envelope."""
 
     model_config = ConfigDict(extra="allow")
 
-    items: list[Any] = Field(default_factory=list)
+    status: Literal["ok"] = "ok"
+    tool: str
+    data: dict[str, Any] | list[Any]
 
 
-class CpqObjectOutput(BaseModel):
-    """Single CPQ entity or open CPQ JSON object."""
+class ToolWriteEnvelope(BaseModel):
+    """Write-tool preflight, confirmation, or execution envelope."""
 
     model_config = ConfigDict(extra="allow")
+
+    status: str
+    tool: str
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolExportEnvelope(BaseModel):
+    """Export tool summary envelope preceding binary attachments."""
+
+    status: Literal["ok"] = "ok"
+    tool: str
+    message: str
 
 
 class DiscoverToolsOutput(BaseModel):
-    """discover_tools catalog payload."""
+    """discover_tools payload nested under data."""
 
     count: int
     tools: list[dict[str, Any]]
 
 
-class WriteToolOutput(BaseModel):
-    """Preflight, confirmation, read-only block, or successful CPQ mutation response."""
-
-    model_config = ConfigDict(extra="allow")
-
-    tool: str | None = None
-    action: str | None = None
-    status: str
-    message: str | None = None
-    dry_run: bool | None = None
-
-
 class BmlJsonOutput(BaseModel):
-    """get_all_bml_code delivery=json payload."""
+    """get_all_bml_code delivery=json payload nested under data."""
 
     model_config = ConfigDict(extra="allow")
 
@@ -69,24 +71,24 @@ def _with_error(success: dict[str, Any]) -> dict[str, Any]:
     return {"oneOf": [_error_schema(), success]}
 
 
-def _cpq_collection_schema() -> dict[str, Any]:
-    return _with_error(CpqCollectionOutput.model_json_schema())
+def _success_envelope_schema() -> dict[str, Any]:
+    return _with_error(ToolSuccessEnvelope.model_json_schema())
 
 
-def _cpq_object_schema() -> dict[str, Any]:
-    return _with_error(CpqObjectOutput.model_json_schema())
-
-
-def _write_tool_schema() -> dict[str, Any]:
-    return _with_error(WriteToolOutput.model_json_schema())
+def _write_envelope_schema() -> dict[str, Any]:
+    return _with_error(ToolWriteEnvelope.model_json_schema())
 
 
 def _discover_tools_schema() -> dict[str, Any]:
-    return _with_error(DiscoverToolsOutput.model_json_schema())
+    inner = ToolSuccessEnvelope.model_json_schema()
+    inner["properties"]["data"] = DiscoverToolsOutput.model_json_schema()
+    return _with_error(inner)
 
 
 def _bml_json_schema() -> dict[str, Any]:
-    return _with_error(BmlJsonOutput.model_json_schema())
+    inner = ToolSuccessEnvelope.model_json_schema()
+    inner["properties"]["data"] = BmlJsonOutput.model_json_schema()
+    return _with_error(inner)
 
 
 def _export_list_schema() -> dict[str, Any]:
@@ -95,7 +97,8 @@ def _export_list_schema() -> dict[str, Any]:
             "type": "array",
             "items": {
                 "anyOf": [
-                    {"type": "string"},
+                    ToolExportEnvelope.model_json_schema(),
+                    ToolErrorOutput.model_json_schema(),
                     {"type": "object", "additionalProperties": True},
                 ]
             },
@@ -107,46 +110,38 @@ def _bml_export_schema() -> dict[str, Any]:
     return {
         "oneOf": [
             _error_schema(),
-            BmlJsonOutput.model_json_schema(),
-            {
-                "type": "array",
-                "items": {
-                    "anyOf": [
-                        {"type": "string"},
-                        {"type": "object", "additionalProperties": True},
-                    ]
-                },
-            },
+            ToolSuccessEnvelope.model_json_schema(),
+            _export_list_schema()["oneOf"][0],
         ]
     }
 
 
-_CPQ_COLLECTION_SCHEMA = _cpq_collection_schema()
-_CPQ_OBJECT_SCHEMA = _cpq_object_schema()
-_WRITE_TOOL_SCHEMA = _write_tool_schema()
+_SUCCESS_ENVELOPE_SCHEMA = _success_envelope_schema()
+_WRITE_ENVELOPE_SCHEMA = _write_envelope_schema()
 _DISCOVER_TOOLS_SCHEMA = _discover_tools_schema()
 _EXPORT_LIST_SCHEMA = _export_list_schema()
+_BML_JSON_SCHEMA = _bml_json_schema()
 _BML_EXPORT_SCHEMA = _bml_export_schema()
 
 TOOL_OUTPUT_SCHEMAS: dict[str, dict[str, Any]] = {
-    "list_users": _CPQ_COLLECTION_SCHEMA,
+    "list_users": _SUCCESS_ENVELOPE_SCHEMA,
     "export_users_excel": _EXPORT_LIST_SCHEMA,
-    "get_user": _CPQ_OBJECT_SCHEMA,
-    "get_user_groups": _CPQ_COLLECTION_SCHEMA,
-    "update_user": _WRITE_TOOL_SCHEMA,
-    "list_groups": _CPQ_COLLECTION_SCHEMA,
-    "get_group": _CPQ_OBJECT_SCHEMA,
-    "list_group_users": _CPQ_COLLECTION_SCHEMA,
-    "create_group": _WRITE_TOOL_SCHEMA,
-    "list_datatables": _CPQ_COLLECTION_SCHEMA,
-    "get_datatable": _CPQ_OBJECT_SCHEMA,
-    "get_datatable_rows": _CPQ_COLLECTION_SCHEMA,
-    "deploy_datatables": _WRITE_TOOL_SCHEMA,
+    "get_user": _SUCCESS_ENVELOPE_SCHEMA,
+    "get_user_groups": _SUCCESS_ENVELOPE_SCHEMA,
+    "update_user": _WRITE_ENVELOPE_SCHEMA,
+    "list_groups": _SUCCESS_ENVELOPE_SCHEMA,
+    "get_group": _SUCCESS_ENVELOPE_SCHEMA,
+    "list_group_users": _SUCCESS_ENVELOPE_SCHEMA,
+    "create_group": _WRITE_ENVELOPE_SCHEMA,
+    "list_datatables": _SUCCESS_ENVELOPE_SCHEMA,
+    "get_datatable": _SUCCESS_ENVELOPE_SCHEMA,
+    "get_datatable_rows": _SUCCESS_ENVELOPE_SCHEMA,
+    "deploy_datatables": _WRITE_ENVELOPE_SCHEMA,
     "get_all_bml_code": _BML_EXPORT_SCHEMA,
-    "get_commerce_attributes": _CPQ_COLLECTION_SCHEMA,
-    "get_commerce_actions": _CPQ_COLLECTION_SCHEMA,
-    "get_line_attributes": _CPQ_COLLECTION_SCHEMA,
-    "get_line_actions": _CPQ_COLLECTION_SCHEMA,
+    "get_commerce_attributes": _SUCCESS_ENVELOPE_SCHEMA,
+    "get_commerce_actions": _SUCCESS_ENVELOPE_SCHEMA,
+    "get_line_attributes": _SUCCESS_ENVELOPE_SCHEMA,
+    "get_line_actions": _SUCCESS_ENVELOPE_SCHEMA,
     "discover_tools": _DISCOVER_TOOLS_SCHEMA,
 }
 

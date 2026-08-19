@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from collections.abc import Callable
+
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.errors import CPQAPIError
 
@@ -80,6 +82,7 @@ def iterate_collection(
     params: dict[str, Any] | None = None,
     page_size: int = 100,
     max_items: int = 10_000,
+    on_progress: Callable[[int, str | None], None] | None = None,
 ) -> list[Any]:
     """Fetch all items from a paginated CPQ collection until hasMore is false."""
     items: list[Any] = []
@@ -112,6 +115,8 @@ def iterate_collection(
             )
 
         items.extend(batch)
+        if on_progress is not None:
+            on_progress(len(items), f"Fetched {len(items)} records from {path}")
         if len(items) >= max_items:
             logger.warning(
                 "Collection fetch truncated at %s items (max_items=%s) for %s",

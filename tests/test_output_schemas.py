@@ -30,3 +30,4 @@ def test_write_tool_schema_covers_preflight_status() -> None:
     schema = TOOL_OUTPUT_SCHEMAS["update_user"]
     success_branch = schema["oneOf"][1]
     assert "status" in success_branch["properties"]
+    assert "data" in success_branch["properties"]

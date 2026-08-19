@@ -15,6 +15,7 @@ from fastmcp.utilities.types import File
 
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
+from oracle_cpq_mcp.core.progress import report_tool_progress
 from oracle_cpq_mcp.exporters.users_excel import (
 
     build_users_workbook,
@@ -89,6 +90,8 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
     ) -> list[str | File | dict[str, Any]]:
 
+        report_tool_progress(0, 1, message="Starting CPQ user export")
+
         users = fetch_all_users(
 
             client,
@@ -99,7 +102,11 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
         )
 
+        report_tool_progress(0.5, 1, message=f"Building Excel workbook for {len(users)} users")
+
         xlsx_bytes = build_users_workbook(users, columns=columns)
+
+        report_tool_progress(1, 1, message="User export complete")
 
         filename = export_filename(
 

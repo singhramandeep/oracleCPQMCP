@@ -365,6 +365,12 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
 CPQ_API_TOOLS = frozenset(name for name, spec in TOOL_CATALOG.items() if spec.domain != "meta")
 
 
+def human_tool_title(name: str) -> str:
+    """Convert snake_case tool names into MCP annotation titles."""
+    special = {"bml": "BML", "cpq": "CPQ", "excel": "Excel"}
+    return " ".join(special.get(part, part.capitalize()) for part in name.split("_"))
+
+
 def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
     """Build FastMCP @tool decorator kwargs from a catalog spec."""
     meta: dict[str, Any] = {
@@ -381,7 +387,9 @@ def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
         "annotations": ToolAnnotations(
             readOnlyHint=spec.read_only,
             destructiveHint=spec.destructive,
-            title=spec.name,
+            idempotentHint=spec.read_only,
+            openWorldHint=spec.domain != "meta",
+            title=human_tool_title(spec.name),
         ),
         "meta": meta,
     }

@@ -9,6 +9,7 @@ from openpyxl import Workbook
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.pagination import iterate_collection
+from oracle_cpq_mcp.core.progress import report_tool_progress
 from oracle_cpq_mcp.core.users_filters import UserStatusFilter, build_users_q
 
 DEFAULT_COLUMNS = (
@@ -64,6 +65,11 @@ def fetch_all_users(
         params=extra or None,
         page_size=page_size,
         max_items=max_rows,
+        on_progress=lambda count, message: report_tool_progress(
+            float(count),
+            float(max_rows),
+            message=message or f"Fetching users ({count}/{max_rows})",
+        ),
     )
     return items
 
