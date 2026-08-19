@@ -1,0 +1,71 @@
+# ==============================================================================
+# Oracle CPQ MCP — safe to commit vs. keep local
+# ==============================================================================
+# COMMIT:  source code, tests, .config/.env.example, .cursor/mcp.json (no secrets),
+#          .vscode/mcp.json.example, docs/
+# NEVER:   .config/*.env (credentials), .venv/, exports/, *.xlsx, local MCP overrides
+# ==============================================================================
+
+# --- Generated outputs ---
+exports/
+*.xlsx
+*.xls
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg
+
+# --- Secrets & credentials (CRITICAL) ---
+# Customer CPQ profiles contain DEV_PASSWORD, TEST_PASSWORD, etc.
+.config/*.env
+!.config/.env.example
+
+# Root or stray env files
+.env
+.env.local
+.env.*.local
+*.env.local
+
+# Credential / key material
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets/
+.secrets/
+
+# Local MCP overrides (may contain CPQ_CONFIRMATION_SECRET)
+.cursor/mcp.local.json
+.agents/mcp_config.json
+.vscode/mcp.json
+
+# --- IDE (keep shared team settings; ignore local overrides) ---
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/mcp.json.example
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs & temp ---
+*.log
+logs/
+tmp/
+temp/

@@ -1,0 +1,20 @@
+{
+  "tool_definitions_sha256": "0aa7f40c7f50c3e870ea9e2f3989c158590d8342826d4fcd6b10af98d6ba0e67",
+  "tool_count": 14,
+  "tools": [
+    "create_group",
+    "deploy_datatables",
+    "discover_tools",
+    "export_users_excel",
+    "get_datatable",
+    "get_datatable_rows",
+    "get_group",
+    "get_user",
+    "get_user_groups",
+    "list_datatables",
+    "list_group_users",
+    "list_groups",
+    "list_users",
+    "update_user"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "oracle-cpq": {
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["-m", "oracle_cpq_mcp"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_CONFIG_DIR": "${workspaceFolder}/.config"
+      }
+    }
+  }
+}

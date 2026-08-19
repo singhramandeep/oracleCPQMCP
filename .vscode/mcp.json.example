@@ -1,0 +1,15 @@
+{
+  "servers": {
+    "oracle-cpq": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
+      "args": ["-m", "oracle_cpq_mcp"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_CONFIG_DIR": "${workspaceFolder}/.config",
+        "CPQ_SCHEMA_INTEGRITY": "1"
+      }
+    }
+  }
+}

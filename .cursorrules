@@ -1,0 +1,4 @@
+You are building an MCP server for Oracle CPQ u
+- Keep tool inputs strictly typed 
+- Route all CPQ API interactions through a dedicated CPQClient class.
+- Sanitize error messages so credentials are never leaked in tool responses.
