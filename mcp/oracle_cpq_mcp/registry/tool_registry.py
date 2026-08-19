@@ -8,9 +8,9 @@ from typing import Any, Literal
 
 from mcp.types import ToolAnnotations
 
-DomainName = Literal["users", "groups", "datatables", "meta"]
+DomainName = Literal["users", "groups", "datatables", "bml", "meta"]
 OperationName = Literal["read", "write"]
-DomainFilter = Literal["users", "groups", "datatables", "all"]
+DomainFilter = Literal["users", "groups", "datatables", "bml", "all"]
 OperationFilter = Literal["read", "write", "all"]
 RiskLevel = Literal[
     "READ_ONLY",
@@ -51,6 +51,8 @@ def _compute_risk(
     destructive: bool,
 ) -> RiskLevel:
     if name == "export_users_excel":
+        return "PRIVILEGED"
+    if name == "get_all_bml_code":
         return "PRIVILEGED"
     if destructive:
         return "DESTRUCTIVE"
@@ -263,6 +265,23 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         destructive=True,
         http_method="POST",
         api_path="/datatables/actions/deploy",
+    ),
+    "get_all_bml_code": _spec(
+        "get_all_bml_code",
+        domain="bml",
+        operation="read",
+        description=(
+            "Download or retrieve BML source code from the CPQ site. "
+            "delivery='zip' (default) exports all Commerce BML and BMLT files via "
+            "GET /adminMeta — equivalent to cpq-toolkit pull. "
+            "delivery='json' returns util library functions with scriptText inline "
+            "(paginated fetch of /bml/library/functions plus per-function detail). "
+            "Admin permissions required."
+        ),
+        tags={"export", "admin", "bml"},
+        read_only=True,
+        http_method="GET",
+        api_path="/adminMeta",
     ),
     "discover_tools": _spec(
         "discover_tools",

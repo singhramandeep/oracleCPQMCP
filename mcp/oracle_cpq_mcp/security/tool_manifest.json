@@ -1,11 +1,12 @@
 {
-  "tool_definitions_sha256": "0aa7f40c7f50c3e870ea9e2f3989c158590d8342826d4fcd6b10af98d6ba0e67",
-  "tool_count": 14,
+  "tool_definitions_sha256": "5cf71e3ad143af1a5e48f172b51bbd5debe6df2fa9f9ecf44fb476ecc4332ccb",
+  "tool_count": 15,
   "tools": [
     "create_group",
     "deploy_datatables",
     "discover_tools",
     "export_users_excel",
+    "get_all_bml_code",
     "get_datatable",
     "get_datatable_rows",
     "get_group",

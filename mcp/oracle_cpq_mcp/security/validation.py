@@ -150,9 +150,13 @@ class DeployDatatablesInput(_StrictModel):
 
 class DiscoverToolsInput(_StrictModel):
     query: str | None = Field(default=None, max_length=500)
-    domain: Literal["users", "groups", "datatables", "all"] = "all"
+    domain: Literal["users", "groups", "datatables", "bml", "all"] = "all"
     operation: Literal["read", "write", "all"] = "all"
     limit: int = Field(default=20, ge=1, le=50)
+
+
+class GetAllBmlCodeInput(_StrictModel):
+    delivery: Literal["zip", "json"] = "zip"
 
 
 TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
@@ -169,6 +173,7 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_datatable": GetDatatableInput,
     "get_datatable_rows": GetDatatableRowsInput,
     "deploy_datatables": DeployDatatablesInput,
+    "get_all_bml_code": GetAllBmlCodeInput,
     "discover_tools": DiscoverToolsInput,
 }
 

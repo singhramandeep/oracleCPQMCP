@@ -13,9 +13,10 @@ from oracle_cpq_mcp.registry.tool_registry import (
 
 
 def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
-    assert len(CPQ_API_TOOLS) == 13
+    assert len(CPQ_API_TOOLS) == 14
     assert "discover_tools" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 14
+    assert "get_all_bml_code" in TOOL_CATALOG
+    assert len(TOOL_CATALOG) == 15
 
 
 def test_filter_users_read_tools() -> None:
@@ -43,6 +44,12 @@ def test_search_deploy_returns_deploy_tool() -> None:
     results = search_tools("deploy")
     assert results
     assert results[0].name == "deploy_datatables"
+
+
+def test_search_bml_returns_bml_tool() -> None:
+    results = search_tools("bml")
+    assert results
+    assert results[0].name == "get_all_bml_code"
 
 
 def test_search_group_members() -> None:

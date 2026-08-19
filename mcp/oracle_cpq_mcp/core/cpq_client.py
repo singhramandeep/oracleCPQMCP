@@ -177,6 +177,81 @@ class CPQClient:
         except ValueError:
             return response.text
 
+    def get_bytes(
+        self,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        accept: str = "application/zip",
+    ) -> bytes:
+        """Fetch a binary GET response (e.g. Developer Toolkit BML export zip)."""
+        method_upper = "GET"
+        url = self._build_url(path, params)
+        curl_command = self._to_curl(method_upper, url)
+        self._log_request(method_upper, url)
+
+        try:
+            with httpx.Client(
+                auth=(self.profile.username, self.profile.password),
+                timeout=self.timeout,
+                headers={
+                    "Accept": accept,
+                },
+            ) as client:
+                response = client.get(url)
+        except httpx.RequestError as exc:
+            message = sanitize_message(str(exc), self.profile.password)
+            logger.error(
+                "CPQ binary request failed — curl: %s — response: (none)",
+                curl_command,
+            )
+            raise CPQAPIError(
+                f"Request to CPQ failed: {message}",
+                code="NETWORK_ERROR",
+                hint="Verify the CPQ base URL, network/VPN connectivity, and site availability.",
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                password=self.profile.password,
+            ) from exc
+
+        if response.status_code >= 400:
+            body: Any
+            try:
+                body = response.json()
+            except ValueError:
+                body = response.text[:2000]
+            error_code, error_hint = classify_http_error(
+                response.status_code,
+                method=method_upper,
+                path=path,
+                body=body,
+            )
+            message = sanitize_message(
+                f"CPQ API error {response.status_code} for GET {path}",
+                self.profile.password,
+            )
+            logger.error(
+                "CPQ binary request failed — curl: %s — response: %s",
+                curl_command,
+                body,
+            )
+            raise CPQAPIError(
+                message,
+                code=error_code,
+                hint=error_hint,
+                status_code=response.status_code,
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                body=body,
+                password=self.profile.password,
+            )
+
+        return response.content
+
     def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
         return self.request("GET", path, params=params)
 

@@ -163,3 +163,25 @@ def test_get_not_found_returns_structured_error(client: CPQClient) -> None:
     assert payload["code"] == "NOT_FOUND"
     assert "hint" in payload
     assert payload["details"]["status_code"] == 404
+
+
+@respx.mock
+def test_get_bytes_success(client: CPQClient) -> None:
+    route = respx.get("https://dev.example.com/rest/v18/adminMeta").mock(
+        return_value=httpx.Response(200, content=b"PK\x03\x04fake-zip")
+    )
+    result = client.get_bytes("/adminMeta")
+    assert result == b"PK\x03\x04fake-zip"
+    assert route.called
+    request = route.calls.last.request
+    assert request.headers.get("accept") == "application/zip"
+
+
+@respx.mock
+def test_get_bytes_api_error(client: CPQClient) -> None:
+    respx.get("https://dev.example.com/rest/v18/adminMeta").mock(
+        return_value=httpx.Response(403, json={"title": "Forbidden"})
+    )
+    with pytest.raises(CPQAPIError) as exc_info:
+        client.get_bytes("/adminMeta")
+    assert exc_info.value.status_code == 403
