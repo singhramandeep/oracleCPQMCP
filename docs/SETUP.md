@@ -47,11 +47,15 @@ oracle-cpq-smoke --profile mycompany --env dev
 
 ## Connect IDE
 
-| IDE | Config |
-|-----|--------|
-| Cursor | Edit [`.cursor/mcp.json`](../.cursor/mcp.json) |
-| VS Code | Copy [`.vscode/mcp.json.example`](../.vscode/mcp.json.example) → `.vscode/mcp.json` |
-| Antigravity | Copy [`.agents/mcp_config.example.json`](../.agents/mcp_config.example.json) → `.agents/mcp_config.json` |
+Copy the MCP example for your OS (launchers in `scripts/` — no hardcoded Python path):
+
+| IDE | Windows | macOS / Linux |
+|-----|---------|---------------|
+| Cursor | `copy .cursor\mcp.json.example .cursor\mcp.json` | `cp .cursor/mcp.json.unix.example .cursor/mcp.json` && `chmod +x scripts/mcp-server.sh` |
+| VS Code | `copy .vscode\mcp.json.example .vscode\mcp.json` | `cp .vscode/mcp.json.unix.example .vscode/mcp.json` |
+| Antigravity | `copy .agents\mcp_config.example.json .agents\mcp_config.json` | same (edit absolute launcher path) |
+
+Edit the copied file — set `CPQ_CUSTOMER_PROFILE` to your profile id. Details: [QUICKSTART — Step 5](QUICKSTART.md#step-5--connect-your-ide--llm-client).
 
 Restart the IDE after MCP config changes. Use **Agent mode** to call tools.
 

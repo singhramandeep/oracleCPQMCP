@@ -41,7 +41,7 @@ If you are initializing git for the first time, confirm these rules **before** `
 | ------------------------------------------------ | -------------------------- | ------------------------------------- |
 | `.config/.env.example`                           | Yes                        | Template only — placeholder passwords |
 | `.config/mycompany.env` (or any `*.env` profile) | **Never**                  | Contains real CPQ passwords           |
-| `.cursor/mcp.json`                               | Yes (no secrets)           | Profile name + paths only             |
+| `.cursor/mcp.json`                               | **Never** (copy from `.example`) | Local MCP config — profile name only |
 | `.vscode/mcp.json`                               | **Never** (use `.example`) | May get local secrets later           |
 | `.agents/mcp_config.json`                        | **Never** (use `.example`) | Antigravity local config              |
 | `.venv/`                                         | Never                      | Recreate with `pip install`           |
@@ -100,9 +100,14 @@ oracleCPQMCP/
 ├── .config/                 ← CPQ credentials (YOU create *.env here)
 │   └── .env.example         ← Template (safe to commit)
 ├── .cursor/
-│   └── mcp.json             ← Cursor MCP wiring (committed, no secrets)
+│   ├── mcp.json.example         ← Copy → mcp.json (Windows)
+│   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
+├── scripts/
+│   ├── mcp-server.cmd       ← MCP launcher (Windows)
+│   └── mcp-server.sh        ← MCP launcher (macOS/Linux)
 ├── .vscode/
-│   └── mcp.json.example     ← Copy to mcp.json for VS Code
+│   ├── mcp.json.example         ← Copy → mcp.json (Windows)
+│   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
 ├── .agents/
 │   └── mcp_config.example.json  ← Copy for Antigravity (workspace)
 ├── mcp/oracle_cpq_mcp/      ← MCP server package
@@ -123,11 +128,11 @@ python -m venv .venv
 Activate the virtual environment:
 
 
-| Shell (in IDE terminal) | Command                      |                             |
-| ----------------------- | ---------------------------- | --------------------------- |
-| Windows PowerShell      | `.venv\Scripts\Activate.ps1` |                             |
-|                         | `.venv\Scripts\activate.bat` |                             |
-| macOS / Linux           | Windows CMD                  | `source .venv/bin/activate` |
+| Shell (in IDE terminal) | Command |
+| ----------------------- | ------- |
+| Windows PowerShell | `.venv\Scripts\Activate.ps1` |
+| Windows CMD | `.venv\Scripts\activate.bat` |
+| macOS / Linux | `source .venv/bin/activate` |
 
 
 Install the package:
@@ -195,6 +200,7 @@ CUSTOM_DATA_TABLE_NAME=YourDefaultTable
 | `REST_API_VERSION`              | Match your CPQ release (`v15`, `v18`, …)          |
 | `READ_ONLY`                     | Keep `true` until you intentionally enable writes |
 | `CUSTOM_DATA_TABLE_NAME`        | A table that exists in dev (for smoke test)       |
+| `COMMERCE_PROCESS_VAR_NAME`     | Commerce process on your site (for commerce metadata tools; e.g. `oraclecpqo`) |
 
 
 **Do not commit this file.** It is gitignored.
@@ -243,7 +249,7 @@ oracle-cpq-smoke --profile mycompany --env dev
 
 ## Step 5 — Connect your IDE / LLM client
 
-Each client uses **stdio**: it spawns `python -m oracle_cpq_mcp` and talks JSON-RPC over stdin/stdout.  
+Each client uses **stdio**: MCP runs [`scripts/mcp-server.cmd`](../scripts/mcp-server.cmd) (Windows) or [`scripts/mcp-server.sh`](../scripts/mcp-server.sh) (macOS/Linux), which starts `python -m oracle_cpq_mcp` from your local `.venv`.  
 **Never put CPQ passwords in MCP config** — only profile name and paths.
 
 Set these env vars in MCP config (all clients):
@@ -259,14 +265,29 @@ Set these env vars in MCP config (all clients):
 
 ### Cursor
 
-**Config file:** `.cursor/mcp.json` (already in repo — edit profile name if needed)
+**Config file:** `.cursor/mcp.json` — **you create this locally** (not committed). Use the cross-platform launcher scripts so the same repo works on every OS.
+
+**IDE terminal** (repo root) — copy the example for your OS:
+
+| Shell | Command |
+| ----- | ------- |
+| Windows PowerShell / CMD | `copy .cursor\mcp.json.example .cursor\mcp.json` |
+| macOS / Linux / Git Bash | `cp .cursor/mcp.json.unix.example .cursor/mcp.json` |
+
+On macOS/Linux, make the launcher executable once:
+
+```bash
+chmod +x scripts/mcp-server.sh
+```
+
+Example `.cursor/mcp.json` (Windows — uses `mcp-server.cmd`):
 
 ```json
 {
   "mcpServers": {
     "oracle-cpq": {
-      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": ["-m", "oracle_cpq_mcp"],
+      "command": "${workspaceFolder}/scripts/mcp-server.cmd",
+      "args": [],
       "cwd": "${workspaceFolder}",
       "env": {
         "CPQ_CUSTOMER_PROFILE": "mycompany",
@@ -277,20 +298,17 @@ Set these env vars in MCP config (all clients):
 }
 ```
 
-**macOS/Linux** — change `command` to:
-
-```json
-"command": "${workspaceFolder}/.venv/bin/python"
-```
+**macOS/Linux** — use `mcp-server.sh` in `command` (see [`.cursor/mcp.json.unix.example`](../.cursor/mcp.json.unix.example)).
 
 **Steps:**
 
 1. Open the `oracleCPQMCP` folder in Cursor (File → Open Folder).
-2. Edit `.cursor/mcp.json` — set `CPQ_CUSTOMER_PROFILE` to your profile id.
-3. Ensure `.venv` exists (Step 2, run in IDE terminal).
-4. **Fully quit and restart Cursor** (MCP loads at startup).
-5. Open **Agent** mode chat.
-6. Ask: *"Use discover_tools to list read-only CPQ tools, then call list_users with limit 5."*
+2. Copy the example MCP config (above) to `.cursor/mcp.json`.
+3. Edit `.cursor/mcp.json` — set `CPQ_CUSTOMER_PROFILE` to your profile id.
+4. Ensure `.venv` exists (Step 2, run in IDE terminal).
+5. **Fully quit and restart Cursor** (MCP loads at startup).
+6. Open **Agent** mode chat.
+7. Ask: *"What can you do in Oracle CPQ for users, groups, data tables, BML, and commerce metadata?"*
 
 **Verify in Cursor:** Settings → MCP — `oracle-cpq` should show connected with tools listed.
 
@@ -304,22 +322,24 @@ VS Code uses `**servers**` (not `mcpServers`) and requires `"type": "stdio"`.
 
 **IDE terminal** (repo root):
 
-
-| Shell                    | Command                                          |
-| ------------------------ | ------------------------------------------------ |
+| Shell | Command |
+| ----- | ------- |
 | Windows PowerShell / CMD | `copy .vscode\mcp.json.example .vscode\mcp.json` |
-| macOS / Linux / Git Bash | `cp .vscode/mcp.json.example .vscode/mcp.json`   |
+| macOS / Linux / Git Bash | `cp .vscode/mcp.json.unix.example .vscode/mcp.json` |
 
+On macOS/Linux: `chmod +x scripts/mcp-server.sh`
 
-Edit `.vscode/mcp.json`:
+The example files use `scripts/mcp-server.cmd` (Windows) or `scripts/mcp-server.sh` (Unix) — no hardcoded `.venv/.../python` path.
+
+Edit `.vscode/mcp.json` if needed (profile name, env vars). Example shape:
 
 ```json
 {
   "servers": {
     "oracle-cpq": {
       "type": "stdio",
-      "command": "${workspaceFolder}/.venv/Scripts/python.exe",
-      "args": ["-m", "oracle_cpq_mcp"],
+      "command": "${workspaceFolder}/scripts/mcp-server.cmd",
+      "args": [],
       "cwd": "${workspaceFolder}",
       "env": {
         "CPQ_CUSTOMER_PROFILE": "mycompany",
@@ -331,17 +351,15 @@ Edit `.vscode/mcp.json`:
 }
 ```
 
-On macOS/Linux use `.venv/bin/python` in `command`.
-
 **Steps:**
 
 1. Install [VS Code](https://code.visualstudio.com/) and enable **GitHub Copilot** with Agent mode.
 2. Open the `oracleCPQMCP` folder.
-3. Select the workspace Python interpreter: `.venv/Scripts/python.exe` (Command Palette → *Python: Select Interpreter*).
+3. Select the workspace Python interpreter: `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python` (Command Palette → *Python: Select Interpreter*).
 4. Create `.vscode/mcp.json` from the example (above).
 5. Reload VS Code (Command Palette → *Developer: Reload Window*).
 6. Open Copilot Chat → switch to **Agent** mode.
-7. Ask: *"Call the list_users MCP tool with limit 5."*
+7. Ask: *"Show me the first 5 active CPQ users."*
 
 **Alternative:** Command Palette → **MCP: Open Workspace Folder Configuration** to edit the file in UI.
 
@@ -369,8 +387,8 @@ Edit `.agents/mcp_config.json` — use **absolute paths** (Antigravity requires 
 {
   "mcpServers": {
     "oracle-cpq": {
-      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\.venv\\Scripts\\python.exe",
-      "args": ["-m", "oracle_cpq_mcp"],
+      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\scripts\\mcp-server.cmd",
+      "args": [],
       "cwd": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP",
       "env": {
         "MCP_MODE": "stdio",
@@ -383,6 +401,8 @@ Edit `.agents/mcp_config.json` — use **absolute paths** (Antigravity requires 
   }
 }
 ```
+
+On macOS/Linux use absolute path to `scripts/mcp-server.sh` instead of `.cmd`.
 
 
 | Antigravity env var      | Required? | Purpose                                     |
@@ -409,7 +429,7 @@ After MCP is connected, paste these prompts into **Agent mode**. You do not need
 
 ### 6.1 Explore what CPQ actions are available
 
-> What can you do in Oracle CPQ for users, groups, and data tables? List the read-only actions you have access to.
+> What can you do in Oracle CPQ for users, groups, data tables, BML, and commerce metadata? Use discover_tools to list the read-only actions you have access to, grouped by domain.
 
 ### 6.2 List active users
 
@@ -443,6 +463,18 @@ With `READ_ONLY=true` (default), this validates the workflow without changing an
 
 Expected: the agent runs a preflight/dry-run, explains the proposed change, and does **not** modify CPQ data.
 
+### 6.8 BML export (optional, admin)
+
+Requires admin permissions on the CPQ site. The agent downloads the full Commerce BML/BMLT site export as a zip file.
+
+> Download all Commerce BML and BMLT source code from CPQ as a zip file I can save locally.
+
+### 6.9 Commerce metadata (optional)
+
+Requires `COMMERCE_PROCESS_VAR_NAME` in your profile to match a real Commerce process on the site (e.g. `oraclecpqo`). Admin or read access to Commerce metadata may be required.
+
+> List the header document attributes for the default Commerce transaction document in CPQ. Show attribute names and types only — no need for full translation text.
+
 ---
 
 ## Step 7 — Enabling writes (optional, advanced)
@@ -468,7 +500,7 @@ See [SECURITY.md](../SECURITY.md) and [README.md](../README.md#safe-execution).
 | ------------------------------------- | ------------------------------------------------------------------------------------------- |
 | MCP server not listed                 | Restart IDE completely after config change                                                  |
 | `ModuleNotFoundError: oracle_cpq_mcp` | In IDE terminal: `pip install -e ".[dev]"` with venv active                                 |
-| Wrong Python in MCP                   | Point `command` to `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python` (macOS/Linux) |
+| Wrong Python in MCP                   | Use launcher scripts: `scripts/mcp-server.cmd` (Windows) or `scripts/mcp-server.sh` (macOS/Linux); run `pip install -e ".[dev]"` first |
 | Tools return `UNAUTHORIZED`           | Fix credentials in `.config/<profile>.env`                                                  |
 | Antigravity JSON parse error          | Add `MCP_MODE=stdio` and `DISABLE_CONSOLE_OUTPUT=true`                                      |
 | Schema integrity startup failure      | Run manifest update (see [SECURITY_TESTING.md](../SECURITY_TESTING.md))                     |

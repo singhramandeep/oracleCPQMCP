@@ -26,6 +26,7 @@ from oracle_cpq_mcp.exporters.users_excel import (
 
 )
 
+from oracle_cpq_mcp.core.responses import build_attachment_lead_envelope
 from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
 
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
@@ -127,19 +128,16 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
         )
 
         return [
-
-            summary,
-
-            File(
-
-                data=xlsx_bytes,
-
-                format="xlsx",
-
-                name=filename,
-
+            build_attachment_lead_envelope(
+                "export_users_excel",
+                message=summary,
+                filename=filename,
             ),
-
+            File(
+                data=xlsx_bytes,
+                format="xlsx",
+                name=filename,
+            ),
         ]
 
 

@@ -25,6 +25,7 @@ class ToolSuccessEnvelope(BaseModel):
     status: Literal["ok"] = "ok"
     tool: str
     data: dict[str, Any] | list[Any]
+    pagination: dict[str, Any] | None = None
 
 
 class ToolWriteEnvelope(BaseModel):
@@ -37,12 +38,14 @@ class ToolWriteEnvelope(BaseModel):
     data: dict[str, Any] = Field(default_factory=dict)
 
 
-class ToolExportEnvelope(BaseModel):
-    """Export tool summary envelope preceding binary attachments."""
+class ToolAttachmentLeadEnvelope(BaseModel):
+    """First list element for export/BML tools that attach binary resources."""
+
+    model_config = ConfigDict(extra="allow")
 
     status: Literal["ok"] = "ok"
     tool: str
-    message: str
+    data: dict[str, Any]
 
 
 class DiscoverToolsOutput(BaseModel):
@@ -52,100 +55,100 @@ class DiscoverToolsOutput(BaseModel):
     tools: list[dict[str, Any]]
 
 
-class BmlJsonOutput(BaseModel):
-    """get_all_bml_code delivery=json payload nested under data."""
+def mcp_tool_output_schema(
+    *,
+    data_schema: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a single object schema accepted by MCP / FastMCP output registration.
 
-    model_config = ConfigDict(extra="allow")
-
-    delivery: Literal["json"]
-    utilLibraryFunctionCount: int
-    utilLibraryFunctions: list[dict[str, Any]]
-
-
-def _error_schema() -> dict[str, Any]:
-    return ToolErrorOutput.model_json_schema()
-
-
-def _with_error(success: dict[str, Any]) -> dict[str, Any]:
-    """Union structured success payloads with the canonical error envelope."""
-    return {"oneOf": [_error_schema(), success]}
-
-
-def _success_envelope_schema() -> dict[str, Any]:
-    return _with_error(ToolSuccessEnvelope.model_json_schema())
-
-
-def _write_envelope_schema() -> dict[str, Any]:
-    return _with_error(ToolWriteEnvelope.model_json_schema())
-
-
-def _discover_tools_schema() -> dict[str, Any]:
-    inner = ToolSuccessEnvelope.model_json_schema()
-    inner["properties"]["data"] = DiscoverToolsOutput.model_json_schema()
-    return _with_error(inner)
-
-
-def _bml_json_schema() -> dict[str, Any]:
-    inner = ToolSuccessEnvelope.model_json_schema()
-    inner["properties"]["data"] = BmlJsonOutput.model_json_schema()
-    return _with_error(inner)
-
-
-def _export_list_schema() -> dict[str, Any]:
-    return _with_error(
-        {
-            "type": "array",
-            "items": {
-                "anyOf": [
-                    ToolExportEnvelope.model_json_schema(),
-                    ToolErrorOutput.model_json_schema(),
-                    {"type": "object", "additionalProperties": True},
-                ]
-            },
-        }
-    )
-
-
-def _bml_export_schema() -> dict[str, Any]:
+    MCP requires top-level ``type: object`` — ``oneOf`` and top-level arrays are rejected.
+    Runtime responses use this shape for dict results. Attachment tools return a list whose
+    first element matches this schema, followed by a ``File`` resource.
+    """
+    properties: dict[str, Any] = {
+        "status": {
+            "type": "string",
+            "description": (
+                "Result status: ok, error, preflight_ok, confirmation_required, "
+                "read_only_blocked, etc."
+            ),
+        },
+        "tool": {"type": "string"},
+        "code": {"type": "string"},
+        "message": {"type": "string"},
+        "hint": {"type": "string"},
+        "details": {"type": "object", "additionalProperties": True},
+        "pagination": {"type": "object", "additionalProperties": True},
+        "data": data_schema
+        or {
+            "description": "Tool-specific payload for successful or preflight responses.",
+        },
+    }
     return {
-        "oneOf": [
-            _error_schema(),
-            ToolSuccessEnvelope.model_json_schema(),
-            _export_list_schema()["oneOf"][0],
-        ]
+        "type": "object",
+        "properties": properties,
+        "required": ["status"],
+        "additionalProperties": True,
     }
 
 
-_SUCCESS_ENVELOPE_SCHEMA = _success_envelope_schema()
-_WRITE_ENVELOPE_SCHEMA = _write_envelope_schema()
-_DISCOVER_TOOLS_SCHEMA = _discover_tools_schema()
-_EXPORT_LIST_SCHEMA = _export_list_schema()
-_BML_JSON_SCHEMA = _bml_json_schema()
-_BML_EXPORT_SCHEMA = _bml_export_schema()
+_READ_OUTPUT_SCHEMA = mcp_tool_output_schema()
+_WRITE_OUTPUT_SCHEMA = mcp_tool_output_schema()
+_DISCOVER_TOOLS_SCHEMA = mcp_tool_output_schema(
+    data_schema=DiscoverToolsOutput.model_json_schema(),
+)
+_ATTACHMENT_LEAD_SCHEMA = mcp_tool_output_schema(
+    data_schema={
+        "type": "object",
+        "properties": {
+            "message": {"type": "string"},
+            "filename": {"type": "string"},
+        },
+        "required": ["message"],
+        "additionalProperties": True,
+    }
+)
 
-TOOL_OUTPUT_SCHEMAS: dict[str, dict[str, Any]] = {
-    "list_users": _SUCCESS_ENVELOPE_SCHEMA,
-    "export_users_excel": _EXPORT_LIST_SCHEMA,
-    "get_user": _SUCCESS_ENVELOPE_SCHEMA,
-    "get_user_groups": _SUCCESS_ENVELOPE_SCHEMA,
-    "update_user": _WRITE_ENVELOPE_SCHEMA,
-    "list_groups": _SUCCESS_ENVELOPE_SCHEMA,
-    "get_group": _SUCCESS_ENVELOPE_SCHEMA,
-    "list_group_users": _SUCCESS_ENVELOPE_SCHEMA,
-    "create_group": _WRITE_ENVELOPE_SCHEMA,
-    "list_datatables": _SUCCESS_ENVELOPE_SCHEMA,
-    "get_datatable": _SUCCESS_ENVELOPE_SCHEMA,
-    "get_datatable_rows": _SUCCESS_ENVELOPE_SCHEMA,
-    "deploy_datatables": _WRITE_ENVELOPE_SCHEMA,
-    "get_all_bml_code": _BML_EXPORT_SCHEMA,
-    "get_commerce_attributes": _SUCCESS_ENVELOPE_SCHEMA,
-    "get_commerce_actions": _SUCCESS_ENVELOPE_SCHEMA,
-    "get_line_attributes": _SUCCESS_ENVELOPE_SCHEMA,
-    "get_line_actions": _SUCCESS_ENVELOPE_SCHEMA,
+# Tools that return a top-level list (summary envelope + File attachment) cannot declare a
+# compliant MCP object output schema at the tool root; the first list element uses
+# ``_ATTACHMENT_LEAD_SCHEMA`` instead.
+_TOOLS_WITHOUT_OUTPUT_SCHEMA = frozenset({"export_users_excel", "get_all_bml_code"})
+
+TOOL_OUTPUT_SCHEMAS: dict[str, dict[str, Any] | None] = {
+    "list_users": _READ_OUTPUT_SCHEMA,
+    "export_users_excel": None,
+    "get_user": _READ_OUTPUT_SCHEMA,
+    "get_user_groups": _READ_OUTPUT_SCHEMA,
+    "update_user": _WRITE_OUTPUT_SCHEMA,
+    "list_groups": _READ_OUTPUT_SCHEMA,
+    "get_group": _READ_OUTPUT_SCHEMA,
+    "list_group_users": _READ_OUTPUT_SCHEMA,
+    "create_group": _WRITE_OUTPUT_SCHEMA,
+    "list_datatables": _READ_OUTPUT_SCHEMA,
+    "get_datatable": _READ_OUTPUT_SCHEMA,
+    "get_datatable_rows": _READ_OUTPUT_SCHEMA,
+    "deploy_datatables": _WRITE_OUTPUT_SCHEMA,
+    "get_all_bml_code": None,
+    "get_commerce_attributes": _READ_OUTPUT_SCHEMA,
+    "get_commerce_actions": _READ_OUTPUT_SCHEMA,
+    "get_line_attributes": _READ_OUTPUT_SCHEMA,
+    "get_line_actions": _READ_OUTPUT_SCHEMA,
     "discover_tools": _DISCOVER_TOOLS_SCHEMA,
 }
 
 
 def get_tool_output_schema(tool_name: str) -> dict[str, Any] | None:
-    """Return the JSON Schema for a tool's output, if registered."""
+    """Return the MCP-compliant JSON Schema for a tool's output, if registered."""
+    if tool_name in _TOOLS_WITHOUT_OUTPUT_SCHEMA:
+        return None
     return TOOL_OUTPUT_SCHEMAS.get(tool_name)
+
+
+def get_attachment_lead_output_schema() -> dict[str, Any]:
+    """Schema for the object envelope that precedes binary attachments in list results."""
+    return _ATTACHMENT_LEAD_SCHEMA
+
+
+def catalog_tools_without_output_schema() -> frozenset[str]:
+    """Tools whose runtime output is a list (object envelope + attachment)."""
+    return _TOOLS_WITHOUT_OUTPUT_SCHEMA

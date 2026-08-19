@@ -10,6 +10,11 @@ from typing import Any, TypeVar, get_origin, get_type_hints
 
 from oracle_cpq_mcp.core.config import CPQProfile
 from oracle_cpq_mcp.core.errors import CPQAPIError, exception_to_tool_error
+from oracle_cpq_mcp.core.output_validation import (
+    OutputValidationError,
+    build_output_validation_error,
+    validate_tool_output,
+)
 from oracle_cpq_mcp.core.preflight import attach_confirmation_to_response
 from oracle_cpq_mcp.core.responses import wrap_tool_success
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG, ToolSpec, mcp_tool_kwargs
@@ -157,6 +162,15 @@ def register_tool(mcp: Any, fn: F, spec_name: str) -> F:
                     error_code = result[0].get("code")
             else:
                 result = wrap_tool_success(spec_name, result)
+
+            try:
+                validate_tool_output(spec_name, result)
+            except OutputValidationError:
+                logger.warning("Output validation failed for %s", spec_name, exc_info=True)
+                error_code = "INTERNAL_ERROR"
+                execution_result = "error"
+                return _wrap_if_list_return(fn, build_output_validation_error())
+
             return result
 
         except SecurityError as exc:

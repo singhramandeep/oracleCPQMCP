@@ -8,6 +8,7 @@ import sys
 
 from fastmcp import FastMCP
 
+from oracle_cpq_mcp import __version__
 from oracle_cpq_mcp.core.config import connection_mode_message, load_profile
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.security.schema_integrity import verify_schema_integrity
@@ -28,6 +29,7 @@ logging.basicConfig(
 
 mcp = FastMCP(
     "Oracle CPQ",
+    version=__version__,
     instructions=(
         "Oracle CPQ MCP server for Users, Groups, Data Tables, BML, and Commerce metadata. "
         "All calls use the active customer profile from CPQ_CUSTOMER_PROFILE "
@@ -48,6 +50,7 @@ def _build_client() -> CPQClient:
     verify_schema_integrity(enabled=settings.schema_integrity_enabled)
     profile = load_profile()
     configure_security(profile, settings)
+    logging.getLogger(__name__).info("Oracle CPQ MCP server version %s", __version__)
     logging.getLogger(__name__).info(
         "Loaded profile %s (%s) env=%s rest=%s credentials=%d active_index=%d user=%s read_only=%s",
         profile.customer_id,

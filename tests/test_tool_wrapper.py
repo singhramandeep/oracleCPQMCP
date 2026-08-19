@@ -111,7 +111,9 @@ def test_register_tool_passes_output_schema() -> None:
     ok_tool.__doc__ = "test"
     register_tool(FakeMcp(), ok_tool, "get_user")
     assert "output_schema" in captured
-    assert "oneOf" in captured["output_schema"]
+    schema = captured["output_schema"]
+    assert schema["type"] == "object"
+    assert "oneOf" not in schema
 
 
 def test_register_tool_catches_cpq_api_error() -> None:
@@ -171,3 +173,26 @@ def test_register_tool_catches_unexpected_exception() -> None:
     result = wrapped(party_number="user123")
     assert result["status"] == "error"
     assert result["code"] == "INTERNAL_ERROR"
+
+
+def test_register_tool_returns_internal_error_on_output_validation_failure() -> None:
+    class FakeMcp:
+        def tool(self, **kwargs: Any):
+            def decorator(fn: Any) -> Any:
+                return fn
+
+            return decorator
+
+    def bad_error_tool(party_number: str) -> dict[str, Any]:
+        return {
+            "status": "error",
+            "message": "CPQ failure with secret partyNumber must-not-leak-12345",
+        }
+
+    bad_error_tool.__doc__ = "test"
+    wrapped = register_tool(FakeMcp(), bad_error_tool, "get_user")
+    result = wrapped(party_number="user123")
+    assert result["status"] == "error"
+    assert result["code"] == "INTERNAL_ERROR"
+    assert "must-not-leak-12345" not in str(result)
+    assert result["details"] == {"reason": "output_schema_validation_failed"}

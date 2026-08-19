@@ -12,6 +12,7 @@ from oracle_cpq_mcp.core.bml_fetchers import (
 )
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.progress import report_tool_progress
+from oracle_cpq_mcp.core.responses import build_attachment_lead_envelope
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
 
@@ -33,7 +34,12 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
                 f"to {filename}. Equivalent to cpq-toolkit pull."
             )
             return [
-                summary,
+                build_attachment_lead_envelope(
+                    "get_all_bml_code",
+                    message=summary,
+                    filename=filename,
+                    extra={"delivery": "zip"},
+                ),
                 File(
                     data=zip_bytes,
                     format="zip",

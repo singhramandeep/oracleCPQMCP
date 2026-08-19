@@ -1,9 +1,9 @@
 # ==============================================================================
 # Oracle CPQ MCP — safe to commit vs. keep local
 # ==============================================================================
-# COMMIT:  source code, tests, .config/.env.example, .cursor/mcp.json (no secrets),
-#          .vscode/mcp.json.example, docs/
-# NEVER:   .config/*.env (credentials), .venv/, exports/, *.xlsx, local MCP overrides
+# COMMIT:  source code, tests, scripts/mcp-server.*, .cursor/mcp.json.example,
+#          .cursor/mcp.json.unix.example, .vscode/mcp.json.example, docs/
+# NEVER:   .config/*.env (credentials), .venv/, exports/, .cursor/mcp.json (local MCP)
 # ==============================================================================
 
 # --- Generated outputs ---
@@ -45,8 +45,11 @@ credentials.json
 secrets/
 .secrets/
 
-# Local MCP overrides (may contain CPQ_CONFIRMATION_SECRET)
+# Local MCP overrides (may contain CPQ_CONFIRMATION_SECRET or local profile names)
+.cursor/mcp.json
 .cursor/mcp.local.json
+!.cursor/mcp.json.example
+!.cursor/mcp.json.unix.example
 .agents/mcp_config.json
 .vscode/mcp.json
 
@@ -56,6 +59,7 @@ secrets/
 !.vscode/settings.json
 !.vscode/extensions.json
 !.vscode/mcp.json.example
+!.vscode/mcp.json.unix.example
 *.swp
 *.swo
 

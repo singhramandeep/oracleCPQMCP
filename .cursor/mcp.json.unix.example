@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "oracle-cpq": {
+      "command": "${workspaceFolder}/scripts/mcp-server.sh",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_CONFIG_DIR": "${workspaceFolder}/.config"
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
   "servers": {
     "oracle-cpq": {
       "type": "stdio",
-      "command": "${workspaceFolder}/scripts/mcp-server.cmd",
+      "command": "${workspaceFolder}/scripts/mcp-server.sh",
       "args": [],
       "cwd": "${workspaceFolder}",
       "env": {
