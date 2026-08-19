@@ -74,6 +74,27 @@ def test_wrap_if_list_return_for_dict_tools() -> None:
     assert _wrap_if_list_return(dict_tool, error) == error
 
 
+def test_register_tool_passes_output_schema() -> None:
+    captured: dict[str, Any] = {}
+
+    class FakeMcp:
+        def tool(self, **kwargs: Any):
+            captured.update(kwargs)
+
+            def decorator(fn: Any) -> Any:
+                return fn
+
+            return decorator
+
+    def ok_tool(party_number: str) -> dict[str, Any]:
+        return {"partyNumber": party_number}
+
+    ok_tool.__doc__ = "test"
+    register_tool(FakeMcp(), ok_tool, "get_user")
+    assert "output_schema" in captured
+    assert "oneOf" in captured["output_schema"]
+
+
 def test_register_tool_catches_cpq_api_error() -> None:
     class FakeMcp:
         def tool(self, **kwargs: Any):

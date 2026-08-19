@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from mcp.types import ToolAnnotations
 
+from oracle_cpq_mcp.schemas.tool_outputs import get_tool_output_schema
+
 DomainName = Literal["users", "groups", "datatables", "bml", "commerce", "meta"]
 OperationName = Literal["read", "write"]
 DomainFilter = Literal["users", "groups", "datatables", "bml", "commerce", "all"]
@@ -374,7 +376,7 @@ def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
     if spec.api_path:
         meta["api_path"] = spec.api_path
 
-    return {
+    kwargs: dict[str, Any] = {
         "tags": set(spec.tags),
         "annotations": ToolAnnotations(
             readOnlyHint=spec.read_only,
@@ -383,6 +385,10 @@ def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
         ),
         "meta": meta,
     }
+    output_schema = get_tool_output_schema(spec.name)
+    if output_schema is not None:
+        kwargs["output_schema"] = output_schema
+    return kwargs
 
 
 def tool_to_dict(spec: ToolSpec) -> dict[str, Any]:
