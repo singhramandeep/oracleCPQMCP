@@ -10,6 +10,8 @@ MCP server for **Oracle CPQ** — exposes **Users**, **Groups**, **Data Tables**
 
 **[docs/QUICKSTART.md](docs/QUICKSTART.md)** — download repo, create credential profile, smoke test, and connect **Antigravity** (recommended) step by step.
 
+**What's new?** See **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** for changelog history (auto-updated from git; refresh with `python scripts/update_release_notes.py`).
+
 Quick smoke test after install — run in the **IDE integrated terminal** (`` Ctrl+` ``, project root):
 
 ```bash
