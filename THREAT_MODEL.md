@@ -2,7 +2,7 @@
 
 ## Assets
 
-- Oracle CPQ data (users, groups, data tables, configuration)
+- Oracle CPQ data (users, groups, data tables, BML, commerce, parts, tasks, configuration/productFamilies)
 - Integration user credentials
 - Customer PII in user exports
 - MCP tool definitions (attack surface for tool poisoning)

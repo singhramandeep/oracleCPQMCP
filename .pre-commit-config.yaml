@@ -1,0 +1,22 @@
+# Optional local hooks. Install with: pip install pre-commit && pre-commit install
+repos:
+  - repo: local
+    hooks:
+      - id: update-release-notes
+        name: update release notes from git
+        entry: python scripts/update_release_notes.py
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: lint-tool-schemas
+        name: lint tool schemas
+        entry: python scripts/lint_tool_schemas.py
+        language: system
+        pass_filenames: false
+        files: ^(mcp/oracle_cpq_mcp/(registry|security|schemas)/|scripts/lint_tool_schemas\.py)
+      - id: tool-contract-tests
+        name: tool schema + contract tests
+        entry: python -m pytest tests/test_schema_lint.py tests/test_tool_contracts.py -q
+        language: system
+        pass_filenames: false
+        files: ^(mcp/oracle_cpq_mcp/|tests/test_schema_lint\.py|tests/test_tool_contracts\.py)

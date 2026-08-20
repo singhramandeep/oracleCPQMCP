@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "oracle-cpq-mcp"
 version = "0.1.0"
-description = "MCP server for Oracle CPQ — Users, Groups, Data Tables, BML, and Commerce metadata"
+description = "MCP server for Oracle CPQ — Users, Groups, Data Tables, BML, Commerce, Parts, and Performance Logs"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -37,3 +37,6 @@ packages = ["mcp/oracle_cpq_mcp", "utilities"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["mcp"]
+markers = [
+    "live_eval: hits a real CPQ sandbox (requires CPQ_LIVE_EVAL=1)",
+]

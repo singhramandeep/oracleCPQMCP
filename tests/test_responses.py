@@ -2,13 +2,27 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from oracle_cpq_mcp.core.responses import (
     build_attachment_lead_envelope,
     build_write_envelope,
     is_tool_output_envelope,
+    stamp_response_context,
     wrap_tool_success,
 )
 from oracle_cpq_mcp.schemas.tool_outputs import get_attachment_lead_output_schema
+
+
+def test_stamp_response_context_adds_env_and_timestamp() -> None:
+    ctx = SimpleNamespace(environment="dev", customer_id="acme")
+    stamped = stamp_response_context(
+        {"status": "ok", "tool": "get_user", "data": {}},
+        ctx,
+    )
+    assert stamped["environment"] == "dev"
+    assert stamped["customer_id"] == "acme"
+    assert stamped["retrieved_at"].endswith("Z")
 
 
 def test_wrap_read_success_moves_pagination_to_envelope() -> None:

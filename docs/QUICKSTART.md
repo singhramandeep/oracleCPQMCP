@@ -468,7 +468,7 @@ Example `.cursor/mcp.json` (Windows — uses `mcp-server.cmd`):
 4. Ensure `.venv` exists (Step 2, run in IDE terminal).
 5. **Fully quit and restart Cursor** (MCP loads at startup).
 6. Open **Agent** mode chat.
-7. Ask: *"What can you do in Oracle CPQ for users, groups, data tables, BML, and commerce metadata?"*
+7. Ask: *"What can you do in Oracle CPQ? Use discover_tools to list tools by domain (users, groups, datatables, bml, commerce, performance, parts, tasks, configuration)."*
 
 **Verify in Cursor:** Settings → MCP — `oracle-cpq` should show connected with tools listed.
 
@@ -537,7 +537,9 @@ After MCP is connected (preferably in **Antigravity**), paste these prompts into
 
 ### 6.1 Explore what CPQ actions are available
 
-> What can you do in Oracle CPQ for users, groups, data tables, BML, and commerce metadata? Use discover_tools to list the read-only actions you have access to, grouped by domain.
+> What can you do in Oracle CPQ? Use discover_tools to list the read-only actions you have access to, grouped by domain (users, groups, datatables, bml, commerce, performance, parts, tasks, configuration).
+
+Note: **tasks** and **configuration** (productFamilies), plus newer datatable create/export and BML extension tools, are implemented but **untested against live CPQ** — see the testing-status table in [README.md](../README.md).
 
 
 
@@ -592,6 +594,18 @@ Requires admin permissions on the CPQ site. The agent downloads the full Commerc
 Requires `COMMERCE_PROCESS_VAR_NAME` in your profile to match a real Commerce process on the site (e.g. `oraclecpqo`). Admin or read access to Commerce metadata may be required.
 
 > List the header document attributes for the default Commerce transaction document in CPQ. Show attribute names and types only — no need for full translation text.
+
+### 6.10 Tasks / async exports (**untested** live)
+
+New tools: `export_datatables` / `export_bml_library_functions` → `get_task` → `download_task_file`. Covered by offline tests only; **not yet verified on a live CPQ site**.
+
+> (When ready to smoke-test) Start a data table export dry-run for a known table, then explain how you would poll the task and download the file — do not apply the write unless READ_ONLY is false and I confirm.
+
+### 6.11 Configuration / productFamilies (**untested** live)
+
+New `configuration` domain (`list_product_families`, scoped attributes/array sets/layouts, `get_layout_cache_attributes`). Covered by offline tests only; **not yet verified on a live CPQ site**.
+
+> (When ready to smoke-test) List product families, then list configuration attributes for the first family using scope=family.
 
 ---
 

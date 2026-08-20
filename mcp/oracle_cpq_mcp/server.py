@@ -16,9 +16,14 @@ from oracle_cpq_mcp.security.settings import load_security_settings
 from oracle_cpq_mcp.tools._register import configure_security
 from oracle_cpq_mcp.tools.bml import register_bml_tools
 from oracle_cpq_mcp.tools.commerce import register_commerce_tools
+from oracle_cpq_mcp.tools.configuration import register_configuration_tools
 from oracle_cpq_mcp.tools.datatables import register_datatable_tools
 from oracle_cpq_mcp.tools.discovery import register_discovery_tools
 from oracle_cpq_mcp.tools.groups import register_group_tools
+from oracle_cpq_mcp.tools.parts import register_parts_tools
+from oracle_cpq_mcp.tools.performance import register_performance_tools
+from oracle_cpq_mcp.tools.tasks import register_tasks_tools
+from oracle_cpq_mcp.tools.transactions import register_transaction_tools
 from oracle_cpq_mcp.tools.users import register_user_tools
 
 logging.basicConfig(
@@ -31,12 +36,18 @@ mcp = FastMCP(
     "Oracle CPQ",
     version=__version__,
     instructions=(
-        "Oracle CPQ MCP server for Users, Groups, Data Tables, BML, and Commerce metadata. "
+        "Oracle CPQ MCP server for Users, Groups, Data Tables, BML, Commerce metadata, "
+        "Commerce transactions, Parts, Performance Logs, Tasks, and Configuration "
+        "(productFamilies). "
         "All calls use the active customer profile from CPQ_CUSTOMER_PROFILE "
         "and environment from CPQ_ENVIRONMENT or the profile default. "
-        "Use discover_tools to find tools by domain (users/groups/datatables/bml/commerce) or "
+        "Use discover_tools to find tools by domain "
+        "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration) or "
         "operation (read/write). Read-only tools are safe for exploration; write tools "
-        "(update_user, create_group, deploy_datatables) default to dry_run=true preflight "
+        "(update_user, create_group, deploy_datatables, create_datatable, export_datatables, "
+        "export_bml_library_functions, generate_proposal, copy_transaction, "
+        "copy_transaction_lines, export_attachment, export_performance_logs) default to "
+        "dry_run=true preflight "
         "mode and require a server-issued confirmation_token before mutating CPQ data. "
         "Never execute writes without user approval and a valid confirmation_token. "
         "When profile READ_ONLY=true (default), all create/update/deploy operations are blocked. "
@@ -88,6 +99,11 @@ register_group_tools(mcp, _client)
 register_datatable_tools(mcp, _client)
 register_bml_tools(mcp, _client)
 register_commerce_tools(mcp, _client)
+register_transaction_tools(mcp, _client)
+register_parts_tools(mcp, _client)
+register_performance_tools(mcp, _client)
+register_tasks_tools(mcp, _client)
+register_configuration_tools(mcp, _client)
 register_discovery_tools(mcp)
 _maybe_enable_tool_search()
 

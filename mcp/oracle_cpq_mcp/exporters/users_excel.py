@@ -8,7 +8,7 @@ from typing import Any
 from openpyxl import Workbook
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
-from oracle_cpq_mcp.core.pagination import iterate_collection
+from oracle_cpq_mcp.core.pagination import CollectionFetchResult, iterate_collection
 from oracle_cpq_mcp.core.progress import report_tool_progress
 from oracle_cpq_mcp.core.users_filters import UserStatusFilter, build_users_q
 
@@ -54,12 +54,12 @@ def fetch_all_users(
     q_expr: str | None = None,
     page_size: int = PAGE_SIZE,
     max_rows: int = MAX_EXPORT_ROWS,
-) -> list[dict[str, Any]]:
+) -> CollectionFetchResult:
     """Paginate GET /users until all rows are collected or max_rows is reached."""
     q = build_users_q(status_filter, q_expr)
     extra: dict[str, Any] = {"q": q} if q else {}
 
-    items = iterate_collection(
+    return iterate_collection(
         client,
         "/users",
         params=extra or None,
@@ -71,7 +71,6 @@ def fetch_all_users(
             message=message or f"Fetching users ({count}/{max_rows})",
         ),
     )
-    return items
 
 
 def build_users_workbook(

@@ -12,7 +12,7 @@ from oracle_cpq_mcp.security.context import SecurityContext
 from oracle_cpq_mcp.security.settings import SecuritySettings
 
 PreflightStatus = Literal["preflight_ok", "preflight_failed"]
-WriteAction = Literal["update", "create", "deploy"]
+WriteAction = Literal["update", "create", "deploy", "copy", "export"]
 
 PREFLIGHT_NEXT_STEP = (
     "Ask the user to confirm this change, then call again with "
@@ -400,5 +400,157 @@ def run_deploy_datatables_preflight(
         preflight={
             "table_names": table_names,
             "tables": tables,
+        },
+    )
+
+
+def run_create_datatable_preflight(
+    client: CPQClient,
+    body: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate create_datatable body and confirm the table name is free."""
+    path = "/datatables"
+    would = _would_execute(client, method="POST", path=path, body=body)
+
+    errors: list[str] = []
+    if not isinstance(body, dict) or not body:
+        errors.append("body must be a non-empty object")
+    name = body.get("name") if isinstance(body, dict) else None
+    if isinstance(body, dict) and body and not name:
+        errors.append("body must include name")
+
+    if errors:
+        return build_preflight_response(
+            "create_datatable",
+            action="create",
+            status="preflight_failed",
+            message="create_datatable preflight failed",
+            would_execute=would,
+            errors=errors,
+        )
+
+    assert isinstance(name, str)
+    check_path = f"/datatables/{name}"
+    try:
+        existing = client.get(check_path)
+        return build_preflight_response(
+            "create_datatable",
+            action="create",
+            status="preflight_failed",
+            message=f"Data table '{name}' already exists",
+            would_execute=would,
+            preflight={"name": name, "existing": existing},
+            errors=[f"Data table '{name}' already exists"],
+        )
+    except CPQAPIError as exc:
+        if exc.status_code != 404:
+            return _preflight_api_failure(
+                "create_datatable",
+                action="create",
+                message=f"Could not verify data table name '{name}'",
+                would_execute=would,
+                exc=exc,
+                preflight={"name": name},
+            )
+
+    confirmation_prompt = f"This will CREATE data table '{name}' in CPQ. Confirm to proceed."
+    return build_preflight_response(
+        "create_datatable",
+        action="create",
+        status="preflight_ok",
+        message=f"This will CREATE data table '{name}' in CPQ.",
+        confirmation_prompt=confirmation_prompt,
+        would_execute=would,
+        preflight={"name": name, "body_keys": sorted(body.keys())},
+    )
+
+
+def run_export_datatables_preflight(
+    client: CPQClient,
+    body: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Validate export_datatables request body."""
+    payload = body or {}
+    path = "/datatables/actions/export"
+    would = _would_execute(client, method="POST", path=path, body=payload)
+    confirmation_prompt = (
+        "This will START a data table export task in CPQ (returns taskId). Confirm to proceed."
+    )
+    return build_preflight_response(
+        "export_datatables",
+        action="export",
+        status="preflight_ok",
+        message="This will START a data table export task in CPQ.",
+        confirmation_prompt=confirmation_prompt,
+        would_execute=would,
+        preflight={"body_keys": sorted(payload.keys())},
+    )
+
+
+def run_export_bml_library_preflight(
+    client: CPQClient,
+    body: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Validate export_bml_library_functions request body."""
+    payload = body or {}
+    path = "/bml/library/functions/actions/export"
+    would = _would_execute(client, method="POST", path=path, body=payload)
+    confirmation_prompt = (
+        "This will START a BML util library export task in CPQ (returns taskId). "
+        "Confirm to proceed."
+    )
+    return build_preflight_response(
+        "export_bml_library_functions",
+        action="export",
+        status="preflight_ok",
+        message="This will START a BML util library export task in CPQ.",
+        confirmation_prompt=confirmation_prompt,
+        would_execute=would,
+        preflight={"body_keys": sorted(payload.keys())},
+    )
+
+
+def run_commerce_action_preflight(
+    client: CPQClient,
+    *,
+    tool: str,
+    action_label: str,
+    transaction_path: str,
+    post_path: str,
+    body: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Validate a commerce document action against an existing transaction."""
+    would = _would_execute(client, method="POST", path=post_path, body=body or {})
+    try:
+        current = client.get(transaction_path)
+    except CPQAPIError as exc:
+        return _preflight_api_failure(
+            tool,
+            action="copy",
+            message=f"Transaction not found or not accessible at {transaction_path}",
+            would_execute=would,
+            exc=exc,
+            preflight={"transaction_path": transaction_path},
+        )
+
+    txn_id = None
+    if isinstance(current, dict):
+        txn_id = current.get("id") or current.get("transactionId")
+    confirmation_prompt = (
+        f"This will {action_label} for transaction '{txn_id or transaction_path}' in CPQ. "
+        "Confirm to proceed."
+    )
+    return build_preflight_response(
+        tool,
+        action="copy",
+        status="preflight_ok",
+        message=f"This will {action_label} for transaction '{txn_id or transaction_path}' in CPQ.",
+        confirmation_prompt=confirmation_prompt,
+        would_execute=would,
+        preflight={
+            "transaction_path": transaction_path,
+            "post_path": post_path,
+            "body_keys": sorted((body or {}).keys()),
+            "transaction_id": txn_id,
         },
     )

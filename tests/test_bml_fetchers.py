@@ -95,7 +95,9 @@ def test_fetch_all_util_library_code(client: CPQClient) -> None:
         )
     )
 
-    functions = fetch_all_util_library_code(client)
+    functions, truncated, has_more = fetch_all_util_library_code(client)
     assert len(functions) == 1
     assert functions[0]["resourceId"] == "concatString"
     assert functions[0]["scriptText"] == 'return stringOne + " " + stringTwo;'
+    assert truncated is False
+    assert has_more is False

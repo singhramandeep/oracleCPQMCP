@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
-
 from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.errors import CPQAPIError
@@ -14,6 +14,16 @@ logger = logging.getLogger(__name__)
 
 CPQ_MAX_LIMIT = 1000
 CPQ_MIN_LIMIT = 1
+
+
+@dataclass(frozen=True)
+class CollectionFetchResult:
+    """Result of fetching a paginated CPQ collection with truncation metadata."""
+
+    items: list[Any]
+    truncated: bool
+    max_items: int
+    has_more: bool
 
 
 def clamp_limit(limit: int) -> int:
@@ -83,11 +93,12 @@ def iterate_collection(
     page_size: int = 100,
     max_items: int = 10_000,
     on_progress: Callable[[int, str | None], None] | None = None,
-) -> list[Any]:
-    """Fetch all items from a paginated CPQ collection until hasMore is false."""
+) -> CollectionFetchResult:
+    """Fetch items from a paginated CPQ collection until hasMore is false or max_items."""
     items: list[Any] = []
     offset = 0
     base_params = dict(params or {})
+    last_has_more = False
 
     while True:
         page_params = build_page_params(
@@ -115,6 +126,7 @@ def iterate_collection(
             )
 
         items.extend(batch)
+        last_has_more = bool(response.get("hasMore", False))
         if on_progress is not None:
             on_progress(len(items), f"Fetched {len(items)} records from {path}")
         if len(items) >= max_items:
@@ -124,12 +136,28 @@ def iterate_collection(
                 max_items,
                 path,
             )
-            return items[:max_items]
+            truncated_items = items[:max_items]
+            return CollectionFetchResult(
+                items=truncated_items,
+                truncated=True,
+                max_items=max_items,
+                has_more=True,
+            )
 
-        if not response.get("hasMore", False):
-            return items
+        if not last_has_more:
+            return CollectionFetchResult(
+                items=items,
+                truncated=False,
+                max_items=max_items,
+                has_more=False,
+            )
 
         advanced = next_offset(response)
         if advanced is None:
-            return items
+            return CollectionFetchResult(
+                items=items,
+                truncated=False,
+                max_items=max_items,
+                has_more=last_has_more,
+            )
         offset = advanced

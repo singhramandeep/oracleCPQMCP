@@ -10,9 +10,31 @@ from mcp.types import ToolAnnotations
 
 from oracle_cpq_mcp.schemas.tool_outputs import get_tool_output_schema
 
-DomainName = Literal["users", "groups", "datatables", "bml", "commerce", "meta"]
+DomainName = Literal[
+    "users",
+    "groups",
+    "datatables",
+    "bml",
+    "commerce",
+    "performance",
+    "parts",
+    "tasks",
+    "configuration",
+    "meta",
+]
 OperationName = Literal["read", "write"]
-DomainFilter = Literal["users", "groups", "datatables", "bml", "commerce", "all"]
+DomainFilter = Literal[
+    "users",
+    "groups",
+    "datatables",
+    "bml",
+    "commerce",
+    "performance",
+    "parts",
+    "tasks",
+    "configuration",
+    "all",
+]
 OperationFilter = Literal["read", "write", "all"]
 RiskLevel = Literal[
     "READ_ONLY",
@@ -254,6 +276,33 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         http_method="GET",
         api_path="/adminCustom{tableName}",
     ),
+    "list_datatable_fields": _spec(
+        "list_datatable_fields",
+        domain="datatables",
+        operation="read",
+        description=(
+            "List field definitions for a data table. Defaults table_name from profile. "
+            "Returns one page of results. If hasMore is true, call again with "
+            "offset = offset + limit."
+        ),
+        tags={"paginated"},
+        read_only=True,
+        http_method="GET",
+        api_path="/datatables/{tableName}/fields",
+    ),
+    "get_datatable_field": _spec(
+        "get_datatable_field",
+        domain="datatables",
+        operation="read",
+        description=(
+            "Get one data table field definition by field name. "
+            "Defaults table_name from profile."
+        ),
+        tags={},
+        read_only=True,
+        http_method="GET",
+        api_path="/datatables/{tableName}/fields/{fieldName}",
+    ),
     "deploy_datatables": _spec(
         "deploy_datatables",
         domain="datatables",
@@ -267,6 +316,34 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         destructive=True,
         http_method="POST",
         api_path="/datatables/actions/deploy",
+    ),
+    "create_datatable": _spec(
+        "create_datatable",
+        domain="datatables",
+        operation="write",
+        description=(
+            "Create a new data table via POST /datatables. "
+            "Requires name; optional description, folder, fields, isLive."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"admin", "dry_run", "confirmation"},
+        read_only=False,
+        http_method="POST",
+        api_path="/datatables",
+    ),
+    "export_datatables": _spec(
+        "export_datatables",
+        domain="datatables",
+        operation="write",
+        description=(
+            "Start a data table export task via POST /datatables/actions/export. "
+            "Returns taskId; poll with get_task and download with download_task_file."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"admin", "dry_run", "confirmation", "export"},
+        read_only=False,
+        http_method="POST",
+        api_path="/datatables/actions/export",
     ),
     "get_all_bml_code": _spec(
         "get_all_bml_code",
@@ -285,18 +362,316 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         http_method="GET",
         api_path="/adminMeta",
     ),
+    "get_bml_function": _spec(
+        "get_bml_function",
+        domain="bml",
+        operation="read",
+        description=(
+            "Get one util library BML function by function_id (namespace.variableName). "
+            "Does not export full site zip."
+        ),
+        tags={"bml"},
+        read_only=True,
+        http_method="GET",
+        api_path="/bml/library/functions/{namespace.variableName}",
+    ),
+    "search_bml_scripts": _spec(
+        "search_bml_scripts",
+        domain="bml",
+        operation="read",
+        description=(
+            "Search BML scripts containing a string via GET /bml/scripts. "
+            "Supports q_expr, limit, offset, orderby, fields."
+        ),
+        tags={"bml", "search", "paginated"},
+        read_only=True,
+        http_method="GET",
+        api_path="/bml/scripts",
+    ),
+    "list_bml_common_functions": _spec(
+        "list_bml_common_functions",
+        domain="bml",
+        operation="read",
+        description=(
+            "List built-in BML common functions (atoi, len, etc.) via "
+            "GET /bml/common/functions."
+        ),
+        tags={"bml"},
+        read_only=True,
+        http_method="GET",
+        api_path="/bml/common/functions",
+    ),
+    "get_bml_common_function": _spec(
+        "get_bml_common_function",
+        domain="bml",
+        operation="read",
+        description="Get one BML common function by name via GET /bml/common/functions/{name}.",
+        tags={"bml"},
+        read_only=True,
+        http_method="GET",
+        api_path="/bml/common/functions/{name}",
+    ),
+    "list_bml_library_folders": _spec(
+        "list_bml_library_folders",
+        domain="bml",
+        operation="read",
+        description="List util library folders via GET /bml/library/folders.",
+        tags={"bml"},
+        read_only=True,
+        http_method="GET",
+        api_path="/bml/library/folders",
+    ),
+    "get_bml_dependent_attributes": _spec(
+        "get_bml_dependent_attributes",
+        domain="bml",
+        operation="read",
+        description=(
+            "Return attributes referenced by util library functions via "
+            "POST /bml/library/functions/actions/dependentAttributes. "
+            "Read-like; allowed under READ_ONLY."
+        ),
+        tags={"bml"},
+        read_only=True,
+        http_method="POST",
+        api_path="/bml/library/functions/actions/dependentAttributes",
+    ),
+    "export_bml_library_functions": _spec(
+        "export_bml_library_functions",
+        domain="bml",
+        operation="write",
+        description=(
+            "Export util library functions via POST .../actions/export. "
+            "Returns taskId; use get_task and download_task_file."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"bml", "dry_run", "confirmation", "export"},
+        read_only=False,
+        http_method="POST",
+        api_path="/bml/library/functions/actions/export",
+    ),
+    "get_task": _spec(
+        "get_task",
+        domain="tasks",
+        operation="read",
+        description=(
+            "Get task status/details by task_id (e.g. after export_datatables). "
+            "GET /tasks/{taskId}."
+        ),
+        tags={"tasks"},
+        read_only=True,
+        http_method="GET",
+        api_path="/tasks/{taskId}",
+    ),
+    "download_task_file": _spec(
+        "download_task_file",
+        domain="tasks",
+        operation="read",
+        description=(
+            "Download a file associated with a task (export zip/log). "
+            "GET /tasks/{taskId}/files/{fileName}. Returns [envelope, File]."
+        ),
+        tags={"tasks", "export"},
+        read_only=True,
+        http_method="GET",
+        api_path="/tasks/{taskId}/files/{fileName}",
+    ),
+    "list_product_families": _spec(
+        "list_product_families",
+        domain="configuration",
+        operation="read",
+        description="List product family metadata via GET /productFamilies.",
+        tags={"configuration", "metadata"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies",
+    ),
+    "get_product_family": _spec(
+        "get_product_family",
+        domain="configuration",
+        operation="read",
+        description="Get one product family by prod_fam_var_name.",
+        tags={"configuration", "metadata"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/{prodFamVarName}",
+    ),
+    "list_product_lines": _spec(
+        "list_product_lines",
+        domain="configuration",
+        operation="read",
+        description="List product lines under a product family.",
+        tags={"configuration", "metadata"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/{prodFamVarName}/productLines",
+    ),
+    "get_product_line": _spec(
+        "get_product_line",
+        domain="configuration",
+        operation="read",
+        description="Get one product line by family + line variable names.",
+        tags={"configuration", "metadata"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/{prodFamVarName}/productLines/{prodLineVarName}",
+    ),
+    "list_models": _spec(
+        "list_models",
+        domain="configuration",
+        operation="read",
+        description="List models under a product family/line.",
+        tags={"configuration", "metadata"},
+        read_only=True,
+        http_method="GET",
+        api_path=(
+            "/productFamilies/{prodFamVarName}/productLines/{prodLineVarName}/models"
+        ),
+    ),
+    "get_model": _spec(
+        "get_model",
+        domain="configuration",
+        operation="read",
+        description="Get one model by family, line, and model variable names.",
+        tags={"configuration", "metadata"},
+        read_only=True,
+        http_method="GET",
+        api_path=(
+            "/productFamilies/{prodFamVarName}/productLines/{prodLineVarName}"
+            "/models/{modelVarName}"
+        ),
+    ),
+    "list_config_attributes": _spec(
+        "list_config_attributes",
+        domain="configuration",
+        operation="read",
+        description=(
+            "List configuration attributes at scope family|line|model "
+            "(composite path under /productFamilies/.../attributes)."
+        ),
+        tags={"configuration", "attributes"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../attributes",
+    ),
+    "get_config_attribute": _spec(
+        "get_config_attribute",
+        domain="configuration",
+        operation="read",
+        description=(
+            "Get one configuration attribute at scope family|line|model "
+            "by attribute_var_name."
+        ),
+        tags={"configuration", "attributes"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../attributes/{attributeVarName}",
+    ),
+    "list_array_sets": _spec(
+        "list_array_sets",
+        domain="configuration",
+        operation="read",
+        description="List array sets at scope family|line|model.",
+        tags={"configuration", "arraySets"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../arraySets",
+    ),
+    "get_array_set": _spec(
+        "get_array_set",
+        domain="configuration",
+        operation="read",
+        description="Get one array set at scope family|line|model.",
+        tags={"configuration", "arraySets"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../arraySets/{arraySetVarName}",
+    ),
+    "list_array_set_attributes": _spec(
+        "list_array_set_attributes",
+        domain="configuration",
+        operation="read",
+        description="List attributes of an array set at scope family|line|model.",
+        tags={"configuration", "arraySets", "attributes"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../arraySets/{arraySetVarName}/attributes",
+    ),
+    "get_array_set_attribute": _spec(
+        "get_array_set_attribute",
+        domain="configuration",
+        operation="read",
+        description="Get one array-set attribute at scope family|line|model.",
+        tags={"configuration", "arraySets", "attributes"},
+        read_only=True,
+        http_method="GET",
+        api_path=(
+            "/productFamilies/.../arraySets/{arraySetVarName}/attributes/{attributeVarName}"
+        ),
+    ),
+    "list_config_menu_items": _spec(
+        "list_config_menu_items",
+        domain="configuration",
+        operation="read",
+        description=(
+            "List menu items for an attribute or array-set attribute "
+            "(parent_kind=attribute|array_set_attribute) at scope family|line|model."
+        ),
+        tags={"configuration", "menuItems"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../menuItems",
+    ),
+    "get_config_menu_item": _spec(
+        "get_config_menu_item",
+        domain="configuration",
+        operation="read",
+        description=(
+            "Get one menu item by menu_item_id for an attribute or array-set attribute "
+            "at scope family|line|model."
+        ),
+        tags={"configuration", "menuItems"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../menuItems/{menuItemId}",
+    ),
+    "get_config_layout": _spec(
+        "get_config_layout",
+        domain="configuration",
+        operation="read",
+        description=(
+            "Get a configuration layout by layout_var_name at scope family|line|model."
+        ),
+        tags={"configuration", "layouts"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../layouts/{layoutVarName}",
+    ),
+    "get_layout_cache_attributes": _spec(
+        "get_layout_cache_attributes",
+        domain="configuration",
+        operation="read",
+        description=(
+            "Get layout-cache attributes for a model via "
+            "GET /layoutcache/{fam}/{line}/{model}/attributes."
+        ),
+        tags={"configuration", "layouts"},
+        read_only=True,
+        http_method="GET",
+        api_path="/layoutcache/{prodFamVarName}/{prodLineVarName}/{modelVarName}/attributes",
+    ),
     "get_commerce_attributes": _spec(
         "get_commerce_attributes",
         domain="commerce",
         operation="read",
         description=(
-            "Get metadata for all attributes on a Commerce main document "
-            "(default doc_var_name='transaction'). Uses "
-            "GET /commerceProcesses/{process}/documents/{doc}/attributes. "
-            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
-            "Set expand_all=true to include translations (expand=all*)."
+            "Get metadata for attributes on a Commerce MAIN document "
+            "(default doc_var_name='transaction' — not the line document). "
+            "Returns one page of results (limit/offset). If hasMore is true, call again "
+            "with offset = offset + limit. Defaults process_var_name from "
+            "COMMERCE_PROCESS_VAR_NAME in profile. Set expand_all=true for translations. "
+            "For line-level attributes use get_line_attributes instead."
         ),
-        tags={"metadata", "commerce", "attributes"},
+        tags={"metadata", "commerce", "attributes", "paginated"},
         read_only=True,
         http_method="GET",
         api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/attributes",
@@ -306,13 +681,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="commerce",
         operation="read",
         description=(
-            "Get metadata for all actions on a Commerce main document "
-            "(default doc_var_name='transaction'). Uses "
-            "GET /commerceProcesses/{process}/documents/{doc}/actionDefs. "
-            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
-            "Set expand_all=true to include translations (expand=all*)."
+            "Get metadata for actions on a Commerce MAIN document "
+            "(default doc_var_name='transaction' — not the line document). "
+            "Returns one page of results (limit/offset). If hasMore is true, call again "
+            "with offset = offset + limit. Defaults process_var_name from "
+            "COMMERCE_PROCESS_VAR_NAME in profile. Set expand_all=true for translations. "
+            "For line-level actions use get_line_actions instead."
         ),
-        tags={"metadata", "commerce", "actions"},
+        tags={"metadata", "commerce", "actions", "paginated"},
         read_only=True,
         http_method="GET",
         api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/actionDefs",
@@ -322,13 +698,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="commerce",
         operation="read",
         description=(
-            "Get metadata for all attributes on a Commerce line document "
-            "(default doc_var_name='transactionLine'). Uses "
-            "GET /commerceProcesses/{process}/documents/{doc}/attributes. "
-            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
-            "Set expand_all=true to include translations (expand=all*)."
+            "Get metadata for attributes on a Commerce LINE document "
+            "(default doc_var_name='transactionLine' — not the main/header document). "
+            "Returns one page of results (limit/offset). If hasMore is true, call again "
+            "with offset = offset + limit. Defaults process_var_name from "
+            "COMMERCE_PROCESS_VAR_NAME in profile. Set expand_all=true for translations. "
+            "For header attributes use get_commerce_attributes instead."
         ),
-        tags={"metadata", "commerce", "attributes", "line"},
+        tags={"metadata", "commerce", "attributes", "line", "paginated"},
         read_only=True,
         http_method="GET",
         api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/attributes",
@@ -338,24 +715,296 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="commerce",
         operation="read",
         description=(
-            "Get metadata for all actions on a Commerce line document "
-            "(default doc_var_name='transactionLine'). Uses "
-            "GET /commerceProcesses/{process}/documents/{doc}/actionDefs. "
-            "Defaults process_var_name from COMMERCE_PROCESS_VAR_NAME in profile. "
-            "Set expand_all=true to include translations (expand=all*)."
+            "Get metadata for actions on a Commerce LINE document "
+            "(default doc_var_name='transactionLine' — not the main/header document). "
+            "Returns one page of results (limit/offset). If hasMore is true, call again "
+            "with offset = offset + limit. Defaults process_var_name from "
+            "COMMERCE_PROCESS_VAR_NAME in profile. Set expand_all=true for translations. "
+            "For header actions use get_commerce_actions instead."
         ),
-        tags={"metadata", "commerce", "actions", "line"},
+        tags={"metadata", "commerce", "actions", "line", "paginated"},
         read_only=True,
         http_method="GET",
         api_path="/commerceProcesses/{processVarName}/documents/{docVarName}/actionDefs",
+    ),
+    "get_commerce_attribute": _spec(
+        "get_commerce_attribute",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get one Commerce document attribute definition by attribute_var_name. "
+            "Defaults process from profile, doc_var_name=transaction. "
+            "Does not list all attributes (use get_commerce_attributes)."
+        ),
+        tags={"metadata", "commerce", "attributes"},
+        read_only=True,
+        http_method="GET",
+        api_path=(
+            "/commerceProcesses/{processVarName}/documents/{docVarName}"
+            "/attributes/{attributeVarName}"
+        ),
+    ),
+    "get_commerce_action": _spec(
+        "get_commerce_action",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get one Commerce document action definition by action_var_name. "
+            "Defaults process from profile. Does not list all actions."
+        ),
+        tags={"metadata", "commerce", "actions"},
+        read_only=True,
+        http_method="GET",
+        api_path=(
+            "/commerceProcesses/{processVarName}/documents/{docVarName}"
+            "/actionDefs/{actionVarName}"
+        ),
+    ),
+    "list_commerce_processes": _spec(
+        "list_commerce_processes",
+        domain="commerce",
+        operation="read",
+        description=(
+            "List Commerce process setups (admin metadata). Paginated. "
+            "Does not list live transactions."
+        ),
+        tags={"paginated", "metadata", "commerce"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcessSetups",
+    ),
+    "list_transactions": _spec(
+        "list_transactions",
+        domain="commerce",
+        operation="read",
+        description=(
+            "List Commerce transactions for the configured process "
+            "(GET /commerceDocuments{Process}{Doc}). Returns one page; if hasMore is true, "
+            "call again with offset = offset + limit. Supports q_expr, fields, orderby, "
+            "expand, exclude_field_types, total_results. Defaults process from "
+            "COMMERCE_PROCESS_VAR_NAME and doc_var_name='transaction'. "
+            "Does not create or modify quotes."
+        ),
+        tags={"paginated", "transactions"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceDocuments{Process}{Doc}",
+    ),
+    "get_transaction": _spec(
+        "get_transaction",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get one Commerce transaction by numeric transaction_id. "
+            "Optional expand / exclude_field_types. Defaults process from profile."
+        ),
+        tags={"transactions"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceDocuments{Process}{Doc}/{id}",
+    ),
+    "list_transaction_lines": _spec(
+        "list_transaction_lines",
+        domain="commerce",
+        operation="read",
+        description=(
+            "List line items for a Commerce transaction. Paginated collection with the same "
+            "filter params as list_transactions. Empty items means no lines for that id."
+        ),
+        tags={"paginated", "transactions", "lines"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/transactionLine",
+    ),
+    "get_transaction_line": _spec(
+        "get_transaction_line",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get a single transaction line by transaction_id and document_number "
+            "(line document number)."
+        ),
+        tags={"transactions", "lines"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/transactionLine/{documentNumber}",
+    ),
+    "get_document_layout": _spec(
+        "get_document_layout",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get Commerce desktop layout definition for a process document "
+            "(panels, tabs, actions, attributes). Defaults process from profile and "
+            "doc_var_name='transaction'. Does not return live quote data."
+        ),
+        tags={"metadata", "layout"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcesses/{processVarName}/layouts/{mainDocVarName}",
+    ),
+    "generate_proposal": _spec(
+        "generate_proposal",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Generate a proposal document for a Commerce transaction "
+            "(POST .../actions/generateProposal)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/generateProposal",
+    ),
+    "export_attachment": _spec(
+        "export_attachment",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Export/view a CPQ-generated transaction attachment via REST "
+            "(POST .../actions/{action_var_name}). Requires attribute_var_name "
+            "(attachment attribute; sent as body selections). Returns JSON "
+            "(documents/warnings); does not generate a new proposal "
+            "(use generate_proposal) and does not download file bytes to disk."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "download_attachment": _spec(
+        "download_attachment",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Download file bytes for an existing transaction attachment attribute "
+            "(e.g. proposalAttachment_t). Returns MCP File attachment. "
+            "Does not generate a proposal (use generate_proposal) and does not call "
+            "exportAttachment (use export_attachment)."
+        ),
+        tags={"transactions", "attachments"},
+        read_only=True,
+        http_method="GET",
+        api_path="attachment fileLocation",
+    ),
+    "copy_transaction": _spec(
+        "copy_transaction",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Copy a Commerce transaction (POST .../actions/_copy_transaction)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/_copy_transaction",
+    ),
+    "copy_transaction_lines": _spec(
+        "copy_transaction_lines",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Copy transaction lines onto a Commerce transaction "
+            "(POST .../actions/{action_name}; default action_name=copyLineItems_t)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionName}",
+    ),
+    "list_performance_logs": _spec(
+        "list_performance_logs",
+        domain="performance",
+        operation="read",
+        description=(
+            "List Oracle CPQ performance log events (user activity timing / metrics). "
+            "Returns one page of results. If hasMore is true, call again with "
+            "offset = offset + limit. Supports collection filters: q_expr (MongoDB q), "
+            "fields (attribute projection), orderby (e.g. serverTime:desc), and "
+            "total_results. Empty items means no matching events for the filters. "
+            "Does not export CSV files and does not use Performance Debugger APIs."
+        ),
+        tags={"paginated", "logs"},
+        read_only=True,
+        http_method="GET",
+        api_path="/performanceLogs",
+    ),
+    "get_performance_log": _spec(
+        "get_performance_log",
+        domain="performance",
+        operation="read",
+        description=(
+            "Get a single performance log event by numeric id. "
+            "Does not export CSV and does not create Performance Debugger logs."
+        ),
+        tags={"logs"},
+        read_only=True,
+        http_method="GET",
+        api_path="/performanceLogs/{id}",
+    ),
+    "export_performance_logs": _spec(
+        "export_performance_logs",
+        domain="performance",
+        operation="write",
+        description=(
+            "Export performance log events via REST. Optional log_id for single event. "
+            "Does not list logs (use list_performance_logs)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "logs", "export"},
+        read_only=False,
+        http_method="POST",
+        api_path="/performanceLogs/actions/export",
+    ),
+    "list_parts": _spec(
+        "list_parts",
+        domain="parts",
+        operation="read",
+        description=(
+            "List parts from the CPQ site. Returns one page of results. "
+            "If hasMore is true, call again with offset = offset + limit."
+        ),
+        tags={"paginated"},
+        read_only=True,
+        http_method="GET",
+        api_path="/parts",
+    ),
+    "get_part": _spec(
+        "get_part",
+        domain="parts",
+        operation="read",
+        description="Get a single part by id.",
+        tags={},
+        read_only=True,
+        http_method="GET",
+        api_path="/parts/{id}",
+    ),
+    "search_parts": _spec(
+        "search_parts",
+        domain="parts",
+        operation="read",
+        description=(
+            "Search parts via POST /parts/actions/search with a search body. "
+            "Not a mutating write; allowed under READ_ONLY via client allowlist."
+        ),
+        tags={"search"},
+        read_only=True,
+        http_method="POST",
+        api_path="/parts/actions/search",
     ),
     "discover_tools": _spec(
         "discover_tools",
         domain="meta",
         operation="read",
         description=(
-            "Search and filter the Oracle CPQ MCP tool catalog by domain, operation, "
-            "or free-text query. Use this to find read-only vs write tools before calling them."
+            "Search and filter the Oracle CPQ MCP tool catalog by domain "
+            "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration), "
+            "operation, or free-text query. Use this to find read-only vs write tools "
+            "before calling them."
         ),
         tags={"discovery"},
         read_only=True,

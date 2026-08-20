@@ -1,7 +1,7 @@
 # Oracle CPQ MCP — Technical & Correctness Audit Report
 
 **Date:** 2026-08-20  
-**Scope:** Full codebase audit per [`prompts/audit.md`](../prompts/audit.md)  
+**Scope:** Full codebase audit per [`prompts/audit.md`](../../prompts/audit.md)  
 **Server version:** 0.1.0 (`mcp/oracle_cpq_mcp/__init__.py`)  
 **Tools audited:** 19 (Users, Groups, Data Tables, BML, Commerce metadata, discovery)
 
@@ -17,11 +17,11 @@ Research sources: [Audit MCP tools and errors](89b80c97-1de8-45f8-87d0-76fd71815
 
 **Top 5 risks (by severity):**
 
-1. **P0 — Missing environment / as-of on read responses** — `build_ok_envelope` (`core/responses.py` L42–56) returns only `status`, `tool`, `data`, optional `pagination`. Environment appears only in some BML/export message strings (`tools/bml.py` L31–55, `tools/users.py` L120–126), not as structured fields on every payload. LLM can present **dev** data as production truth.
-2. **P0 — No quote/pricing/approval tools + weak grounding** — `server.py` instructions (L33–43) cover writes/errors but do not forbid answering from training data. Operators may expect commercial Q&A this server cannot ground.
-3. **P0 — Error payloads skip sanitization** — `sanitize_tool_output` (`security/sanitization.py` L67–69) returns error dicts **without redaction**. `CPQAPIError.to_tool_error()` puts raw `body`, `url`, `curl` in `details` (`core/errors.py` L222–246) → CPQ error bodies and usernames can reach the LLM.
-4. **P1 — Silent truncation on bulk export** — `iterate_collection` (`core/pagination.py` L120–127) caps at `max_items` with **server log only**; `export_users_excel` uses this (`exporters/users_excel.py`, `tools/users.py` L120–128) without telling the LLM the export may be incomplete.
-5. **P1 — Commerce metadata may be incomplete** — Commerce tools return raw CPQ JSON with no pagination params/hints (`tools/commerce.py`); large attribute/action sets may be partial without explicit signaling.
+1. **P0 — Missing environment / as-of on read responses** — ~~`build_ok_envelope` returned only `status`, `tool`, `data`~~ **Addressed (2026-08-20):** `stamp_response_context` adds `environment`, `customer_id`, `retrieved_at` on every LLM-facing envelope (`core/responses.py`, `tools/_register.py`).
+2. **P0 — No quote/pricing/approval tools + weak grounding** — `server.py` instructions (L33–43) cover writes/errors but do not forbid answering from training data. Operators may expect commercial Q&A this server cannot ground. *(Not in this fix pass.)*
+3. **P0 — Error payloads skip sanitization** — ~~error early-return skipped redaction~~ **Addressed (2026-08-20):** errors are redacted; LLM `details` omit `response`/`curl` (`security/sanitization.py`, `core/errors.py`).
+4. **P1 — Silent truncation on bulk export** — ~~`iterate_collection` capped with log only~~ **Addressed (2026-08-20):** returns `CollectionFetchResult`; `export_users_excel` surfaces `truncated`/`has_more`/`max_rows`/`row_count`.
+5. **P1 — Commerce metadata may be incomplete** — ~~no pagination~~ **Addressed (2026-08-20):** commerce tools accept `limit`/`offset` and use `enrich_pagination_hint`.
 
 **Safe to connect to production CPQ today?** **No** for write-enabled or accuracy-sensitive production use. **Conditional yes** for **read-only dev/test** exploration with operator awareness: use `READ_ONLY=true`, do not treat answers as quote/pricing truth, and fix P0 grounding/redaction before broader rollout.
 

@@ -1,0 +1,83 @@
+# EXAMPLE ONLY — do not import this file.
+# Copy snippets into registry / validation / tools / server as described in NEW_TOOL.md.
+#
+# Fictional read-only tool: list_widgets
+# Non-negotiables already scaffolded:
+# - typed input with Field(description=...)
+# - catalog ToolSpec
+# - register_tool only (wrapper supplies envelope + stamp + sanitize)
+# - CPQClient for HTTP
+# - Do not catch broadly to hide errors; raise/let _register map to structured errors
+
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import Field
+
+from oracle_cpq_mcp.core.cpq_client import CPQClient
+from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG  # after you add the spec
+from oracle_cpq_mcp.security.validation import _StrictModel
+from oracle_cpq_mcp.tools._register import register_tool
+
+
+# ---------------------------------------------------------------------------
+# 1) security/validation.py — input model
+# ---------------------------------------------------------------------------
+class ListWidgetsInput(_StrictModel):
+    limit: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Page size (1–1000). Clamped by the server.",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based offset for pagination.",
+    )
+
+
+# Map in TOOL_INPUT_MODELS:
+# "list_widgets": ListWidgetsInput,
+
+
+# ---------------------------------------------------------------------------
+# 2) registry/tool_registry.py — catalog entry (illustrative)
+# ---------------------------------------------------------------------------
+# "list_widgets": _spec(
+#     "list_widgets",
+#     domain="widgets",
+#     operation="read",
+#     description=(
+#         "List widgets. Returns one page of results. If hasMore is true, call again "
+#         "with offset = offset + limit. Does not return quote or pricing data."
+#     ),
+#     tags={"paginated"},
+#     read_only=True,
+#     http_method="GET",
+#     api_path="/widgets",
+# ),
+
+
+# ---------------------------------------------------------------------------
+# 3) tools/widgets.py — handler + registration
+# ---------------------------------------------------------------------------
+def register_widget_tools(mcp: Any, client: CPQClient) -> None:
+    def list_widgets(limit: int = 100, offset: int = 0) -> dict[str, Any]:
+        # Raise on failure; do not swallow exceptions into ad-hoc dicts.
+        params = build_page_params(limit, offset)
+        response = client.get("/widgets", params=params)
+        return enrich_pagination_hint(response, "list_widgets")
+
+    list_widgets.__doc__ = TOOL_CATALOG["list_widgets"].description
+    register_tool(mcp, list_widgets, "list_widgets")
+
+
+# ---------------------------------------------------------------------------
+# 4) Tests (stubs)
+# ---------------------------------------------------------------------------
+# - tests/security/test_validation.py: reject unknown fields / bad ids
+# - Contract coverage is automatic once the name is in TOOL_CATALOG
+# - Optional: tests/evals/cases.yaml entry for known-answer behavior

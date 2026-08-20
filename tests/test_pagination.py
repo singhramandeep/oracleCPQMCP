@@ -135,9 +135,11 @@ def test_iterate_collection_paginates(client: CPQClient) -> None:
     )
 
     items = iterate_collection(client, "/users", page_size=100)
-    assert len(items) == 2
-    assert items[0]["login"] == "alice"
-    assert items[1]["login"] == "bob"
+    assert len(items.items) == 2
+    assert items.items[0]["login"] == "alice"
+    assert items.items[1]["login"] == "bob"
+    assert items.truncated is False
+    assert items.has_more is False
     assert route.call_count == 2
     assert route.calls[0].request.url.params["totalResults"] == "true"
     assert route.calls[1].request.url.params["offset"] == "100"
@@ -158,5 +160,8 @@ def test_iterate_collection_respects_max_items(client: CPQClient) -> None:
         )
     )
 
-    items = iterate_collection(client, "/users", page_size=5, max_items=3)
-    assert len(items) == 3
+    result = iterate_collection(client, "/users", page_size=5, max_items=3)
+    assert len(result.items) == 3
+    assert result.truncated is True
+    assert result.has_more is True
+    assert result.max_items == 3

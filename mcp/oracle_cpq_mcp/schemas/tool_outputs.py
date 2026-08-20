@@ -79,6 +79,18 @@ def mcp_tool_output_schema(
         "hint": {"type": "string"},
         "details": {"type": "object", "additionalProperties": True},
         "pagination": {"type": "object", "additionalProperties": True},
+        "environment": {
+            "type": "string",
+            "description": "Active CPQ environment (dev, test, or prod).",
+        },
+        "customer_id": {
+            "type": "string",
+            "description": "Active customer profile id.",
+        },
+        "retrieved_at": {
+            "type": "string",
+            "description": "UTC ISO-8601 timestamp when the tool result was produced.",
+        },
         "data": data_schema
         or {
             "description": "Tool-specific payload for successful or preflight responses.",
@@ -112,7 +124,15 @@ _ATTACHMENT_LEAD_SCHEMA = mcp_tool_output_schema(
 # Tools that return a top-level list (summary envelope + File attachment) cannot declare a
 # compliant MCP object output schema at the tool root; the first list element uses
 # ``_ATTACHMENT_LEAD_SCHEMA`` instead.
-_TOOLS_WITHOUT_OUTPUT_SCHEMA = frozenset({"export_users_excel", "get_all_bml_code"})
+_TOOLS_WITHOUT_OUTPUT_SCHEMA = frozenset(
+    {
+        "export_users_excel",
+        "get_all_bml_code",
+        "download_attachment",
+        "download_task_file",
+        "export_performance_logs",
+    }
+)
 
 TOOL_OUTPUT_SCHEMAS: dict[str, dict[str, Any] | None] = {
     "list_users": _READ_OUTPUT_SCHEMA,
@@ -127,12 +147,60 @@ TOOL_OUTPUT_SCHEMAS: dict[str, dict[str, Any] | None] = {
     "list_datatables": _READ_OUTPUT_SCHEMA,
     "get_datatable": _READ_OUTPUT_SCHEMA,
     "get_datatable_rows": _READ_OUTPUT_SCHEMA,
+    "list_datatable_fields": _READ_OUTPUT_SCHEMA,
+    "get_datatable_field": _READ_OUTPUT_SCHEMA,
     "deploy_datatables": _WRITE_OUTPUT_SCHEMA,
+    "create_datatable": _WRITE_OUTPUT_SCHEMA,
+    "export_datatables": _WRITE_OUTPUT_SCHEMA,
     "get_all_bml_code": None,
+    "get_bml_function": _READ_OUTPUT_SCHEMA,
+    "search_bml_scripts": _READ_OUTPUT_SCHEMA,
+    "list_bml_common_functions": _READ_OUTPUT_SCHEMA,
+    "get_bml_common_function": _READ_OUTPUT_SCHEMA,
+    "list_bml_library_folders": _READ_OUTPUT_SCHEMA,
+    "get_bml_dependent_attributes": _READ_OUTPUT_SCHEMA,
+    "export_bml_library_functions": _WRITE_OUTPUT_SCHEMA,
+    "get_task": _READ_OUTPUT_SCHEMA,
+    "download_task_file": None,
+    "list_product_families": _READ_OUTPUT_SCHEMA,
+    "get_product_family": _READ_OUTPUT_SCHEMA,
+    "list_product_lines": _READ_OUTPUT_SCHEMA,
+    "get_product_line": _READ_OUTPUT_SCHEMA,
+    "list_models": _READ_OUTPUT_SCHEMA,
+    "get_model": _READ_OUTPUT_SCHEMA,
+    "list_config_attributes": _READ_OUTPUT_SCHEMA,
+    "get_config_attribute": _READ_OUTPUT_SCHEMA,
+    "list_array_sets": _READ_OUTPUT_SCHEMA,
+    "get_array_set": _READ_OUTPUT_SCHEMA,
+    "list_array_set_attributes": _READ_OUTPUT_SCHEMA,
+    "get_array_set_attribute": _READ_OUTPUT_SCHEMA,
+    "list_config_menu_items": _READ_OUTPUT_SCHEMA,
+    "get_config_menu_item": _READ_OUTPUT_SCHEMA,
+    "get_config_layout": _READ_OUTPUT_SCHEMA,
+    "get_layout_cache_attributes": _READ_OUTPUT_SCHEMA,
     "get_commerce_attributes": _READ_OUTPUT_SCHEMA,
     "get_commerce_actions": _READ_OUTPUT_SCHEMA,
+    "get_commerce_attribute": _READ_OUTPUT_SCHEMA,
+    "get_commerce_action": _READ_OUTPUT_SCHEMA,
+    "list_commerce_processes": _READ_OUTPUT_SCHEMA,
     "get_line_attributes": _READ_OUTPUT_SCHEMA,
     "get_line_actions": _READ_OUTPUT_SCHEMA,
+    "list_transactions": _READ_OUTPUT_SCHEMA,
+    "get_transaction": _READ_OUTPUT_SCHEMA,
+    "list_transaction_lines": _READ_OUTPUT_SCHEMA,
+    "get_transaction_line": _READ_OUTPUT_SCHEMA,
+    "get_document_layout": _READ_OUTPUT_SCHEMA,
+    "generate_proposal": _WRITE_OUTPUT_SCHEMA,
+    "export_attachment": _WRITE_OUTPUT_SCHEMA,
+    "download_attachment": None,
+    "copy_transaction": _WRITE_OUTPUT_SCHEMA,
+    "copy_transaction_lines": _WRITE_OUTPUT_SCHEMA,
+    "list_performance_logs": _READ_OUTPUT_SCHEMA,
+    "get_performance_log": _READ_OUTPUT_SCHEMA,
+    "export_performance_logs": None,
+    "list_parts": _READ_OUTPUT_SCHEMA,
+    "get_part": _READ_OUTPUT_SCHEMA,
+    "search_parts": _READ_OUTPUT_SCHEMA,
     "discover_tools": _DISCOVER_TOOLS_SCHEMA,
 }
 

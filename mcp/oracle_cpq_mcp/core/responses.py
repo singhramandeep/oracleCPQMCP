@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 WRITE_RESPONSE_STATUSES = frozenset(
@@ -37,6 +38,37 @@ def is_tool_output_envelope(payload: Any) -> bool:
         return "tool" in payload and "data" in payload
 
     return False
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def stamp_response_context(payload: Any, context: Any) -> Any:
+    """Stamp environment, customer_id, and retrieved_at onto LLM-facing envelopes."""
+    if context is None:
+        return payload
+
+    environment = getattr(context, "environment", None)
+    customer_id = getattr(context, "customer_id", None)
+    retrieved_at = _utc_now_iso()
+
+    def _stamp_dict(item: dict[str, Any]) -> dict[str, Any]:
+        stamped = dict(item)
+        if environment is not None:
+            stamped["environment"] = environment
+        if customer_id is not None:
+            stamped["customer_id"] = customer_id
+        stamped["retrieved_at"] = retrieved_at
+        return stamped
+
+    if isinstance(payload, dict):
+        return _stamp_dict(payload)
+
+    if isinstance(payload, list) and payload and isinstance(payload[0], dict):
+        return [_stamp_dict(payload[0]), *payload[1:]]
+
+    return payload
 
 
 def build_ok_envelope(

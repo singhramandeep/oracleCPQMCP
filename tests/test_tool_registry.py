@@ -13,11 +13,19 @@ from oracle_cpq_mcp.registry.tool_registry import (
 
 
 def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
-    assert len(CPQ_API_TOOLS) == 18
+    assert len(CPQ_API_TOOLS) == 66
     assert "discover_tools" in TOOL_CATALOG
     assert "get_all_bml_code" in TOOL_CATALOG
     assert "get_commerce_attributes" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 19
+    assert "list_performance_logs" in TOOL_CATALOG
+    assert "get_performance_log" in TOOL_CATALOG
+    assert "list_transactions" in TOOL_CATALOG
+    assert "generate_proposal" in TOOL_CATALOG
+    assert "export_attachment" in TOOL_CATALOG
+    assert "list_parts" in TOOL_CATALOG
+    assert "get_task" in TOOL_CATALOG
+    assert "list_product_families" in TOOL_CATALOG
+    assert len(TOOL_CATALOG) == 67
 
 
 def test_filter_users_read_tools() -> None:
@@ -32,7 +40,19 @@ def test_filter_users_read_tools() -> None:
 
 def test_filter_write_tools() -> None:
     names = {spec.name for spec in filter_tools(operation="write")}
-    assert names == {"create_group", "deploy_datatables", "update_user"}
+    assert names == {
+        "copy_transaction",
+        "copy_transaction_lines",
+        "create_datatable",
+        "create_group",
+        "deploy_datatables",
+        "export_attachment",
+        "export_bml_library_functions",
+        "export_datatables",
+        "export_performance_logs",
+        "generate_proposal",
+        "update_user",
+    }
 
 
 def test_search_excel_returns_export_tool() -> None:
@@ -49,17 +69,27 @@ def test_search_deploy_returns_deploy_tool() -> None:
 
 def test_search_bml_returns_bml_tool() -> None:
     results = search_tools("bml")
-    assert results
-    assert results[0].name == "get_all_bml_code"
+    names = {spec.name for spec in results}
+    assert "get_all_bml_code" in names
+    assert "get_bml_function" in names
 
 
 def test_filter_commerce_read_tools() -> None:
     names = {spec.name for spec in filter_tools(domain="commerce", operation="read")}
     assert names == {
+        "download_attachment",
+        "get_commerce_action",
         "get_commerce_actions",
+        "get_commerce_attribute",
         "get_commerce_attributes",
+        "get_document_layout",
         "get_line_actions",
         "get_line_attributes",
+        "get_transaction",
+        "get_transaction_line",
+        "list_commerce_processes",
+        "list_transaction_lines",
+        "list_transactions",
     }
 
 
@@ -97,13 +127,37 @@ def test_mcp_tool_kwargs_destructive_write_tool() -> None:
 
 
 def test_write_tool_descriptions_mention_dry_run() -> None:
-    for name in ("update_user", "create_group", "deploy_datatables"):
+    for name in (
+        "update_user",
+        "create_group",
+        "deploy_datatables",
+        "create_datatable",
+        "export_datatables",
+        "export_bml_library_functions",
+        "generate_proposal",
+        "export_attachment",
+        "export_performance_logs",
+        "copy_transaction",
+        "copy_transaction_lines",
+    ):
         assert "dry_run" in TOOL_CATALOG[name].description.lower()
         assert "confirmation_token" in TOOL_CATALOG[name].description.lower()
 
 
 def test_write_tool_tags_include_dry_run_and_confirmation() -> None:
-    for name in ("update_user", "create_group", "deploy_datatables"):
+    for name in (
+        "update_user",
+        "create_group",
+        "deploy_datatables",
+        "create_datatable",
+        "export_datatables",
+        "export_bml_library_functions",
+        "generate_proposal",
+        "export_attachment",
+        "export_performance_logs",
+        "copy_transaction",
+        "copy_transaction_lines",
+    ):
         assert "dry_run" in TOOL_CATALOG[name].tags
         assert "confirmation" in TOOL_CATALOG[name].tags
 

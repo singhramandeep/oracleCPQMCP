@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from oracle_cpq_mcp.core.commerce_paths import (
     commerce_document_path,
+    commerce_documents_base,
+    commerce_layout_path,
     commerce_query_params,
     resolve_process_var_name,
 )
@@ -27,9 +29,28 @@ def test_commerce_document_path() -> None:
     assert path == "/commerceProcesses/oraclecpqo/documents/transaction/attributes"
 
 
+def test_commerce_documents_base_capitalizes_segments() -> None:
+    assert (
+        commerce_documents_base("oraclecpqo", "transaction")
+        == "/commerceDocumentsOraclecpqoTransaction"
+    )
+
+
+def test_commerce_layout_path() -> None:
+    assert (
+        commerce_layout_path("oraclecpqo", "transaction")
+        == "/commerceProcesses/oraclecpqo/layouts/transaction"
+    )
+
+
 def test_commerce_query_params_expand_all() -> None:
     assert commerce_query_params(expand_all=True) == {"expand": "all*"}
     assert commerce_query_params(expand_all=False) is None
+
+
+def test_commerce_query_params_includes_pagination() -> None:
+    params = commerce_query_params(expand_all=False, limit=50, offset=100)
+    assert params == {"limit": 50, "offset": 100, "totalResults": "true"}
 
 
 def test_resolve_process_var_name_from_profile() -> None:

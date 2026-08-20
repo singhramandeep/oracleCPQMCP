@@ -28,7 +28,7 @@ def status_display(user: dict) -> str:
 
 def emails_for_env(env: str) -> tuple[list[dict], dict[str, list[dict]]]:
     client = CPQClient(load_profile(None, env))
-    users = fetch_all_users(client, status_filter="all")
+    users = fetch_all_users(client, status_filter="all").items
     by_email: dict[str, list[dict]] = {}
     for user in users:
         email = normalize_email(user)

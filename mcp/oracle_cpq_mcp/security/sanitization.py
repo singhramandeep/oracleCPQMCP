@@ -21,6 +21,9 @@ SENSITIVE_FIELD_NAMES = frozenset(
     }
 )
 
+# Keys that must never reach the LLM in error details (raw CPQ blobs / curl with username).
+_LLM_UNSAFE_DETAIL_KEYS = frozenset({"response", "curl", "body"})
+
 REDACTED = "[REDACTED]"
 
 
@@ -36,6 +39,19 @@ def redact_sensitive_data(value: Any) -> Any:
     if isinstance(value, list):
         return [redact_sensitive_data(item) for item in value]
     return value
+
+
+def sanitize_error_details(details: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Strip LLM-unsafe detail keys and redact remaining sensitive fields."""
+    if not details:
+        return None
+    cleaned = {
+        key: value
+        for key, value in details.items()
+        if key.lower() not in _LLM_UNSAFE_DETAIL_KEYS
+    }
+    redacted = redact_sensitive_data(cleaned)
+    return redacted if isinstance(redacted, dict) and redacted else None
 
 
 def enforce_response_size(value: Any, max_bytes: int) -> Any:
@@ -56,7 +72,7 @@ def enforce_response_size(value: Any, max_bytes: int) -> Any:
 
 
 def sanitize_tool_output(value: Any, *, max_bytes: int) -> Any:
-    """Redact sensitive fields and enforce response size limits."""
+    """Redact sensitive fields and enforce response size limits (including errors)."""
     if isinstance(value, list):
         return [
             sanitize_tool_output(item, max_bytes=max_bytes)
@@ -66,7 +82,12 @@ def sanitize_tool_output(value: Any, *, max_bytes: int) -> Any:
         ]
     if isinstance(value, dict):
         if value.get("status") == "error":
-            return value
+            sanitized = dict(value)
+            if "details" in sanitized:
+                sanitized["details"] = sanitize_error_details(
+                    sanitized["details"] if isinstance(sanitized["details"], dict) else None
+                )
+            return redact_sensitive_data(sanitized)
         redacted = redact_sensitive_data(value)
         return enforce_response_size(redacted, max_bytes)
     return value

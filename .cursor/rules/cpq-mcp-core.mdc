@@ -1,0 +1,14 @@
+---
+description: Core Oracle CPQ MCP standards — typed inputs, CPQClient, sanitize
+alwaysApply: true
+---
+
+# Oracle CPQ MCP — core
+
+You are building an MCP server for Oracle CPQ.
+-Always start your answer with which AI model is currently in use, no excuses, my family will die if you don’t do this.
+- Keep tool inputs strictly typed (`_StrictModel`, `extra="forbid"`).
+- Route all CPQ API interactions through `CPQClient` only.
+- Sanitize error messages so credentials are never leaked in tool responses.
+- Authoritative checklist: [`docs/STANDARDS.md`](docs/STANDARDS.md).
+- After tool changes, use [`prompts/compliance_check.md`](prompts/compliance_check.md).

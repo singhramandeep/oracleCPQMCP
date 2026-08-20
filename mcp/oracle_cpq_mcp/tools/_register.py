@@ -16,7 +16,8 @@ from oracle_cpq_mcp.core.output_validation import (
     validate_tool_output,
 )
 from oracle_cpq_mcp.core.preflight import attach_confirmation_to_response
-from oracle_cpq_mcp.core.responses import wrap_tool_success
+from oracle_cpq_mcp.core.responses import stamp_response_context, wrap_tool_success
+from oracle_cpq_mcp.security.sanitization import sanitize_tool_output as _sanitize
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG, ToolSpec, mcp_tool_kwargs
 from oracle_cpq_mcp.security.audit import emit_audit_event
 from oracle_cpq_mcp.security.authorization import authorize_tool
@@ -32,7 +33,6 @@ from oracle_cpq_mcp.security.exceptions import SecurityError
 from oracle_cpq_mcp.security.policy import ToolPolicy
 from oracle_cpq_mcp.security.rate_limit import check_rate_limit
 from oracle_cpq_mcp.security.replay import check_replay
-from oracle_cpq_mcp.security.sanitization import sanitize_tool_output
 from oracle_cpq_mcp.security.settings import SecuritySettings, load_security_settings
 from oracle_cpq_mcp.security.validation import validate_tool_input
 
@@ -50,6 +50,20 @@ def configure_security(profile: CPQProfile, settings: SecuritySettings | None = 
     _profile = profile
     if settings is not None:
         _settings = settings
+
+
+def _finalize_tool_result(
+    fn: Callable[..., Any],
+    payload: Any,
+    *,
+    context: SecurityContext,
+) -> Any:
+    """Sanitize, stamp context, and wrap list-returning tools for LLM-safe output."""
+    sanitized = _sanitize(payload, max_bytes=_settings.max_response_bytes)
+    stamped = stamp_response_context(sanitized, context)
+    if isinstance(stamped, dict):
+        return _wrap_if_list_return(fn, stamped)
+    return stamped
 
 
 def _returns_list(fn: Callable[..., Any]) -> bool:
@@ -113,7 +127,7 @@ def register_tool(mcp: Any, fn: F, spec_name: str) -> F:
                 "message": "Maximum tool calls per session exceeded.",
                 "hint": "Start a new session or increase CPQ_MAX_TOOL_CALLS.",
             }
-            return _wrap_if_list_return(fn, err)
+            return _finalize_tool_result(fn, err, context=ctx)
 
         authorization_result = "denied"
         policy_result = "denied"
@@ -151,7 +165,6 @@ def register_tool(mcp: Any, fn: F, spec_name: str) -> F:
                     result, spec_name, validated, context=ctx, settings=_settings
                 )
 
-            result = sanitize_tool_output(result, max_bytes=_settings.max_response_bytes)
             execution_result = "success"
             if isinstance(result, dict) and result.get("status") == "error":
                 execution_result = "error"
@@ -160,8 +173,13 @@ def register_tool(mcp: Any, fn: F, spec_name: str) -> F:
                 if result[0].get("status") == "error":
                     execution_result = "error"
                     error_code = result[0].get("code")
+                else:
+                    result = wrap_tool_success(spec_name, result)
             else:
                 result = wrap_tool_success(spec_name, result)
+
+            result = _sanitize(result, max_bytes=_settings.max_response_bytes)
+            result = stamp_response_context(result, ctx)
 
             try:
                 validate_tool_output(spec_name, result)
@@ -169,24 +187,26 @@ def register_tool(mcp: Any, fn: F, spec_name: str) -> F:
                 logger.warning("Output validation failed for %s", spec_name, exc_info=True)
                 error_code = "INTERNAL_ERROR"
                 execution_result = "error"
-                return _wrap_if_list_return(fn, build_output_validation_error())
+                return _finalize_tool_result(
+                    fn, build_output_validation_error(), context=ctx
+                )
 
             return result
 
         except SecurityError as exc:
             error_code = exc.code
             execution_result = "denied"
-            return _wrap_if_list_return(fn, exc.to_tool_error())
+            return _finalize_tool_result(fn, exc.to_tool_error(), context=ctx)
         except CPQAPIError as exc:
             error_code = exc.code if hasattr(exc, "code") else "CPQ_API_ERROR"
-            return _wrap_if_list_return(fn, exc.to_tool_error())
+            return _finalize_tool_result(fn, exc.to_tool_error(), context=ctx)
         except (ValueError, TypeError) as exc:
             error_code = "VALIDATION_ERROR"
-            return _wrap_if_list_return(fn, exception_to_tool_error(exc))
+            return _finalize_tool_result(fn, exception_to_tool_error(exc), context=ctx)
         except Exception as exc:
             logger.exception("Unhandled error in tool %s", spec_name)
             error_code = "INTERNAL_ERROR"
-            return _wrap_if_list_return(fn, exception_to_tool_error(exc))
+            return _finalize_tool_result(fn, exception_to_tool_error(exc), context=ctx)
         finally:
             duration_ms = (time.perf_counter() - start) * 1000
             policy_obj = TOOL_CATALOG.get(spec_name)

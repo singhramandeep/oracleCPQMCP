@@ -217,9 +217,13 @@ class CPQAPIError(Exception):
                 self.hint
                 or "CPQ returned an unexpected payload shape; verify REST API version and endpoint.",
             )
-        return "CPQ_API_ERROR", self.hint or "Review the CPQ API response in details.response."
+        return (
+            "CPQ_API_ERROR",
+            self.hint or "Review server logs for the CPQ API response; details are not returned to the client.",
+        )
 
     def _build_details(self) -> dict[str, Any]:
+        """Build LLM-safe details (no raw CPQ body or curl — those stay in server logs)."""
         details: dict[str, Any] = {}
         if self.status_code is not None:
             details["status_code"] = self.status_code
@@ -229,10 +233,6 @@ class CPQAPIError(Exception):
             details["path"] = self.path
         if self.url:
             details["url"] = self.url
-        if self.curl_command:
-            details["curl"] = self.curl_command
-        if self.body is not None:
-            details["response"] = self.body
         return details
 
     def to_tool_error(self) -> dict[str, Any]:

@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "description": "Offline known-answer cases for tool-level accuracy regressions (not free-form LLM chat).",
+  "cases": [
+    {
+      "id": "discover_tools_users_domain",
+      "tool": "discover_tools",
+      "kwargs": {"domain": "users", "limit": 20},
+      "expect": {
+        "status": "ok",
+        "data_contains_tool": "list_users"
+      }
+    },
+    {
+      "id": "list_users_empty_page",
+      "tool": "list_users",
+      "kwargs": {"limit": 10, "offset": 0},
+      "mock": {"items": [], "hasMore": false},
+      "expect": {
+        "status": "ok",
+        "items_len": 0
+      }
+    },
+    {
+      "id": "list_users_has_more_hint",
+      "tool": "list_users",
+      "kwargs": {"limit": 2, "offset": 0},
+      "mock": {
+        "items": [{"login": "a"}, {"login": "b"}],
+        "hasMore": true,
+        "offset": 0,
+        "limit": 2
+      },
+      "expect": {
+        "status": "ok",
+        "has_pagination_next": true
+      }
+    },
+    {
+      "id": "get_user_known_party",
+      "tool": "get_user",
+      "kwargs": {"party_number": "BM_known"},
+      "mock_user": {
+        "partyNumber": "BM_known",
+        "login": "known_user",
+        "email": "known@example.com"
+      },
+      "expect": {
+        "status": "ok",
+        "data_login": "known_user"
+      }
+    },
+    {
+      "id": "get_user_not_found",
+      "tool": "get_user",
+      "kwargs": {"party_number": "BM_missing"},
+      "mock_error": {"status_code": 404},
+      "expect": {
+        "status": "error",
+        "code": "NOT_FOUND"
+      }
+    },
+    {
+      "id": "export_users_truncation_flags",
+      "tool": "export_users_excel",
+      "kwargs": {},
+      "mock": {"items": [{"login": "u1", "email": "u1@example.com"}], "hasMore": false},
+      "expect": {
+        "status": "ok",
+        "attachment": true,
+        "truncated": false,
+        "row_count": 1
+      }
+    },
+    {
+      "id": "commerce_attrs_page",
+      "tool": "get_commerce_attributes",
+      "kwargs": {"process_var_name": "oraclecpqo", "limit": 5, "offset": 0},
+      "mock": {
+        "items": [{"variableName": "attr1"}],
+        "hasMore": false,
+        "offset": 0,
+        "limit": 5
+      },
+      "expect": {
+        "status": "ok",
+        "items_len": 1
+      }
+    },
+    {
+      "id": "list_datatables_empty",
+      "tool": "list_datatables",
+      "kwargs": {},
+      "mock": {"items": [], "hasMore": false},
+      "expect": {
+        "status": "ok",
+        "items_len": 0
+      }
+    },
+    {
+      "id": "update_user_dry_run_preflight",
+      "tool": "update_user",
+      "kwargs": {
+        "party_number": "BM_known",
+        "patch_body": {"firstName": "Eval"},
+        "dry_run": true
+      },
+      "mock_user": {"partyNumber": "BM_known", "login": "known_user"},
+      "expect": {
+        "status": "preflight_ok"
+      }
+    },
+    {
+      "id": "gmail_filter_via_q_expr_shape",
+      "tool": "list_users",
+      "kwargs": {
+        "status_filter": "all",
+        "q_expr": "{'email':{'$like':'%@gmail.com%'}}"
+      },
+      "mock": {
+        "items": [{"login": "g1", "email": "g1@gmail.com"}],
+        "hasMore": false
+      },
+      "expect": {
+        "status": "ok",
+        "items_len": 1
+      }
+    },
+    {
+      "id": "list_performance_logs_page",
+      "tool": "list_performance_logs",
+      "kwargs": {
+        "limit": 2,
+        "offset": 0,
+        "orderby": ["serverTime:desc"],
+        "fields": ["id", "event", "serverTime"]
+      },
+      "mock": {
+        "items": [{"id": 1, "event": "Logout", "serverTime": 500}],
+        "hasMore": false,
+        "offset": 0,
+        "limit": 2
+      },
+      "expect": {
+        "status": "ok",
+        "items_len": 1
+      }
+    }
+  ]
+}

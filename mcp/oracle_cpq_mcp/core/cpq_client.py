@@ -17,6 +17,20 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 60.0
 _MUTATING_METHODS = frozenset({"POST", "PATCH", "PUT", "DELETE"})
+_SAFE_READ_POST_SUFFIXES = frozenset(
+    {
+        "/parts/actions/search",
+        "/bml/library/functions/actions/dependentAttributes",
+    }
+)
+
+
+def _is_safe_read_post(method: str, path: str) -> bool:
+    """Allow specific non-mutating POST search endpoints under READ_ONLY."""
+    if method.upper() != "POST":
+        return False
+    normalized = path if path.startswith("/") else f"/{path}"
+    return any(normalized.rstrip("/").endswith(suffix) for suffix in _SAFE_READ_POST_SUFFIXES)
 
 
 def format_curl_command(
@@ -86,7 +100,11 @@ class CPQClient:
         json_body: Any = None,
     ) -> Any:
         method_upper = method.upper()
-        if self.profile.read_only and method_upper in _MUTATING_METHODS:
+        if (
+            self.profile.read_only
+            and method_upper in _MUTATING_METHODS
+            and not _is_safe_read_post(method_upper, path)
+        ):
             url = self._build_url(path, params)
             curl_command = self._to_curl(method, url, json_body)
             message = (
@@ -234,6 +252,101 @@ class CPQClient:
             )
             logger.error(
                 "CPQ binary request failed — curl: %s — response: %s",
+                curl_command,
+                body,
+            )
+            raise CPQAPIError(
+                message,
+                code=error_code,
+                hint=error_hint,
+                status_code=response.status_code,
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                body=body,
+                password=self.profile.password,
+            )
+
+        return response.content
+
+    def post_bytes(
+        self,
+        path: str,
+        *,
+        json_body: Any = None,
+        params: dict[str, Any] | None = None,
+        accept: str = "*/*",
+    ) -> bytes:
+        """POST and return raw response bytes (e.g. export downloads)."""
+        method_upper = "POST"
+        if (
+            self.profile.read_only
+            and not _is_safe_read_post(method_upper, path)
+        ):
+            url = self._build_url(path, params)
+            curl_command = self._to_curl(method_upper, url, json_body)
+            raise CPQAPIError(
+                f"READ_ONLY mode — POST {path} is blocked. "
+                "Set READ_ONLY=false in the profile .env to allow DML.",
+                code="READ_ONLY_BLOCKED",
+                hint="Set READ_ONLY=false in the profile .env to allow create/update/deploy operations.",
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                password=self.profile.password,
+            )
+
+        url = self._build_url(path, params)
+        curl_command = self._to_curl(method_upper, url, json_body)
+        self._log_request(method_upper, url, json_body)
+
+        try:
+            with httpx.Client(
+                auth=(self.profile.username, self.profile.password),
+                timeout=self.timeout,
+                headers={
+                    "Accept": accept,
+                    "Content-Type": "application/json",
+                },
+            ) as client:
+                response = client.post(url, json=json_body)
+        except httpx.RequestError as exc:
+            message = sanitize_message(str(exc), self.profile.password)
+            logger.error(
+                "CPQ binary POST failed — curl: %s — response: (none)",
+                curl_command,
+            )
+            raise CPQAPIError(
+                f"Request to CPQ failed: {message}",
+                code="NETWORK_ERROR",
+                hint="Verify the CPQ base URL, network/VPN connectivity, and site availability.",
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                password=self.profile.password,
+            ) from exc
+
+        if response.status_code >= 400:
+            body: Any
+            try:
+                body = response.json()
+            except ValueError:
+                body = response.text[:2000]
+            error_code, error_hint = classify_http_error(
+                response.status_code,
+                method=method_upper,
+                path=path,
+                body=body,
+            )
+            message = sanitize_message(
+                f"CPQ API error {response.status_code} for POST {path}",
+                self.profile.password,
+            )
+            logger.error(
+                "CPQ binary POST failed — curl: %s — response: %s",
                 curl_command,
                 body,
             )

@@ -91,6 +91,39 @@ def test_register_tool_wraps_success_payload() -> None:
     assert result["status"] == "ok"
     assert result["tool"] == "get_user"
     assert result["data"]["partyNumber"] == "user123"
+    assert result["environment"] == "dev"
+    assert result["customer_id"] == "test"
+    assert "retrieved_at" in result
+
+
+def test_register_tool_stamps_error_envelope() -> None:
+    class FakeMcp:
+        def tool(self, **kwargs: Any):
+            def decorator(fn: Any) -> Any:
+                return fn
+
+            return decorator
+
+    def boom(party_number: str) -> dict[str, Any]:
+        raise CPQAPIError(
+            "CPQ API error 404 for GET /users/x",
+            status_code=404,
+            method="GET",
+            path="/users/x",
+            body={"password": "must-not-leak"},
+            curl_command="curl -u 'user:***'",
+        )
+
+    boom.__doc__ = "test"
+    wrapped = register_tool(FakeMcp(), boom, "get_user")
+    result = wrapped(party_number="user123")
+    assert result["status"] == "error"
+    assert result["code"] == "NOT_FOUND"
+    assert result["environment"] == "dev"
+    assert "retrieved_at" in result
+    assert "response" not in (result.get("details") or {})
+    assert "curl" not in (result.get("details") or {})
+    assert "must-not-leak" not in str(result)
 
 
 def test_register_tool_passes_output_schema() -> None:

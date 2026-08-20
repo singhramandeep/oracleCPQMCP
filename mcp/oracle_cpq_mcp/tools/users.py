@@ -93,7 +93,7 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
         report_tool_progress(0, 1, message="Starting CPQ user export")
 
-        users = fetch_all_users(
+        fetch_result = fetch_all_users(
 
             client,
 
@@ -102,6 +102,8 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
             q_expr=q_expr,
 
         )
+
+        users = fetch_result.items
 
         report_tool_progress(0.5, 1, message=f"Building Excel workbook for {len(users)} users")
 
@@ -117,21 +119,41 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
         )
 
-        summary = (
+        if fetch_result.truncated:
 
-            f"Exported {len(users)} users from "
+            summary = (
 
-            f"{client.profile.customer_name} ({client.profile.environment}) "
+                f"Exported {len(users)} users from "
 
-            f"to {filename}."
+                f"{client.profile.customer_name} ({client.profile.environment}) "
 
-        )
+                f"to {filename} (truncated at max_rows={fetch_result.max_items})."
+
+            )
+
+        else:
+
+            summary = (
+
+                f"Exported {len(users)} users from "
+
+                f"{client.profile.customer_name} ({client.profile.environment}) "
+
+                f"to {filename}."
+
+            )
 
         return [
             build_attachment_lead_envelope(
                 "export_users_excel",
                 message=summary,
                 filename=filename,
+                extra={
+                    "truncated": fetch_result.truncated,
+                    "max_rows": fetch_result.max_items,
+                    "row_count": len(users),
+                    "has_more": fetch_result.has_more,
+                },
             ),
             File(
                 data=xlsx_bytes,

@@ -43,10 +43,13 @@ def fetch_all_util_library_code(
     client: CPQClient,
     *,
     max_functions: int = DEFAULT_MAX_UTIL_FUNCTIONS,
-) -> list[dict[str, Any]]:
-    """Fetch util library function metadata and scriptText for every function."""
+) -> tuple[list[dict[str, Any]], bool, bool]:
+    """Fetch util library function metadata and scriptText for every function.
+
+    Returns ``(functions, truncated, has_more)`` from the collection fetch.
+    """
     report_tool_progress(0, float(max_functions), message="Listing util library functions")
-    summaries = iterate_collection(
+    fetch_result = iterate_collection(
         client,
         "/bml/library/functions",
         page_size=100,
@@ -58,9 +61,9 @@ def fetch_all_util_library_code(
         ),
     )
     functions: list[dict[str, Any]] = []
-    total = len(summaries)
+    total = len(fetch_result.items)
 
-    for index, item in enumerate(summaries, start=1):
+    for index, item in enumerate(fetch_result.items, start=1):
         if not isinstance(item, dict):
             continue
         resource_id = library_function_resource_id(item)
@@ -87,4 +90,4 @@ def fetch_all_util_library_code(
             }
         )
 
-    return functions
+    return functions, fetch_result.truncated, fetch_result.has_more

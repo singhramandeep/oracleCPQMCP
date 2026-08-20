@@ -13,20 +13,33 @@ _CATALOG_DOMAINS = frozenset(spec.domain for spec in TOOL_CATALOG.values())
 
 
 def test_tool_catalog_count() -> None:
-    assert len(TOOL_CATALOG) == 19
+    assert len(TOOL_CATALOG) == 67
 
 
-def test_readme_documents_nineteen_tools() -> None:
+def test_readme_documents_sixty_seven_tools() -> None:
     text = README.read_text(encoding="utf-8")
-    assert "19 MCP tools" in text
+    assert "67 MCP tools" in text
+    assert "41 MCP tools" not in text
+    assert "30 MCP tools" not in text
+    assert "29 MCP tools" not in text
+    assert "21 MCP tools" not in text
+    assert "19 MCP tools" not in text
     assert "14 MCP tools" not in text
 
 
-def test_readme_documents_bml_and_commerce() -> None:
+def test_readme_documents_bml_commerce_and_performance() -> None:
     text = README.read_text(encoding="utf-8")
     assert "get_all_bml_code" in text
     assert "BML" in text
     assert "commerce" in text.lower()
+    assert "list_performance_logs" in text
+    assert "performance" in text.lower()
+    assert "list_transactions" in text
+    assert "list_parts" in text
+    assert "get_task" in text
+    assert "list_product_families" in text
+    assert "Untested" in text
+    assert "Testing status" in text
 
 
 def test_readme_tool_summary_covers_all_domains() -> None:

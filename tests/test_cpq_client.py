@@ -56,10 +56,10 @@ def test_get_api_error_sanitizes_password(client: CPQClient, profile: CPQProfile
     assert payload["status"] == "error"
     assert payload["code"] == "UNAUTHORIZED"
     assert "details" in payload
-    assert "curl" in payload["details"]
+    assert "curl" not in payload["details"]
+    assert "response" not in payload["details"]
     assert "url" in payload["details"]
-    assert "response" in payload["details"]
-    assert profile.password not in payload["details"]["curl"]
+    assert "path" in payload["details"]
 
 
 @respx.mock
@@ -75,9 +75,9 @@ def test_get_api_error_includes_curl_with_query_params(client: CPQClient) -> Non
     curl = exc_info.value.curl_command or ""
     assert "limit=5" in curl
     assert "offset=0" in curl
-    assert exc_info.value.to_dict()["details"]["response"] == {
-        "error": "Incorrect user or password"
-    }
+    # Raw CPQ body stays on the exception for server logs, not in LLM tool details.
+    assert exc_info.value.body == {"error": "Incorrect user or password"}
+    assert "response" not in exc_info.value.to_dict()["details"]
 
 
 @respx.mock
@@ -91,9 +91,10 @@ def test_request_error_includes_curl_without_response(client: CPQClient) -> None
     assert payload["status"] == "error"
     assert payload["code"] == "NETWORK_ERROR"
     assert "details" in payload
-    assert "curl" in payload["details"]
+    assert "curl" not in payload["details"]
     assert "url" in payload["details"]
     assert "response" not in payload["details"]
+    assert "***" in (exc_info.value.curl_command or "")
 
 
 def test_format_curl_command_redacts_password() -> None:
@@ -149,6 +150,27 @@ def test_mutating_request_blocked_when_read_only(profile: CPQProfile) -> None:
         client.patch("/users/12345", json_body={"email": "new@b.com"})
 
     assert not patch_route.called
+
+
+@respx.mock
+def test_parts_search_allowed_when_read_only(profile: CPQProfile) -> None:
+    read_only_profile = CPQProfile(
+        customer_name=profile.customer_name,
+        customer_id=profile.customer_id,
+        environment=profile.environment,
+        base_url=profile.base_url,
+        credentials=profile.credentials,
+        rest_version=profile.rest_version,
+        company_login_name=profile.company_login_name,
+        read_only=True,
+    )
+    client = CPQClient(read_only_profile)
+    route = respx.post("https://dev.example.com/rest/v18/parts/actions/search").mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    result = client.post("/parts/actions/search", json_body={"criteria": {}})
+    assert result == {"items": []}
+    assert route.called
 
 
 @respx.mock

@@ -66,10 +66,8 @@ def test_cpq_api_error_to_tool_error_includes_details() -> None:
     assert payload["details"]["method"] == "GET"
     assert payload["details"]["path"] == "/users"
     assert payload["details"]["url"] == "https://dev.example.com/rest/v18/users?limit=5"
-    assert payload["details"]["curl"] == (
-        "curl -X GET -u 'user:***' 'https://dev.example.com/rest/v18/users?limit=5'"
-    )
-    assert payload["details"]["response"] == {"error": "Unauthorized"}
+    assert "curl" not in payload["details"]
+    assert "response" not in payload["details"]
 
 
 def test_cpq_api_error_to_dict_is_alias_for_to_tool_error() -> None:

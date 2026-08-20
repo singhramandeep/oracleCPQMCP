@@ -30,6 +30,17 @@ venv/
 # Customer CPQ profiles contain DEV_PASSWORD, TEST_PASSWORD, etc.
 .config/*.env
 !.config/.env.example
+docs/*.md 
+!docs/QUICKSTART.md
+!docs/SETUP.md
+!docs/STANDARDS.md
+!docs/COMMON_PROMPTS.md
+!docs/RELEASE_NOTES.md
+
+# Local Focalpoint/scratch dumps (never commit)
+tmp_*
+
+
 
 # Root or stray env files
 .env

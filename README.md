@@ -88,8 +88,10 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 | Document | Contents |
 |----------|----------|
 | [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts |
-| [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | Technical audit — MCP correctness, hallucination risk, security, action plan |
+| [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
+| [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Release notes — auto-updated from git via `python scripts/update_release_notes.py` |
 | [docs/SETUP.md](docs/SETUP.md) | Short setup summary |
+| [docs/others/AUDIT_REPORT.md](docs/others/AUDIT_REPORT.md) | Historical technical audit (archived) |
 | [SECURITY.md](SECURITY.md) | Guardrails, confirmation tokens, audit |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Security test suite and CI |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | STRIDE / MCP threat analysis |
@@ -97,20 +99,33 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 
 ## Features
 
-- **19 MCP tools** — users, groups, data tables, BML export, commerce metadata, tool discovery
+- **67 MCP tools** — users, groups, data tables, BML, commerce metadata/transactions, performance logs, parts, tasks, configuration (productFamilies), tool discovery
 - **Read-only by default** — profile `READ_ONLY=true` blocks all mutations
 - **Safe writes** — preflight + HMAC `confirmation_token` (when writes enabled)
 - **Structured errors** — `{status, code, message, hint, details}` (no stack traces)
 - **Consistent output envelopes** — read/write tools return MCP object payloads (`status`, `tool`, `data`; errors use `status: error`)
 - **Server-side security** — validation, rate limits, replay protection, output redaction, post-execution output schema validation
 
+### Testing status (live CPQ)
+
+Offline unit/contract tests cover the full catalog. Against a live CPQ site, the **scope C** additions below are **untested** for now (no Focalpoint smoke yet):
+
+| Area | Tools | Live status |
+|------|--------|-------------|
+| Data tables (new) | `create_datatable`, `export_datatables` | **Untested** |
+| BML (new) | `search_bml_scripts`, `list_bml_common_functions`, `get_bml_common_function`, `list_bml_library_folders`, `get_bml_dependent_attributes`, `export_bml_library_functions` | **Untested** |
+| Tasks | `get_task`, `download_task_file` | **Untested** |
+| Configuration | All `productFamilies` / layoutcache tools (`list_product_families` … `get_layout_cache_attributes`) | **Untested** |
+
+Previously shipped domains (users, groups, existing datatable list/get/deploy, core BML export, commerce, performance, parts, `discover_tools`) are unchanged by this note.
+
 ## MCP tools (summary)
 
-**19 tools** across six domains. Use `discover_tools(domain="users", operation="read")`, `discover_tools(domain="bml")`, or `discover_tools(domain="commerce")` in Agent mode to filter the catalog.
+**67 tools** across users, groups, datatables, BML, commerce, performance, parts, tasks, configuration, and meta. Use `discover_tools(domain="users", operation="read")`, `discover_tools(domain="configuration")`, or `discover_tools(domain="tasks")` in Agent mode to filter the catalog.
 
 Write tools default to **dry-run preflight** (`dry_run=true`). Mutations require user confirmation, `dry_run=false`, and a `confirmation_token` from preflight. Blocked when `READ_ONLY=true` (default).
 
-BML zip export returns `[object envelope, File attachment]`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME` in your profile.
+BML zip export returns `[object envelope, File attachment]`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME` in your profile. Async exports return a `taskId` — use `get_task` then `download_task_file` (both **untested** live).
 
 ### Users
 
@@ -138,13 +153,24 @@ BML zip export returns `[object envelope, File attachment]`. Commerce tools defa
 | `list_datatables` | Read | List data tables defined on the CPQ site. Paginated. **API:** `GET /datatables` |
 | `get_datatable` | Read | Get **schema/metadata** for a data table (columns, types, labels). Defaults to `CUSTOM_DATA_TABLE_NAME` from profile when `table_name` is omitted. **API:** `GET /datatables/{tableName}` |
 | `get_datatable_rows` | Read | Read **deployed row data** from a custom data table. Paginated. Defaults to profile `CUSTOM_DATA_TABLE_NAME`. **API:** `GET /adminCustom{tableName}` |
+| `list_datatable_fields` | Read | List field definitions for a data table. Paginated. **API:** `GET /datatables/{tableName}/fields` |
+| `get_datatable_field` | Read | Get one field definition by name. **API:** `GET /datatables/{tableName}/fields/{fieldName}` |
 | `deploy_datatables` | Write | **Deploy** one or more data tables to the live CPQ site — admin-only, changes production configuration. Destructive/privileged. Preflight previews; apply with confirmation token. **API:** `POST /datatables/actions/deploy` |
+| `create_datatable` | Write | **Untested (live).** Create a data table. Dry-run + confirmation. **API:** `POST /datatables` |
+| `export_datatables` | Write | **Untested (live).** Start a data table export task (returns `taskId`). Pair with `get_task` / `download_task_file`. Dry-run + confirmation. **API:** `POST /datatables/actions/export` |
 
 ### BML
 
 | Tool | Type | Description |
 |------|------|-------------|
 | `get_all_bml_code` | Read | Download or retrieve **BML source code**. `delivery='zip'` (default) exports all Commerce BML and BMLT files via `GET /adminMeta` — equivalent to **cpq-toolkit pull** — and returns a zip `File` attachment. `delivery='json'` returns util library functions with inline `scriptText` (paginated `/bml/library/functions` fetch). Requires admin permissions. |
+| `get_bml_function` | Read | Get one util library BML function by id (includes `scriptText` when available). **API:** `GET /bml/library/functions/{id}` |
+| `search_bml_scripts` | Read | **Untested (live).** Search BML scripts. **API:** `GET /bml/scripts` |
+| `list_bml_common_functions` | Read | **Untested (live).** List built-in BML common functions. **API:** `GET /bml/common/functions` |
+| `get_bml_common_function` | Read | **Untested (live).** Get one common function by name. **API:** `GET /bml/common/functions/{name}` |
+| `list_bml_library_folders` | Read | **Untested (live).** List util library folders. **API:** `GET /bml/library/folders` |
+| `get_bml_dependent_attributes` | Read | **Untested (live).** Attributes referenced by util library functions (read-like POST; allowed under `READ_ONLY`). **API:** `POST /bml/library/functions/actions/dependentAttributes` |
+| `export_bml_library_functions` | Write | **Untested (live).** Export util library functions (returns `taskId`). Dry-run + confirmation. **API:** `POST /bml/library/functions/actions/export` |
 
 ### Commerce metadata
 
@@ -154,14 +180,77 @@ Read-only metadata for Commerce process documents. All tools default `process_va
 |------|------|-------------|
 | `get_commerce_attributes` | Read | List **attribute definitions** on a Commerce **main document** (default `doc_var_name='transaction'`). Names, types, constraints, display metadata. **API:** `GET /commerceProcesses/{process}/documents/{doc}/attributes` |
 | `get_commerce_actions` | Read | List **action definitions** on a Commerce **main document** (default `transaction`). **API:** `GET /commerceProcesses/{process}/documents/{doc}/actionDefs` |
+| `get_commerce_attribute` | Read | Get one attribute definition by `attribute_var_name`. **API:** `GET .../attributes/{attributeVarName}` |
+| `get_commerce_action` | Read | Get one action definition by `action_var_name`. **API:** `GET .../actionDefs/{actionVarName}` |
+| `list_commerce_processes` | Read | List Commerce process setups (admin). Paginated. **API:** `GET /commerceProcessSetups` |
 | `get_line_attributes` | Read | List **attribute definitions** on a Commerce **line document** (default `doc_var_name='transactionLine'`). **API:** `GET /commerceProcesses/{process}/documents/{doc}/attributes` |
 | `get_line_actions` | Read | List **action definitions** on a Commerce **line document** (default `transactionLine`). **API:** `GET /commerceProcesses/{process}/documents/{doc}/actionDefs` |
+
+### Commerce transactions
+
+Live Commerce **document** APIs (path built as `/commerceDocuments{Process}{Doc}` from `COMMERCE_PROCESS_VAR_NAME`). Writes use dry-run preflight + confirmation.
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `list_transactions` | Read | List transactions (paginated; `q_expr`, `fields`, `orderby`, `expand`, …). **API:** `GET /commerceDocuments{Process}{Doc}` |
+| `get_transaction` | Read | Get one transaction by numeric `transaction_id`. **API:** `GET .../{id}` |
+| `list_transaction_lines` | Read | List lines for a transaction (paginated). **API:** `GET .../{id}/transactionLine` |
+| `get_transaction_line` | Read | Get one line by `transaction_id` + `document_number`. **API:** `GET .../{id}/transactionLine/{documentNumber}` |
+| `get_document_layout` | Read | Desktop layout definition for a process document. **API:** `GET /commerceProcesses/{process}/layouts/{doc}` |
+| `generate_proposal` | Write | Generate proposal for a transaction. **API:** `POST .../actions/generateProposal` |
+| `export_attachment` | Write | Export/view a CPQ-generated transaction attachment. Requires `attribute_var_name` (sent as `selections`); optional `action_var_name` (default `exportAttachment`). JSON response, not file bytes. **API:** `POST .../actions/{actionVarName}` |
+| `download_attachment` | Read | Download attachment file bytes from a transaction attribute's `fileLocation`. Returns `[envelope, File]`. **API:** `GET` relative path from `fileLocation` |
+| `copy_transaction` | Write | Copy a transaction. **API:** `POST .../actions/_copy_transaction` |
+| `copy_transaction_lines` | Write | Copy lines onto a transaction (default action `copyLineItems_t`). **API:** `POST .../actions/{actionName}` |
+
+### Performance logs
+
+Access to CPQ **performance log events** (user activity timing / metrics). Collection filters mirror the REST API: `limit`, `offset`, `total_results`, `q_expr` (MongoDB `q`), `fields`, `orderby`.
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `list_performance_logs` | Read | List performance log events (one page). Use `pagination.nextOffset` when `hasMore` is true. **API:** `GET /performanceLogs` |
+| `get_performance_log` | Read | Get one event by numeric `log_id`. **API:** `GET /performanceLogs/{id}` |
+| `export_performance_logs` | Write | Export performance logs (optional `log_id`). Dry-run + confirmation. **API:** `POST /performanceLogs[/id]/actions/export` |
+
+### Parts
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `list_parts` | Read | List parts (paginated). **API:** `GET /parts` |
+| `get_part` | Read | Get one part by id. **API:** `GET /parts/{id}` |
+| `search_parts` | Read | Search parts with a JSON body. Allowed under `READ_ONLY`. **API:** `POST /parts/actions/search` |
+
+### Tasks
+
+Async task APIs used after export actions. **Entire domain untested against live CPQ.**
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `get_task` | Read | **Untested (live).** Get async task status (e.g. after export). **API:** `GET /tasks/{taskId}` |
+| `download_task_file` | Read | **Untested (live).** Download a task output file. Returns `[envelope, File]`. **API:** `GET /tasks/{taskId}/files/{fileName}` |
+
+### Configuration
+
+Product family hierarchy and layout cache. Scoped tools use `scope: family \| line \| model` plus the required var-name path args. **Entire domain untested against live CPQ.**
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `list_product_families` / `get_product_family` | Read | **Untested (live).** Product family metadata. **API:** `GET /productFamilies[/{prodFamVarName}]` |
+| `list_product_lines` / `get_product_line` | Read | **Untested (live).** Lines under a family. **API:** `GET .../productLines` |
+| `list_models` / `get_model` | Read | **Untested (live).** Models under a line. **API:** `GET .../models` |
+| `list_config_attributes` / `get_config_attribute` | Read | **Untested (live).** Attributes at family/line/model scope. |
+| `list_array_sets` / `get_array_set` | Read | **Untested (live).** Array sets at scope. |
+| `list_array_set_attributes` / `get_array_set_attribute` | Read | **Untested (live).** Attributes of an array set. |
+| `list_config_menu_items` / `get_config_menu_item` | Read | **Untested (live).** Menu items (`parent_kind`: attribute or array_set_attribute). |
+| `get_config_layout` | Read | **Untested (live).** Layout by `layout_var_name` at scope. |
+| `get_layout_cache_attributes` | Read | **Untested (live).** **API:** `GET /layoutcache/{fam}/{line}/{model}/attributes` |
 
 ### Meta
 
 | Tool | Type | Description |
 |------|------|-------------|
-| `discover_tools` | Read | Search and filter this server's tool catalog by **domain**, **operation** (`read` / `write`), or free-text query. Use before calling tools to find read-only vs write capabilities, HTTP methods, and API paths. Does not call CPQ. |
+| `discover_tools` | Read | Search and filter this server's tool catalog by **domain** (`users` / `groups` / `datatables` / `bml` / `commerce` / `performance` / `parts` / `tasks` / `configuration`), **operation** (`read` / `write`), or free-text query. Use before calling tools to find read-only vs write capabilities, HTTP methods, and API paths. Does not call CPQ. |
 
 <details>
 <summary><strong>Configuration reference</strong></summary>

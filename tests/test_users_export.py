@@ -121,9 +121,10 @@ def test_fetch_all_users_paginates(client: CPQClient) -> None:
     )
 
     users = fetch_all_users(client)
-    assert len(users) == 2
-    assert users[0]["login"] == "alice"
-    assert users[1]["login"] == "bob"
+    assert len(users.items) == 2
+    assert users.items[0]["login"] == "alice"
+    assert users.items[1]["login"] == "bob"
+    assert users.truncated is False
     assert route.call_count == 2
     assert "q" in route.calls[0].request.url.params
     assert "filter" not in route.calls[0].request.url.params
@@ -140,5 +141,5 @@ def test_fetch_all_users_all_status_skips_q(client: CPQClient) -> None:
     )
 
     users = fetch_all_users(client, status_filter="all")
-    assert len(users) == 2
+    assert len(users.items) == 2
     assert "q" not in route.calls[0].request.url.params
