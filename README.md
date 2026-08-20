@@ -88,6 +88,7 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 | Document | Contents |
 |----------|----------|
 | [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts |
+| [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | Technical audit — MCP correctness, hallucination risk, security, action plan |
 | [docs/SETUP.md](docs/SETUP.md) | Short setup summary |
 | [SECURITY.md](SECURITY.md) | Guardrails, confirmation tokens, audit |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Security test suite and CI |

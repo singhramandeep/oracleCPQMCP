@@ -26,6 +26,28 @@ Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials,
 
 
 
+### 1 a Checking the pre-requisties
+
+ **Python:**
+
+Open the terminal and type
+
+```bash
+python --version
+```
+
+If you get an error that means python is not installed. Install python using [https://www.python.org/downloads/](https://www.python.org/downloads/)
+
+**Git**
+
+Open terminal (powershell for windows) and type git --version. if you get an error that means git is not installed.
+
+Install git using the command 
+
+```bash
+winget install --id Git.Git -e --source winget
+```
+
 ### 1.1 Create a workspace folder
 
 Pick a folder on your machine where you keep projects. Examples:
@@ -45,7 +67,7 @@ mkdir -p ~/workspaces          # macOS / Linux
 mkdir C:\Users\YourName\workspaces
 ```
 
-
+Make a not of this path as you will have to use this path at a number of places
 
 ### 1.2 Download the repository
 
@@ -128,14 +150,6 @@ If you are in the wrong folder, change into the project root:
 cd path/to/oracleCPQMCP
 ```
 
-**Activation note (Windows):** Cursor and VS Code usually open **PowerShell** on Windows. If activation is blocked, run once in the same terminal:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-```
-
-Then retry `.venv\Scripts\Activate.ps1`.
-
 ---
 
 
@@ -148,6 +162,8 @@ Then retry `.venv\Scripts\Activate.ps1`.
 python -m venv .venv
 ```
 
+This will create a virtual environment for python and will ensure that all the packages are installed in the virtual environment and not at the global system level
+
 Activate the virtual environment:
 
 
@@ -158,23 +174,23 @@ Activate the virtual environment:
 | macOS / Linux           | `source .venv/bin/activate`  |
 
 
+**Activation note (Windows):** Cursor and VS Code usually open **PowerShell** on Windows. If activation is blocked, run once in the same terminal:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+```
+
+Then retry `.venv\Scripts\Activate.ps1`.
 
 Install the package:
 
 ```bash
 # 1. Upgrade pip inside the virtual environment
+# skip the below step if you just installed python
 python -m pip install --upgrade pip
 # 2. Install dependencies using --prefer-binary (instructs pip to use available pre-compiled wheels)
 #pip install -e ".[dev]"
 python -m pip install --prefer-binary -e ".[dev]"
-```
-
-Confirm the package installed:
-
-```bash
-python -m oracle_cpq_mcp --help
-# Or:
-python -c "import oracle_cpq_mcp; print('OK')"
 ```
 
 ---
@@ -256,6 +272,8 @@ Switch at runtime with `CPQ_CUSTOMER_PROFILE=mycompany` in MCP config.
 oracle-cpq-smoke --profile mycompany --env dev
 ```
 
+Make sure you replace mycompany witha actual profile you have created
+
 **Expected output:**
 
 - `Profile loaded`
@@ -279,7 +297,7 @@ oracle-cpq-smoke --profile mycompany --env dev
 
 ---
 
-
+If smoke test was successful that means the MCP server standalone test is working. The next steps will configure the MCP in your IDE
 
 ## Step 5 — Connect your IDE / LLM client
 
