@@ -30,6 +30,7 @@ Pending local changes that are not in `git log` yet (remove or rewrite this subs
 - Docs mark these additions as **untested (live)**; offline unit/contract tests cover them
 
 <!-- git-commits -->
+- `c000974` Expand MCP catalog to 67 tools with tasks, configuration, parts, and transactions.
 - `b3f0445` updated quickstart
 - `b5c97c5` updated documentation
 - `c05cd49` updated documentation
