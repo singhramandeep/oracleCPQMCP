@@ -1,31 +1,41 @@
 # Quickstart — Download, Configure, and Connect
 
-Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials, verify connectivity, and connect **Cursor**, **VS Code**, or **Google Antigravity**.
+Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials, verify connectivity, and connect an IDE.
+
+**Recommended IDE:** [Google Antigravity](https://antigravity.google/) — instructions below are **partially tested**. Cursor and VS Code setup steps are provided but **still need testing** on this project.
 
 ---
 
 ## What you need
 
-| Requirement       | Details                                                |
-| ----------------- | ------------------------------------------------------ |
-| Python            | 3.11 or newer                                          |
-| Oracle CPQ access | REST API enabled; integration user with Basic Auth     |
-| Network           | VPN if your CPQ site requires it                       |
-| IDE               | Cursor, VS Code (Copilot Agent), or Google Antigravity |
-| Git               | Optional but recommended (`git clone`)                 |
+
+| Requirement       | Details                                                                                                                                                                                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Python            | 3.11 or newer                                                                                                                                                                                                                                                                                 |
+| Oracle CPQ access | REST API enabled; integration user with Basic Auth                                                                                                                                                                                                                                            |
+| Network           | CPQ site should be publically accessible                                                                                                                                                                                                                                                      |
+| IDE               | **Google Antigravity IDE(recommended)**; Cursor or VS Code Copilot Agent also supported The quickstart guide is tested for Antigravity IDE. The tool should work for other supported IDE's too but the quick start guide might not be up to date and instructions might need minor tweaking |
+| Git               | Optional but recommended (`git clone`)                                                                                                                                                                                                                                                        |
+
 
 ---
 
+
+
 ## Step 1 — Get the code
+
+
 
 ### 1.1 Create a workspace folder
 
 Pick a folder on your machine where you keep projects. Examples:
 
-| OS | Example path |
-|----|----------------|
-| Windows | `C:\Users\YourName\workspaces` |
-| macOS / Linux | `~/workspaces` |
+
+| OS            | Example path                   |
+| ------------- | ------------------------------ |
+| Windows       | `C:\Users\YourName\workspaces` |
+| macOS / Linux | `~/workspaces`                 |
+
 
 **IDE terminal** (or any shell) — create the folder if it does not exist:
 
@@ -34,6 +44,8 @@ mkdir -p ~/workspaces          # macOS / Linux
 # Windows PowerShell:
 mkdir C:\Users\YourName\workspaces
 ```
+
+
 
 ### 1.2 Download the repository
 
@@ -47,14 +59,18 @@ cd oracleCPQMCP
 
 **Option B: Download ZIP**
 
-1. Open https://github.com/singhramandeep/oracleCPQMCP
+1. Open [https://github.com/singhramandeep/oracleCPQMCP](https://github.com/singhramandeep/oracleCPQMCP)
 2. Click **Code → Download ZIP**
 3. Extract to `~/workspaces/oracleCPQMCP` (or your chosen folder)
 4. In your IDE: **File → Open Folder** → select the `oracleCPQMCP` folder
 
+
+
 ### 1.3 Open the project in your IDE
 
 **File → Open Folder** → choose the `oracleCPQMCP` folder you just cloned or extracted.
+
+**Recommended:** open the folder in **Google Antigravity**. Cursor and VS Code also work with this repo, but those IDE paths still need testing (see Step 5).
 
 This folder is your **project root** — all commands in later steps run from here.
 
@@ -82,15 +98,19 @@ oracleCPQMCP/                  ← project root (open this folder in your IDE)
 
 ---
 
+
+
 ## Running commands (IDE terminal)
 
 All setup commands below run in your **IDE integrated terminal** — you do not need a separate PowerShell or Command Prompt window outside the IDE.
+
 
 | IDE             | Open terminal                 |
 | --------------- | ----------------------------- |
 | **Cursor**      | `View → Terminal` or `Ctrl+`` |
 | **VS Code**     | `View → Terminal` or `Ctrl+`` |
 | **Antigravity** | Terminal panel or `Ctrl+``    |
+
 
 Before each command, confirm you are in the **project root** — the `oracleCPQMCP` folder you opened in Step 1.3. You should see `pyproject.toml` if you list files:
 
@@ -118,6 +138,8 @@ Then retry `.venv\Scripts\Activate.ps1`.
 
 ---
 
+
+
 ## Step 2 — Create Python environment and install
 
 **IDE terminal** (project root):
@@ -129,17 +151,22 @@ python -m venv .venv
 Activate the virtual environment:
 
 
-| Shell (in IDE terminal) | Command |
-| ----------------------- | ------- |
-| Windows PowerShell | `.venv\Scripts\Activate.ps1` |
-| Windows CMD | `.venv\Scripts\activate.bat` |
-| macOS / Linux | `source .venv/bin/activate` |
+| Shell (in IDE terminal) | Command                      |
+| ----------------------- | ---------------------------- |
+| Windows PowerShell      | `.venv\Scripts\Activate.ps1` |
+| Windows CMD             | `.venv\Scripts\activate.bat` |
+| macOS / Linux           | `source .venv/bin/activate`  |
+
 
 
 Install the package:
 
 ```bash
-pip install -e ".[dev]"
+# 1. Upgrade pip inside the virtual environment
+python -m pip install --upgrade pip
+# 2. Install dependencies using --prefer-binary (instructs pip to use available pre-compiled wheels)
+#pip install -e ".[dev]"
+python -m pip install --prefer-binary -e ".[dev]"
 ```
 
 Confirm the package installed:
@@ -151,6 +178,8 @@ python -c "import oracle_cpq_mcp; print('OK')"
 ```
 
 ---
+
+
 
 ## Step 3 — Create your CPQ credential profile
 
@@ -194,13 +223,13 @@ CUSTOM_DATA_TABLE_NAME=YourDefaultTable
 ```
 
 
-| Field                           | What to put                                       |
-| ------------------------------- | ------------------------------------------------- |
-| `DEV_URL`                       | CPQ dev base URL — **no trailing slash**          |
-| `DEV_USERNAME` / `DEV_PASSWORD` | Integration user for dev                          |
-| `REST_API_VERSION`              | Match your CPQ release (`v15`, `v18`, …)          |
-| `READ_ONLY`                     | Keep `true` until you intentionally enable writes |
-| `CUSTOM_DATA_TABLE_NAME`        | A table that exists in dev (for smoke test)       |
+| Field                           | What to put                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------ |
+| `DEV_URL`                       | CPQ dev base URL — **no trailing slash**                                       |
+| `DEV_USERNAME` / `DEV_PASSWORD` | Integration user for dev                                                       |
+| `REST_API_VERSION`              | Match your CPQ release (`v15`, `v18`, …)                                       |
+| `READ_ONLY`                     | Keep `true` until you intentionally enable writes                              |
+| `CUSTOM_DATA_TABLE_NAME`        | A table that exists in dev (for smoke test)                                    |
 | `COMMERCE_PROCESS_VAR_NAME`     | Commerce process on your site (for commerce metadata tools; e.g. `oraclecpqo`) |
 
 
@@ -216,6 +245,8 @@ Create separate files, for example:
 Switch at runtime with `CPQ_CUSTOMER_PROFILE=mycompany` in MCP config.
 
 ---
+
+
 
 ## Step 4 — Smoke test (verify CPQ connectivity)
 
@@ -248,9 +279,11 @@ oracle-cpq-smoke --profile mycompany --env dev
 
 ---
 
+
+
 ## Step 5 — Connect your IDE / LLM client
 
-Each client uses **stdio**: MCP runs [`scripts/mcp-server.cmd`](../scripts/mcp-server.cmd) (Windows) or [`scripts/mcp-server.sh`](../scripts/mcp-server.sh) (macOS/Linux), which starts `python -m oracle_cpq_mcp` from your local `.venv`.  
+Each client uses **stdio**: MCP runs `[scripts/mcp-server.cmd](../scripts/mcp-server.cmd)` (Windows) or `[scripts/mcp-server.sh](../scripts/mcp-server.sh)` (macOS/Linux), which starts `python -m oracle_cpq_mcp` from your local `.venv`.  
 **Never put CPQ passwords in MCP config** — only profile name and paths.
 
 Set these env vars in MCP config (all clients):
@@ -262,18 +295,126 @@ Set these env vars in MCP config (all clients):
 | `CPQ_CONFIG_DIR`       | `<repo>/.config` | Folder containing profile `.env` files |
 
 
+
+
+### IDE support status
+
+
+| IDE                         | Status                             | Notes                                                                                                        |
+| --------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Google Antigravity**      | **Recommended** — partially tested | Preferred path for this project. Setup steps below have been exercised in part; report gaps if you hit them. |
+| **Cursor**                  | Needs testing                      | Config examples included; end-to-end MCP connect on this repo is not fully validated yet.                    |
+| **VS Code (Copilot Agent)** | Needs testing                      | Config examples included; end-to-end MCP connect on this repo is not fully validated yet.                    |
+
+
 ---
 
-### Cursor
+
+
+## Google Antigravity IDE (recommended)
+
+Use [Google Antigravity](https://antigravity.google/) as the primary client for Oracle CPQ MCP.
+
+**Testing note:** These Antigravity instructions are **partially tested**. Cursor and VS Code instructions in the sections after this one **need testing**.
+
+Antigravity supports:
+
+- **Workspace config** (recommended): `.agents/mcp_config.json` — keeps CPQ setup per project
+- **Global config** (optional): `~/.gemini/config/mcp_config.json`
+
+
+
+### A.1 Copy the example config
+
+**IDE terminal** (project root):
+
+
+| Shell                    | Command                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| Windows PowerShell       | `mkdir .agents -Force; copy .agents\mcp_config.example.json .agents\mcp_config.json` |
+| Windows CMD              | `mkdir .agents && copy .agents\mcp_config.example.json .agents\mcp_config.json`      |
+| macOS / Linux / Git Bash | `mkdir -p .agents && cp .agents/mcp_config.example.json .agents/mcp_config.json`     |
+
+
+On macOS/Linux, make the launcher executable once:
+
+```bash
+chmod +x scripts/mcp-server.sh
+```
+
+
+
+### A.2 Edit absolute paths and profile
+
+Antigravity requires **absolute paths** (not `${workspaceFolder}`). Edit `.agents/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "oracle-cpq": {
+      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\scripts\\mcp-server.cmd",
+      "args": [],
+      "cwd": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP",
+      "env": {
+        "MCP_MODE": "stdio",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_CONFIG_DIR": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\.config",
+        "CPQ_SCHEMA_INTEGRITY": "1"
+      }
+    }
+  }
+}
+```
+
+Replace `C:\\Users\\YourName\\workspaces\\oracleCPQMCP` with your real project path. Set `CPQ_CUSTOMER_PROFILE` to your profile id (the `.config/<name>.env` filename without `.env`).
+
+On macOS/Linux use the absolute path to `scripts/mcp-server.sh` instead of `.cmd`.
+
+
+| Antigravity env var      | Required? | Purpose                                     |
+| ------------------------ | --------- | ------------------------------------------- |
+| `MCP_MODE`               | **Yes**   | `stdio` transport                           |
+| `DISABLE_CONSOLE_OUTPUT` | **Yes**   | Prevents stdout pollution breaking JSON-RPC |
+| `CPQ_CUSTOMER_PROFILE`   | **Yes**   | Selects `.config/<profile>.env`             |
+| `CPQ_CONFIG_DIR`         | **Yes**   | Absolute path to the `.config` folder       |
+
+
+
+
+### A.3 Connect and verify in Antigravity
+
+1. Open the `oracleCPQMCP` folder in Antigravity (**File → Open Folder**).
+2. Ensure Steps 2–4 are done (venv installed, profile created, smoke test passed).
+3. Agent panel → **…** → **MCP Servers** → **Manage MCP Servers** → **View raw config** (or edit `.agents/mcp_config.json` directly).
+4. Confirm absolute paths and profile name are correct.
+5. Restart Antigravity or reload MCP servers.
+6. Open Agent chat and ask: *"Discover CPQ tools and list 5 users."*
+
+**Verify:** MCP Servers UI should list `oracle-cpq` as connected with tools available.
+
+Official docs: [Antigravity MCP](https://antigravity.google/docs/mcp/)
+
+---
+
+
+
+## Other IDEs (need testing)
+
+The following clients are supported by example configs in this repo, but **setup has not been fully tested** for this project. Prefer **Antigravity** above when possible.
+
+### Cursor (needs testing)
 
 **Config file:** `.cursor/mcp.json` — **you create this locally** (not committed). Use the cross-platform launcher scripts so the same repo works on every OS.
 
 **IDE terminal** (project root) — copy the example for your OS:
 
-| Shell | Command |
-| ----- | ------- |
-| Windows PowerShell / CMD | `copy .cursor\mcp.json.example .cursor\mcp.json` |
+
+| Shell                    | Command                                             |
+| ------------------------ | --------------------------------------------------- |
+| Windows PowerShell / CMD | `copy .cursor\mcp.json.example .cursor\mcp.json`    |
 | macOS / Linux / Git Bash | `cp .cursor/mcp.json.unix.example .cursor/mcp.json` |
+
 
 On macOS/Linux, make the launcher executable once:
 
@@ -299,7 +440,7 @@ Example `.cursor/mcp.json` (Windows — uses `mcp-server.cmd`):
 }
 ```
 
-**macOS/Linux** — use `mcp-server.sh` in `command` (see [`.cursor/mcp.json.unix.example`](../.cursor/mcp.json.unix.example)).
+**macOS/Linux** — use `mcp-server.sh` in `command` (see `[.cursor/mcp.json.unix.example](../.cursor/mcp.json.unix.example)`).
 
 **Steps:**
 
@@ -315,18 +456,22 @@ Example `.cursor/mcp.json` (Windows — uses `mcp-server.cmd`):
 
 ---
 
-### VS Code (GitHub Copilot Agent)
 
-VS Code uses **`servers`** (not `mcpServers`) and requires `"type": "stdio"`.
+
+### VS Code (GitHub Copilot Agent) (needs testing)
+
+VS Code uses `**servers**` (not `mcpServers`) and requires `"type": "stdio"`.
 
 **Config file:** copy example → local (local file is gitignored).
 
 **IDE terminal** (project root):
 
-| Shell | Command |
-| ----- | ------- |
-| Windows PowerShell / CMD | `copy .vscode\mcp.json.example .vscode\mcp.json` |
+
+| Shell                    | Command                                             |
+| ------------------------ | --------------------------------------------------- |
+| Windows PowerShell / CMD | `copy .vscode\mcp.json.example .vscode\mcp.json`    |
 | macOS / Linux / Git Bash | `cp .vscode/mcp.json.unix.example .vscode/mcp.json` |
+
 
 On macOS/Linux: `chmod +x scripts/mcp-server.sh`
 
@@ -366,89 +511,41 @@ Edit `.vscode/mcp.json` if needed (profile name, env vars). Example shape:
 
 ---
 
-### Google Antigravity
 
-Antigravity supports workspace-level config at `.agents/mcp_config.json` or global `~/.gemini/config/mcp_config.json`.
-
-**Recommended:** workspace config (keeps CPQ setup per project).
-
-**IDE terminal** (project root):
-
-
-| Shell                    | Command                                                                              |
-| ------------------------ | ------------------------------------------------------------------------------------ |
-| Windows PowerShell       | `mkdir .agents -Force; copy .agents\mcp_config.example.json .agents\mcp_config.json` |
-| Windows CMD              | `mkdir .agents && copy .agents\mcp_config.example.json .agents\mcp_config.json`      |
-| macOS / Linux / Git Bash | `mkdir -p .agents && cp .agents/mcp_config.example.json .agents/mcp_config.json`     |
-
-
-Edit `.agents/mcp_config.json` — use **absolute paths** (Antigravity requires them):
-
-```json
-{
-  "mcpServers": {
-    "oracle-cpq": {
-      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\scripts\\mcp-server.cmd",
-      "args": [],
-      "cwd": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP",
-      "env": {
-        "MCP_MODE": "stdio",
-        "DISABLE_CONSOLE_OUTPUT": "true",
-        "CPQ_CUSTOMER_PROFILE": "mycompany",
-        "CPQ_CONFIG_DIR": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\.config",
-        "CPQ_SCHEMA_INTEGRITY": "1"
-      }
-    }
-  }
-}
-```
-
-On macOS/Linux use absolute path to `scripts/mcp-server.sh` instead of `.cmd`.
-
-
-| Antigravity env var      | Required? | Purpose                                     |
-| ------------------------ | --------- | ------------------------------------------- |
-| `MCP_MODE`               | **Yes**   | `stdio` transport                           |
-| `DISABLE_CONSOLE_OUTPUT` | **Yes**   | Prevents stdout pollution breaking JSON-RPC |
-
-
-**Steps:**
-
-1. Open the repo folder in Antigravity.
-2. Agent panel → **…** → **MCP Servers** → **Manage MCP Servers** → **View raw config** (or edit `.agents/mcp_config.json` directly).
-3. Paste/adjust config with your absolute paths.
-4. Restart Antigravity or reload MCP servers.
-5. In Agent chat: *"Discover CPQ tools and list 5 users."*
-
-Docs: [Antigravity MCP](https://antigravity.google/docs/mcp/)
-
----
 
 ## Step 6 — Sample checks in Agent chat
 
-After MCP is connected, paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you.
+After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you.
 
 ### 6.1 Explore what CPQ actions are available
 
 > What can you do in Oracle CPQ for users, groups, data tables, BML, and commerce metadata? Use discover_tools to list the read-only actions you have access to, grouped by domain.
 
+
+
 ### 6.2 List active users
 
 > Show me the first 5 active CPQ users. I only need their login names for now.
+
+
 
 ### 6.3 Look up one user in detail
 
 > From that user list, pick one person and show me their full CPQ profile — login, name, email, and status.
 
+
+
 ### 6.4 List groups
 
 > List the first 5 user groups in CPQ. Include each group's name and description if available.
+
+
 
 ### 6.5 Data table metadata
 
 > Tell me about the data table called `PricingMatrix` in CPQ — what columns does it have and how many rows?
 
-*(Replace `PricingMatrix` with the value of `CUSTOM_DATA_TABLE_NAME` in your profile if different.)*
+*(Replace* `PricingMatrix` *with the value of* `CUSTOM_DATA_TABLE_NAME` *in your profile if different.)*
 
 ### 6.6 Export users to Excel (optional)
 
@@ -470,6 +567,8 @@ Requires admin permissions on the CPQ site. The agent downloads the full Commerc
 
 > Download all Commerce BML and BMLT source code from CPQ as a zip file I can save locally.
 
+
+
 ### 6.9 Commerce metadata (optional)
 
 Requires `COMMERCE_PROCESS_VAR_NAME` in your profile to match a real Commerce process on the site (e.g. `oraclecpqo`). Admin or read access to Commerce metadata may be required.
@@ -477,6 +576,8 @@ Requires `COMMERCE_PROCESS_VAR_NAME` in your profile to match a real Commerce pr
 > List the header document attributes for the default Commerce transaction document in CPQ. Show attribute names and types only — no need for full translation text.
 
 ---
+
+
 
 ## Step 7 — Enabling writes (optional, advanced)
 
@@ -494,35 +595,41 @@ See [SECURITY.md](../SECURITY.md) and [README.md](../README.md#safe-execution).
 
 ---
 
+
+
 ## Troubleshooting
 
 
-| Problem                               | Solution                                                                                    |
-| ------------------------------------- | ------------------------------------------------------------------------------------------- |
-| MCP server not listed                 | Restart IDE completely after config change                                                  |
-| `ModuleNotFoundError: oracle_cpq_mcp` | In IDE terminal: `pip install -e ".[dev]"` with venv active                                 |
+| Problem                               | Solution                                                                                                                               |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| MCP server not listed                 | Restart IDE completely after config change                                                                                             |
+| `ModuleNotFoundError: oracle_cpq_mcp` | In IDE terminal: `pip install -e ".[dev]"` with venv active                                                                            |
 | Wrong Python in MCP                   | Use launcher scripts: `scripts/mcp-server.cmd` (Windows) or `scripts/mcp-server.sh` (macOS/Linux); run `pip install -e ".[dev]"` first |
-| Tools return `UNAUTHORIZED`           | Fix credentials in `.config/<profile>.env`                                                  |
-| Antigravity JSON parse error          | Add `MCP_MODE=stdio` and `DISABLE_CONSOLE_OUTPUT=true`                                      |
-| Schema integrity startup failure      | Run manifest update (see [SECURITY_TESTING.md](../SECURITY_TESTING.md))                     |
-| Stale tools after code change         | IDE terminal: `pip install -e ".[dev]"` then restart IDE                                    |
+| Tools return `UNAUTHORIZED`           | Fix credentials in `.config/<profile>.env`                                                                                             |
+| Antigravity JSON parse error          | Add `MCP_MODE=stdio` and `DISABLE_CONSOLE_OUTPUT=true`                                                                                 |
+| Schema integrity startup failure      | Run manifest update (see [SECURITY_TESTING.md](../SECURITY_TESTING.md))                                                                |
+| Stale tools after code change         | IDE terminal: `pip install -e ".[dev]"` then restart IDE                                                                               |
 
 
 ---
+
+
 
 ## Before you commit (git safety checklist)
 
 If you fork or contribute changes, confirm these rules **before** `git add`:
 
-| Path                                             | Commit?                    | Why                                   |
-| ------------------------------------------------ | -------------------------- | ------------------------------------- |
-| `.config/.env.example`                           | Yes                        | Template only — placeholder passwords |
-| `.config/mycompany.env` (or any `*.env` profile) | **Never**                  | Contains real CPQ passwords           |
-| `.cursor/mcp.json`                               | **Never** (copy from `.example`) | Local MCP config — profile name only |
-| `.vscode/mcp.json`                               | **Never** (use `.example`) | May get local secrets later           |
-| `.agents/mcp_config.json`                        | **Never** (use `.example`) | Antigravity local config              |
-| `.venv/`                                         | Never                      | Recreate with `pip install`           |
-| `exports/`, `*.xlsx`                             | Never                      | Generated downloads                   |
+
+| Path                                             | Commit?                          | Why                                   |
+| ------------------------------------------------ | -------------------------------- | ------------------------------------- |
+| `.config/.env.example`                           | Yes                              | Template only — placeholder passwords |
+| `.config/mycompany.env` (or any `*.env` profile) | **Never**                        | Contains real CPQ passwords           |
+| `.cursor/mcp.json`                               | **Never** (copy from `.example`) | Local MCP config — profile name only  |
+| `.vscode/mcp.json`                               | **Never** (use `.example`)       | May get local secrets later           |
+| `.agents/mcp_config.json`                        | **Never** (use `.example`)       | Antigravity local config              |
+| `.venv/`                                         | Never                            | Recreate with `pip install`           |
+| `exports/`, `*.xlsx`                             | Never                            | Generated downloads                   |
+
 
 **IDE terminal** (project root) — verify ignore rules:
 
@@ -534,9 +641,11 @@ git status
 # mycompany.env and other *.env profiles must NOT appear as tracked files
 ```
 
-The repo [`.gitignore`](../.gitignore) blocks `.config/*.env`, `.venv/`, exports, and local MCP override files.
+The repo `[.gitignore](../.gitignore)` blocks `.config/*.env`, `.venv/`, exports, and local MCP override files.
 
 ---
+
+
 
 ## Next steps
 

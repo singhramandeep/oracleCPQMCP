@@ -1,14 +1,16 @@
 # Oracle CPQ MCP Server
 
-MCP server for **Oracle CPQ** — exposes **Users**, **Groups**, **Data Tables**, **BML**, and **Commerce metadata** REST APIs to AI agents (Cursor, VS Code Copilot, Google Antigravity, and other MCP clients).
+MCP server for **Oracle CPQ** — exposes **Users**, **Groups**, **Data Tables**, **BML**, and **Commerce metadata** REST APIs to AI agents.
+
+**Recommended IDE:** [Google Antigravity](https://antigravity.google/) (MCP setup partially tested). Cursor and VS Code configs are included but still need testing.
 
 ## Get started
 
 **New here?** Follow the full walkthrough:
 
-**[docs/QUICKSTART.md](docs/QUICKSTART.md)** — download repo, create credential profile, smoke test, and wire Cursor / VS Code / Antigravity step by step.
+**[docs/QUICKSTART.md](docs/QUICKSTART.md)** — download repo, create credential profile, smoke test, and connect **Antigravity** (recommended) step by step.
 
-Quick smoke test after install — run in the **IDE integrated terminal** (`` Ctrl+` ``, repo root):
+Quick smoke test after install — run in the **IDE integrated terminal** (`` Ctrl+` ``, project root):
 
 ```bash
 pip install -e ".[dev]"
@@ -26,11 +28,66 @@ oracle-cpq-smoke --profile mycompany --env dev
 python -m oracle_cpq_mcp
 ```
 
+## Add MCP in Google Antigravity (recommended)
+
+Antigravity is the **recommended** client for this server. Instructions are **partially tested**. Full detail: [QUICKSTART — Antigravity](docs/QUICKSTART.md#google-antigravity-ide-recommended).
+
+1. Complete install, profile, and smoke test (above).
+2. Open the `oracleCPQMCP` folder in Antigravity.
+3. Copy the example MCP config:
+
+| Shell | Command |
+|-------|---------|
+| Windows PowerShell | `mkdir .agents -Force; copy .agents\mcp_config.example.json .agents\mcp_config.json` |
+| Windows CMD | `mkdir .agents && copy .agents\mcp_config.example.json .agents\mcp_config.json` |
+| macOS / Linux / Git Bash | `mkdir -p .agents && cp .agents/mcp_config.example.json .agents/mcp_config.json` |
+
+4. Edit `.agents/mcp_config.json` — Antigravity requires **absolute paths** (not `${workspaceFolder}`):
+
+```json
+{
+  "mcpServers": {
+    "oracle-cpq": {
+      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\scripts\\mcp-server.cmd",
+      "args": [],
+      "cwd": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP",
+      "env": {
+        "MCP_MODE": "stdio",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_CONFIG_DIR": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\.config",
+        "CPQ_SCHEMA_INTEGRITY": "1"
+      }
+    }
+  }
+}
+```
+
+Replace the path with your real project folder. Set `CPQ_CUSTOMER_PROFILE` to your `.config/<name>.env` profile id. On macOS/Linux use `scripts/mcp-server.sh` and `chmod +x scripts/mcp-server.sh`.
+
+5. In Antigravity: Agent panel → **…** → **MCP Servers** → **Manage MCP Servers** (or edit `.agents/mcp_config.json` directly).
+6. Restart Antigravity or reload MCP servers.
+7. In Agent chat: *"Discover CPQ tools and list 5 users."*
+
+**Required Antigravity env vars:** `MCP_MODE=stdio`, `DISABLE_CONSOLE_OUTPUT=true`, plus `CPQ_CUSTOMER_PROFILE` and `CPQ_CONFIG_DIR`. **Never put CPQ passwords in MCP JSON.**
+
+Example file: [`.agents/mcp_config.example.json`](.agents/mcp_config.example.json). Official docs: [Antigravity MCP](https://antigravity.google/docs/mcp/).
+
+### Other IDEs (need testing)
+
+| IDE | Config file | Example |
+|-----|-------------|---------|
+| Cursor | `.cursor/mcp.json` (local, gitignored) | [`.cursor/mcp.json.example`](.cursor/mcp.json.example) / [`.cursor/mcp.json.unix.example`](.cursor/mcp.json.unix.example) |
+| VS Code | `.vscode/mcp.json` (local, gitignored) | [`.vscode/mcp.json.example`](.vscode/mcp.json.example) / [`.vscode/mcp.json.unix.example`](.vscode/mcp.json.unix.example) |
+
+These paths still need end-to-end testing on this project. Prefer Antigravity. See [docs/QUICKSTART.md](docs/QUICKSTART.md#other-ides-need-testing).
+
+All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (Windows) / [`scripts/mcp-server.sh`](scripts/mcp-server.sh) (macOS/Linux).
 ## Documentation
 
 | Document | Contents |
 |----------|----------|
-| [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, IDE setup, sample agent prompts |
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts |
 | [docs/SETUP.md](docs/SETUP.md) | Short setup summary |
 | [SECURITY.md](SECURITY.md) | Guardrails, confirmation tokens, audit |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Security test suite and CI |
@@ -172,15 +229,15 @@ List tools return one page per call (`limit`, `offset`, `hasMore`, `totalResults
 </details>
 
 <details>
-<summary><strong>IDE configuration files</strong></summary>
+<summary><strong>IDE configuration files (reference)</strong></summary>
 
-| IDE | Config file | Example in repo |
-|-----|-------------|-----------------|
-| Cursor | `.cursor/mcp.json` (local, gitignored) | [`.cursor/mcp.json.example`](../.cursor/mcp.json.example) (Windows) or [`.cursor/mcp.json.unix.example`](../.cursor/mcp.json.unix.example) (macOS/Linux) |
-| VS Code | `.vscode/mcp.json` (local, gitignored) | [`.vscode/mcp.json.example`](../.vscode/mcp.json.example) or [`.vscode/mcp.json.unix.example`](../.vscode/mcp.json.unix.example) |
-| Antigravity | `.agents/mcp_config.json` (local) | [`.agents/mcp_config.example.json`](../.agents/mcp_config.example.json) |
+| IDE | Status | Config file | Example in repo |
+|-----|--------|-------------|-----------------|
+| **Antigravity** | **Recommended** (partially tested) | `.agents/mcp_config.json` | [`.agents/mcp_config.example.json`](.agents/mcp_config.example.json) |
+| Cursor | Needs testing | `.cursor/mcp.json` | [`.cursor/mcp.json.example`](.cursor/mcp.json.example) |
+| VS Code | Needs testing | `.vscode/mcp.json` | [`.vscode/mcp.json.example`](.vscode/mcp.json.example) |
 
-All examples use cross-platform launchers: [`scripts/mcp-server.cmd`](../scripts/mcp-server.cmd) (Windows) and [`scripts/mcp-server.sh`](../scripts/mcp-server.sh) (macOS/Linux). See [docs/QUICKSTART.md](docs/QUICKSTART.md#step-5--connect-your-ide--llm-client).
+See [Add MCP in Google Antigravity](#add-mcp-in-google-antigravity-recommended) above and [docs/QUICKSTART.md](docs/QUICKSTART.md).
 
 </details>
 
@@ -203,15 +260,16 @@ mcp/oracle_cpq_mcp/   # MCP server package
   registry/           # Tool catalog
 .config/              # Customer profiles (*.env gitignored)
 scripts/              # mcp-server.cmd / mcp-server.sh launchers
-.cursor/              # MCP examples only (local mcp.json gitignored)
+.agents/              # Antigravity MCP example (local mcp_config.json not committed)
+.cursor/              # Cursor MCP examples only (local mcp.json gitignored)
 docs/                 # QUICKSTART, SETUP, security review
 tests/                # Unit + security tests
 ```
 
 ## Security & git
 
-- **Never commit** `.cursor/mcp.json` or `.config/*.env` — see [.gitignore](.gitignore)
-- **Never put passwords** in `mcp.json` / MCP config
+- **Never commit** `.agents/mcp_config.json`, `.cursor/mcp.json`, or `.config/*.env` — see [.gitignore](.gitignore)
+- **Never put passwords** in MCP config JSON
 - Pre-commit checklist: [docs/QUICKSTART.md#before-you-commit-git-safety-checklist](docs/QUICKSTART.md#before-you-commit-git-safety-checklist)
 
 ## Remote MCP (future)
