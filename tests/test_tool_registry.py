@@ -13,8 +13,12 @@ from oracle_cpq_mcp.registry.tool_registry import (
 
 
 def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
-    assert len(CPQ_API_TOOLS) == 66
+    assert len(CPQ_API_TOOLS) == 72
     assert "discover_tools" in TOOL_CATALOG
+    assert "list_saved_prompts" in TOOL_CATALOG
+    assert "start_prompt_picker" in TOOL_CATALOG
+    assert "list_local_data" in TOOL_CATALOG
+    assert "sync_users_local" in TOOL_CATALOG
     assert "get_all_bml_code" in TOOL_CATALOG
     assert "get_commerce_attributes" in TOOL_CATALOG
     assert "list_performance_logs" in TOOL_CATALOG
@@ -25,7 +29,7 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "list_parts" in TOOL_CATALOG
     assert "get_task" in TOOL_CATALOG
     assert "list_product_families" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 67
+    assert len(TOOL_CATALOG) == 87
 
 
 def test_filter_users_read_tools() -> None:
@@ -35,6 +39,7 @@ def test_filter_users_read_tools() -> None:
         "get_user",
         "get_user_groups",
         "list_users",
+        "sync_users_local",
     }
 
 
@@ -90,6 +95,7 @@ def test_filter_commerce_read_tools() -> None:
         "list_commerce_processes",
         "list_transaction_lines",
         "list_transactions",
+        "sync_commerce_metadata_local",
     }
 
 
@@ -106,10 +112,23 @@ def test_mcp_tool_kwargs_read_only_hint() -> None:
     assert kwargs["annotations"].destructiveHint is False
     assert kwargs["annotations"].idempotentHint is True
     assert kwargs["annotations"].openWorldHint is True
+    assert kwargs["title"] == "List Users"
     assert kwargs["annotations"].title == "List Users"
+    assert kwargs["version"] == "1.0.0"
+    assert kwargs["description"] == spec.description
+    assert kwargs["icons"]
     assert kwargs["meta"]["domain"] == "users"
+    assert kwargs["meta"]["version"] == "1.0.0"
     assert "users" in kwargs["tags"]
     assert "read" in kwargs["tags"]
+
+
+def test_catalog_tools_have_title_version_icons() -> None:
+    for name, spec in TOOL_CATALOG.items():
+        assert spec.title.strip(), name
+        assert spec.version == "1.0.0" or spec.version.count(".") == 2, name
+        assert len(spec.icons) >= 1, name
+        assert spec.icons[0].src.startswith("data:image/svg+xml"), name
 
 
 def test_mcp_tool_kwargs_meta_tool_open_world_false() -> None:
@@ -164,8 +183,8 @@ def test_write_tool_tags_include_dry_run_and_confirmation() -> None:
 
 def test_discover_tools_result_shape() -> None:
     payload = discover_tools_result(domain="groups", operation="read", limit=10)
-    assert payload["count"] == 3
-    assert len(payload["tools"]) == 3
+    assert payload["count"] == 4
+    assert len(payload["tools"]) == 4
     first = payload["tools"][0]
     assert "name" in first
     assert "readOnlyHint" in first

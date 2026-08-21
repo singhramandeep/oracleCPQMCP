@@ -1,4 +1,4 @@
-# Quickstart — Download, Configure, and Connect
+﻿# Quickstart — Download, Configure, and Connect
 
 Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials, verify connectivity, and connect an IDE.
 
@@ -533,7 +533,40 @@ Edit `.vscode/mcp.json` if needed (profile name, env vars). Example shape:
 
 ## Step 6 — Sample checks in Agent chat
 
-After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you.
+After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you. When profile `REFINED_PROMPT` is not `false` (default **true**), every CPQ-related answer (live tools and/or local `data/` cache) should end with **`### Refined prompt (Better token usage)`**: **Title**, **Tags**, **Output format** (chat text / json / excel download; default chat text), **Cached data** (yes/no/mixed), a generic prose prompt with `{{placeholders}}` (including `{{output_format}}`), a **Variables** legend, then a **Tools (for the agent)** list (or `none (local file read only)`).
+
+**Saving refined prompts (MCP tools — do not invent scripts):**
+- `AUTO_SAVE_REFINED_PROMPT=false` (default): agent calls `offer_save_refined_prompt` — choose **save once**, **save and always**, or **skip**. “Save and always” writes `AUTO_SAVE_REFINED_PROMPT=true` into the active `.config/<profile>.env` via `set_auto_save_refined_prompt`.
+- `AUTO_SAVE_REFINED_PROMPT=true`: agent calls `save_refined_prompt` after every footer (no ask; dedupes by hash).
+- Library file: `.config/saved_prompts.json` (gitignored). Override path with `CPQ_SAVED_PROMPTS_PATH`.
+
+**Picking a saved prompt instead of typing:** type **`/OracleCPQ_SavedPrompts`** in Agent chat (or say **use a saved prompt**). The agent calls `start_prompt_picker`: **all titles** / **search** / **by tag** / **by tool**. Disabled prompts are hidden; toggle with `set_saved_prompt_enabled`. Or use the MCP prompt `run_saved_prompt` if your host shows MCP Prompts. **Reload the Oracle CPQ MCP server** after pulling these tools so they appear in the tool list.
+
+**Local data cache (`data/`):** full users/groups/BML/commerce attrs/datatables syncs persist under `data/{profile}/{env}/`. With `LOCAL_DATA_POLICY=ask` (default), the agent checks `list_local_data` / `offer_use_local_data` when a snapshot exists. Say **use cached data** or **fresh data** any time; set `prefer` / `never` via `set_local_data_policy` (or `CPQ_LOCAL_DATA_POLICY`).
+
+Set `REFINED_PROMPT=false` to disable the footer.
+
+### Prompt Studio (local UI for saved prompts)
+
+Browse, favorite, suite, and fill `{{placeholders}}` from `.config/saved_prompts.json` without calling CPQ.
+
+1. Install optional deps (project venv):
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install '.[prompt-studio]'
+```
+
+2. Run from repo root:
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.prompt_studio
+```
+
+3. Open [http://127.0.0.1:8765](http://127.0.0.1:8765) (localhost only; no auth in v1).
+
+4. After the agent saves a refined prompt in Cursor, click **Refresh** in Prompt Studio.
+
+Full detail: [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) and [`docs/FEATURES.md`](FEATURES.md#prompt-studio-enable-and-run).
 
 ### 6.1 Explore what CPQ actions are available
 
@@ -649,31 +682,36 @@ See [SECURITY.md](../SECURITY.md) and [README.md](../README.md#safe-execution).
 
 ## Before you commit (git safety checklist)
 
-If you fork or contribute changes, confirm these rules **before** `git add`:
+If you fork or contribute changes, confirm these rules **before** `git add`. For a full pre-commit review (secrets, catalog regen, tests, Prompt Studio), see **[`PRE_COMMIT_REVIEW.md`](PRE_COMMIT_REVIEW.md)**.
 
 
 | Path                                             | Commit?                          | Why                                   |
 | ------------------------------------------------ | -------------------------------- | ------------------------------------- |
 | `.config/.env.example`                           | Yes                              | Template only — placeholder passwords |
 | `.config/mycompany.env` (or any `*.env` profile) | **Never**                        | Contains real CPQ passwords           |
+| `.config/saved_prompts.json`                     | **Never**                        | Local refined-prompt library          |
+| `.config/prompt_studio.json`                     | **Never**                        | Prompt Studio favorites/suites        |
+| `data/`, `dat/`                                  | **Never**                        | Local CPQ snapshots                   |
 | `.cursor/mcp.json`                               | **Never** (copy from `.example`) | Local MCP config — profile name only  |
 | `.vscode/mcp.json`                               | **Never** (use `.example`)       | May get local secrets later           |
 | `.agents/mcp_config.json`                        | **Never** (use `.example`)       | Antigravity local config              |
 | `.venv/`                                         | Never                            | Recreate with `pip install`           |
 | `exports/`, `*.xlsx`                             | Never                            | Generated downloads                   |
+| `apps/prompt_studio/`                            | Yes                              | Prompt Studio source                  |
+| `docs/TOOL_CATALOG.md`, `docs/FEATURES.md`       | Yes                              | Catalog + product docs                |
 
 
 **IDE terminal** (project root) — verify ignore rules:
 
 ```bash
-git check-ignore -v .config/mycompany.env
-# Expected: .gitignore:... .config/*.env
+git check-ignore -v .config/mycompany.env .config/saved_prompts.json data/focalpoint
+# Expected: matched by .gitignore
 
 git status
 # mycompany.env and other *.env profiles must NOT appear as tracked files
 ```
 
-The repo `[.gitignore](../.gitignore)` blocks `.config/*.env`, `.venv/`, exports, and local MCP override files.
+The repo `[.gitignore](../.gitignore)` blocks `.config/*.env`, saved prompts, Prompt Studio sidecar, `data/`, `.venv/`, exports, and local MCP override files.
 
 ---
 

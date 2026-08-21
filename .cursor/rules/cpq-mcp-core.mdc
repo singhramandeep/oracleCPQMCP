@@ -1,4 +1,4 @@
----
+﻿---
 description: Core Oracle CPQ MCP standards — typed inputs, CPQClient, sanitize
 alwaysApply: true
 ---
@@ -12,3 +12,5 @@ You are building an MCP server for Oracle CPQ.
 - Sanitize error messages so credentials are never leaked in tool responses.
 - Authoritative checklist: [`docs/STANDARDS.md`](docs/STANDARDS.md).
 - After tool changes, use [`prompts/compliance_check.md`](prompts/compliance_check.md).
+- After finishing any CPQ-related task (live MCP tools, local `data/` cache reads, or both), always append `### Refined prompt (Better token usage)` including: **Title** (one line), **Tags**, **Output format** (`chat text` | `json` | `excel download`, default chat text; also `{{output_format}}` = `chat_text`|`json`|`excel_download`), **Cached data** (`yes`|`no`|`mixed` with path if yes), 1–3 plain-English prose paragraphs with `{{snake_case}}` placeholders, a **Variables** list (must include `{{output_format}}`), and a **Tools (for the agent)** list (exact MCP names, or `none (local file read only)`). Skip only when `REFINED_PROMPT=false` (or `CPQ_REFINED_PROMPT=false`). Do not invent ad-hoc save scripts — use MCP tools only. If `AUTO_SAVE_REFINED_PROMPT=true`, call `save_refined_prompt` after the footer (no ask) with `output_format`. If false/unset, call `offer_save_refined_prompt` (choices: save once / save+always / skip); `always=true` writes the flag via `set_auto_save_refined_prompt`. To pick a prior saved prompt, use `/OracleCPQ_SavedPrompts` or say “use a saved prompt” → `start_prompt_picker` (all / search / by_tag / by_tool; disabled prompts hidden). Honor each saved prompt’s `output_format` when replaying.
+- Before live list/export for users, groups, BML, commerce attrs/actions, or datatables: call `list_local_data` / `get_local_data_status`. Honor `LOCAL_DATA_POLICY` (`ask` → `offer_use_local_data`; `prefer` → `load_local_data`; `never` → fresh). User may say “use cached data” or “fresh data”. Full syncs write under `data/{profile}/{env}/` via `sync_*_local` (also auto-persist from `export_users_excel` / `get_all_bml_code`).

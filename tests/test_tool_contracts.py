@@ -1,4 +1,4 @@
-"""Contract tests: every catalog tool returns the standard stamped envelope."""
+﻿"""Contract tests: every catalog tool returns the standard stamped envelope."""
 
 from __future__ import annotations
 
@@ -22,8 +22,10 @@ from oracle_cpq_mcp.tools.configuration import register_configuration_tools
 from oracle_cpq_mcp.tools.datatables import register_datatable_tools
 from oracle_cpq_mcp.tools.discovery import register_discovery_tools
 from oracle_cpq_mcp.tools.groups import register_group_tools
+from oracle_cpq_mcp.tools.local_data import register_local_data_tools
 from oracle_cpq_mcp.tools.parts import register_parts_tools
 from oracle_cpq_mcp.tools.performance import register_performance_tools
+from oracle_cpq_mcp.tools.saved_prompts import register_saved_prompt_tools
 from oracle_cpq_mcp.tools.tasks import register_tasks_tools
 from oracle_cpq_mcp.tools.transactions import register_transaction_tools
 from oracle_cpq_mcp.tools.users import register_user_tools
@@ -220,6 +222,38 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
     "get_part": {"part_id": "FSM1C"},
     "search_parts": {"body": {"criteria": {"partNumber": "FSM1C"}}},
     "discover_tools": {},
+    "list_saved_prompts": {},
+    "search_saved_prompts": {},
+    "get_saved_prompt": {"prompt_id": "00000000-0000-0000-0000-000000000001"},
+    "record_prompt_use": {"prompt_id": "00000000-0000-0000-0000-000000000001"},
+    "save_refined_prompt": {
+        "title": "Example",
+        "original_user_prompt": "list users",
+        "refined_prompt": "List {{status_filter}} users",
+    },
+    "offer_save_refined_prompt": {
+        "title": "Example",
+        "original_user_prompt": "list users",
+        "refined_prompt": "List {{status_filter}} users",
+        "save": False,
+    },
+    "set_auto_save_refined_prompt": {"enabled": False},
+    "set_saved_prompt_enabled": {
+        "prompt_id": "00000000-0000-0000-0000-000000000001",
+        "enabled": True,
+    },
+    "start_prompt_picker": {},
+    "list_local_data": {},
+    "get_local_data_status": {"domain": "users"},
+    "load_local_data": {"domain": "users"},
+    "offer_use_local_data": {"domain": "users", "choice": "fetch_fresh"},
+    "set_local_data_policy": {"policy": "ask"},
+    "sync_users_local": {},
+    "sync_groups_local": {},
+    "sync_bml_local": {},
+    "sync_commerce_metadata_local": {"process_var_name": "oraclecpqo"},
+    "sync_datatable_local": {"table_name": "ModelMaster"},
+    "sync_datatables_local": {"table_names": ["ModelMaster"]},
 }
 
 
@@ -364,10 +398,22 @@ def _assert_stamped_envelope(envelope: dict[str, Any]) -> None:
 
 
 @pytest.fixture()
-def registered_tools() -> dict[str, Any]:
+def registered_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     reset_session_tool_calls()
     reset_rate_limits()
     reset_replay_store()
+
+    cfg = tmp_path / ".config"
+    cfg.mkdir()
+    (cfg / "test.env").write_text(
+        "CUSTOMER_NAME=Test\nDEFAULT_ENVIRONMENT=dev\n"
+        "DEV_URL=https://dev.example.com\n"
+        "DEV_USERNAME=user\nDEV_PASSWORD=secret\n"
+        "AUTO_SAVE_REFINED_PROMPT=false\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("CPQ_CONFIG_DIR", str(cfg))
+    monkeypatch.setenv("CPQ_LOCAL_DATA_DIR", str(tmp_path / "data"))
 
     profile = CPQProfile(
         customer_name="Test",
@@ -409,7 +455,9 @@ def registered_tools() -> dict[str, Any]:
     register_performance_tools(mcp, client)  # type: ignore[arg-type]
     register_tasks_tools(mcp, client)  # type: ignore[arg-type]
     register_configuration_tools(mcp, client)  # type: ignore[arg-type]
+    register_local_data_tools(mcp, client)  # type: ignore[arg-type]
     register_discovery_tools(mcp)
+    register_saved_prompt_tools(mcp)
 
     missing = set(TOOL_CATALOG) - set(mcp.tools)
     assert not missing, f"tools not registered: {sorted(missing)}"

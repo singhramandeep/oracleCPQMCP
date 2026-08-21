@@ -1,4 +1,4 @@
-# Oracle CPQ MCP Server
+﻿# Oracle CPQ MCP Server
 
 MCP server for **Oracle CPQ** — exposes **Users**, **Groups**, **Data Tables**, **BML**, and **Commerce metadata** REST APIs to AI agents.
 
@@ -11,6 +11,8 @@ MCP server for **Oracle CPQ** — exposes **Users**, **Groups**, **Data Tables**
 **[docs/QUICKSTART.md](docs/QUICKSTART.md)** — download repo, create credential profile, smoke test, and connect **Antigravity** (recommended) step by step.
 
 **What's new?** See **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** for changelog history (auto-updated from git; refresh with `python scripts/update_release_notes.py`).
+
+**Questions?** See **[docs/FAQ.md](docs/FAQ.md)** — setup, dual environments, security, cache, Prompt Studio, and troubleshooting.
 
 Quick smoke test after install — run in the **IDE integrated terminal** (`` Ctrl+` ``, project root):
 
@@ -89,7 +91,11 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 
 | Document | Contents |
 |----------|----------|
-| [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts |
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts, Prompt Studio |
+| [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, troubleshooting |
+| [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
+| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (87 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
+| [docs/PRE_COMMIT_REVIEW.md](docs/PRE_COMMIT_REVIEW.md) | Pre-commit secrets / catalog / test checklist |
 | [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
 | [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Release notes — auto-updated from git via `python scripts/update_release_notes.py` |
 | [docs/SETUP.md](docs/SETUP.md) | Short setup summary |
@@ -101,11 +107,15 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 
 ## Features
 
-- **67 MCP tools** — users, groups, data tables, BML, commerce metadata/transactions, performance logs, parts, tasks, configuration (productFamilies), tool discovery
+Full product write-up (including **security guardrails and human-in-the-loop**): **[`docs/FEATURES.md`](docs/FEATURES.md)**.
+
+- **87 MCP tools** — users, groups, data tables, BML, commerce metadata/transactions, performance logs, parts, tasks, configuration (productFamilies), tool discovery, saved refined prompts, Local `data/` sync. Formal per-tool tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md) (regenerate with `python scripts/generate_tool_catalog.py`).
 - **Read-only by default** — profile `READ_ONLY=true` blocks all mutations
 - **Safe writes** — preflight + HMAC `confirmation_token` (when writes enabled)
 - **Structured errors** — `{status, code, message, hint, details}` (no stack traces)
 - **Consistent output envelopes** — read/write tools return MCP object payloads (`status`, `tool`, `data`; errors use `status: error`)
+- **Refined prompt footer** — after any CPQ-related task (live tools and/or local `data/` cache), agents append a copy-paste reusable prompt with title, tags, **output format** (`chat_text` / `json` / `excel_download`, default chat text), **cached data** yes/no/mixed, `{{placeholders}}`, Variables, and tool steps (`### Refined prompt (Better token usage)`). On by default; set profile `REFINED_PROMPT=false` to disable. Save via `offer_save_refined_prompt` / `save_refined_prompt` (stores `output_format`); set `AUTO_SAVE_REFINED_PROMPT=true` (or choose “save and always”) to auto-save. Pick with **`/OracleCPQ_SavedPrompts`** or **use a saved prompt** → `start_prompt_picker`. Disable entries with `set_saved_prompt_enabled`. Reload MCP after upgrades so these tools appear.
+- **Local `data/` snapshots** — full users/groups/BML/commerce metadata/datatable syncs write under `data/{profile}/{env}/` (JSON + Excel, or `.bml`+JSON for BML). Policy `LOCAL_DATA_POLICY=ask|prefer|never` (default ask); tools `list_local_data`, `offer_use_local_data`, `sync_*_local`. Override root with `CPQ_LOCAL_DATA_DIR`.
 - **Server-side security** — validation, rate limits, replay protection, output redaction, post-execution output schema validation
 
 ### Testing status (live CPQ)
@@ -123,7 +133,7 @@ Previously shipped domains (users, groups, existing datatable list/get/deploy, c
 
 ## MCP tools (summary)
 
-**67 tools** across users, groups, datatables, BML, commerce, performance, parts, tasks, configuration, and meta. Use `discover_tools(domain="users", operation="read")`, `discover_tools(domain="configuration")`, or `discover_tools(domain="tasks")` in Agent mode to filter the catalog.
+**87 tools** across users, groups, datatables, BML, commerce, performance, parts, tasks, configuration, and meta (including saved refined prompts and Local `data/` sync). Full input/output/tag tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). Use `discover_tools(domain="users", operation="read")`, `discover_tools(domain="configuration")`, or `discover_tools(domain="tasks")` in Agent mode to filter the catalog.
 
 Write tools default to **dry-run preflight** (`dry_run=true`). Mutations require user confirmation, `dry_run=false`, and a `confirmation_token` from preflight. Blocked when `READ_ONLY=true` (default).
 
@@ -253,6 +263,15 @@ Product family hierarchy and layout cache. Scoped tools use `scope: family \| li
 | Tool | Type | Description |
 |------|------|-------------|
 | `discover_tools` | Read | Search and filter this server's tool catalog by **domain** (`users` / `groups` / `datatables` / `bml` / `commerce` / `performance` / `parts` / `tasks` / `configuration`), **operation** (`read` / `write`), or free-text query. Use before calling tools to find read-only vs write capabilities, HTTP methods, and API paths. Does not call CPQ. |
+| `list_saved_prompts` / `search_saved_prompts` / `get_saved_prompt` | Read | Local saved refined-prompt library (`.config/saved_prompts.json`). |
+| `offer_save_refined_prompt` / `save_refined_prompt` / `record_prompt_use` | Read* | Offer/save/update local refined prompts (*local file only, not CPQ). |
+| `set_auto_save_refined_prompt` | Read* | Write `AUTO_SAVE_REFINED_PROMPT` on the active profile `.env` (*local only). |
+| `set_saved_prompt_enabled` | Read* | Enable/disable a saved prompt (disabled ones are hidden from pickers). |
+| `start_prompt_picker` | Read | Interactive pick: all / search / by tag / by tool (`/OracleCPQ_SavedPrompts`). |
+| `list_local_data` / `get_local_data_status` / `load_local_data` | Read* | Inspect local `data/{profile}/{env}` snapshots (*disk only, not CPQ). |
+| `offer_use_local_data` / `set_local_data_policy` | Read* | Ask cache vs fresh; write `LOCAL_DATA_POLICY` on the profile `.env`. |
+
+Also exposes MCP resource `cpq://saved-prompts` and prompt `run_saved_prompt`. Domain sync tools (`sync_users_local`, `sync_groups_local`, `sync_bml_local`, `sync_commerce_metadata_local`, `sync_datatable_local` / `sync_datatables_local`) write full collections under `data/`.
 
 <details>
 <summary><strong>Configuration reference</strong></summary>
@@ -264,6 +283,11 @@ Product family hierarchy and layout cache. Scoped tools use `scope: family \| li
 | `CPQ_CUSTOMER_PROFILE` | Profile file name without `.env` (set in MCP config) |
 | `CPQ_ENVIRONMENT` | Override default: `dev`, `test`, `prod` |
 | `READ_ONLY` | Default `true` — blocks create/update/delete |
+| `REFINED_PROMPT` | Default `true` — append refined-prompt footer after CPQ-related tasks (live and/or local cache) |
+| `AUTO_SAVE_REFINED_PROMPT` | Default `false` — when true, auto-save refined prompts; when false, agent asks |
+| `LOCAL_DATA_POLICY` | Default `ask` — `ask` / `prefer` / `never` for using `data/` snapshots before live CPQ |
+| `CPQ_LOCAL_DATA_DIR` | Optional override for local snapshot root (default `<repo>/data`) |
+| `CPQ_SAVED_PROMPTS_PATH` | Optional override for saved refined-prompt library JSON |
 | `DEV_URL`, `DEV_USERNAME`, `DEV_PASSWORD` | Dev CPQ credentials |
 | `REST_API_VERSION` | e.g. `v18` |
 | `CUSTOM_DATA_TABLE_NAME` | Default table for smoke test / datatable tools |
@@ -342,6 +366,17 @@ pip install -e ".[dev]"
 pytest
 ```
 
+### Prompt Studio (local)
+
+Browse/search/favorites/suites and fill `{{placeholders}}` against `.config/saved_prompts.json`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install '.[prompt-studio]'
+.\.venv\Scripts\python.exe -m apps.prompt_studio
+```
+
+Then open [http://127.0.0.1:8765](http://127.0.0.1:8765). Details: [`apps/prompt_studio/README.md`](apps/prompt_studio/README.md) and [`docs/FEATURES.md`](docs/FEATURES.md#prompt-studio-enable-and-run).
+
 ## Project structure
 
 ```
@@ -350,6 +385,7 @@ mcp/oracle_cpq_mcp/   # MCP server package
   security/           # Policy, validation, confirmation, audit
   tools/              # MCP tool handlers
   registry/           # Tool catalog
+apps/prompt_studio/   # Local Prompt Studio (FastAPI + static UI)
 .config/              # Customer profiles (*.env gitignored)
 scripts/              # mcp-server.cmd / mcp-server.sh launchers
 .agents/              # Antigravity MCP example (local mcp_config.json not committed)
@@ -360,9 +396,10 @@ tests/                # Unit + security tests
 
 ## Security & git
 
-- **Never commit** `.agents/mcp_config.json`, `.cursor/mcp.json`, or `.config/*.env` — see [.gitignore](.gitignore)
+- **Never commit** `.agents/mcp_config.json`, `.cursor/mcp.json`, `.config/*.env`, `saved_prompts.json`, `prompt_studio.json`, or `data/` — see [.gitignore](.gitignore)
 - **Never put passwords** in MCP config JSON
-- Pre-commit checklist: [docs/QUICKSTART.md#before-you-commit-git-safety-checklist](docs/QUICKSTART.md#before-you-commit-git-safety-checklist)
+- Guardrails + HITL writes: [`docs/FEATURES.md`](docs/FEATURES.md#security-guardrails-and-human-in-the-loop) and [`SECURITY.md`](SECURITY.md)
+- Pre-commit checklist: [`docs/PRE_COMMIT_REVIEW.md`](docs/PRE_COMMIT_REVIEW.md)
 
 ## Remote MCP (future)
 

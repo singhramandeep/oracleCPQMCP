@@ -319,7 +319,304 @@ class DiscoverToolsInput(_StrictModel):
         default=20,
         ge=1,
         le=50,
-        description="Maximum number of tools to return (1–50).",
+        description="Maximum number of matching tools to return.",
+    )
+
+
+class ListSavedPromptsInput(_StrictModel):
+    limit: int = Field(
+        default=50,
+        ge=1,
+        le=200,
+        description="Maximum number of saved prompts to return.",
+    )
+
+
+class SearchSavedPromptsInput(_StrictModel):
+    query: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Optional substring match against title / prompt text.",
+    )
+    tag: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Optional tag filter (e.g. users, audit, export).",
+    )
+    tool_domain: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Optional tool domain filter (e.g. users, groups, commerce).",
+    )
+    limit: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum matches to return.",
+    )
+
+
+class GetSavedPromptInput(_StrictModel):
+    prompt_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Saved prompt UUID from list_saved_prompts / search_saved_prompts.",
+    )
+
+
+class RecordPromptUseInput(_StrictModel):
+    prompt_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Saved prompt UUID to mark as used.",
+    )
+
+
+class SaveRefinedPromptInput(_StrictModel):
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=120,
+        description="Short one-line title for the saved prompt.",
+    )
+    original_user_prompt: str = Field(
+        ...,
+        min_length=1,
+        max_length=8000,
+        description="The original user request that led to this refined prompt.",
+    )
+    refined_prompt: str = Field(
+        ...,
+        min_length=1,
+        max_length=20000,
+        description="The refined prompt markdown (prose + variables + tools).",
+    )
+    variables: dict[str, Any] | None = Field(
+        default=None,
+        description="Placeholder values from this run (secrets are stripped).",
+    )
+    tags: list[str] | None = Field(
+        default=None,
+        max_length=20,
+        description="Optional tags (allowlisted domains/intents).",
+    )
+    tools: list[str] | None = Field(
+        default=None,
+        max_length=50,
+        description="MCP tool names used for this task.",
+    )
+    output_format: Literal["chat_text", "json", "excel_download"] = Field(
+        default="chat_text",
+        description=(
+            "How the answer was shared: chat_text (default), json, or excel_download."
+        ),
+    )
+
+
+class OfferSaveRefinedPromptInput(SaveRefinedPromptInput):
+    save: bool | None = Field(
+        default=None,
+        description=(
+            "Omit to get a needs_user_input prompt (save once / save+always / skip); "
+            "true to save; false to decline."
+        ),
+    )
+    always: bool | None = Field(
+        default=None,
+        description=(
+            "When save=true and always=true, also set AUTO_SAVE_REFINED_PROMPT=true "
+            "in the active profile .env via set_auto_save_refined_prompt."
+        ),
+    )
+
+
+class SetAutoSaveRefinedPromptInput(_StrictModel):
+    enabled: bool = Field(
+        ...,
+        description=(
+            "Write AUTO_SAVE_REFINED_PROMPT=true|false to the active profile .env."
+        ),
+    )
+
+
+class StartPromptPickerInput(_StrictModel):
+    mode: str | None = Field(
+        default=None,
+        max_length=32,
+        description=(
+            "Picker mode: all, search, by_tag, by_tool, last5, by_domain; "
+            "omit for top-level menu."
+        ),
+    )
+    query: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Search text when mode=search.",
+    )
+    tag: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Tag when mode=by_tag.",
+    )
+    tool_domain: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Tool domain when mode=by_domain.",
+    )
+    tool: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Exact MCP tool name when mode=by_tool.",
+    )
+    prompt_id: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Load this saved prompt id and record use (must be enabled).",
+    )
+
+
+class SetSavedPromptEnabledInput(_StrictModel):
+    prompt_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Saved prompt UUID to enable or disable.",
+    )
+    enabled: bool = Field(
+        ...,
+        description="True to enable; false to hide from list/search/picker.",
+    )
+
+
+class ListLocalDataInput(_StrictModel):
+    """No parameters — lists snapshots for the active profile/env."""
+
+
+class GetLocalDataStatusInput(_StrictModel):
+    domain: Literal["users", "groups", "bml", "commerce", "datatables"] = Field(
+        ...,
+        description="Local snapshot domain to check.",
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Required for commerce snapshots (process variable name).",
+    )
+    table_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Required for datatables snapshots.",
+    )
+
+
+class LoadLocalDataInput(_StrictModel):
+    domain: Literal["users", "groups", "bml", "commerce", "datatables"] = Field(
+        ...,
+        description="Local snapshot domain to load.",
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Required for commerce snapshots.",
+    )
+    table_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Required for datatables snapshots.",
+    )
+    include_payload: bool = Field(
+        default=False,
+        description="When true, include selected JSON file contents (can be large).",
+    )
+    payload_keys: list[str] | None = Field(
+        default=None,
+        max_length=20,
+        description="Optional manifest path keys to include when include_payload=true.",
+    )
+
+
+class OfferUseLocalDataInput(_StrictModel):
+    domain: Literal["users", "groups", "bml", "commerce", "datatables"] = Field(
+        ...,
+        description="Domain the user is about to query.",
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Commerce process variable name when domain=commerce.",
+    )
+    table_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Data table name when domain=datatables.",
+    )
+    choice: Literal["use_cache", "fetch_fresh", "prefer", "never"] | None = Field(
+        default=None,
+        description=(
+            "Omit to get needs_user_input choices; then retry with an explicit choice."
+        ),
+    )
+
+
+class SetLocalDataPolicyInput(_StrictModel):
+    policy: Literal["ask", "prefer", "never"] = Field(
+        ...,
+        description="Write LOCAL_DATA_POLICY=ask|prefer|never to the active profile .env.",
+    )
+
+
+class SyncUsersLocalInput(_StrictModel):
+    status_filter: UserStatusFilter = Field(
+        default="active",
+        description="active, inactive, or all users.",
+    )
+    q_expr: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Optional CPQ MongoDB-style q expression to further filter users.",
+    )
+    columns: list[str] | None = Field(
+        default=None,
+        max_length=50,
+        description="Optional Excel column names (defaults to standard user columns).",
+    )
+
+
+class SyncGroupsLocalInput(_StrictModel):
+    """No parameters — syncs all groups for COMPANY_LOGIN_NAME."""
+
+
+class SyncBmlLocalInput(_StrictModel):
+    """No parameters — syncs util library functions with scriptText."""
+
+
+class SyncCommerceMetadataLocalInput(_StrictModel):
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Commerce process variable name (defaults to profile COMMERCE_PROCESS_VAR_NAME).",
+    )
+    expand_all: bool = Field(
+        default=True,
+        description="When true, request expand=all* on metadata collections.",
+    )
+
+
+class SyncDatatableLocalInput(_StrictModel):
+    table_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Data table name (defaults to CUSTOM_DATA_TABLE_NAME).",
+    )
+
+
+class SyncDatatablesLocalInput(_StrictModel):
+    table_names: list[str] | None = Field(
+        default=None,
+        max_length=50,
+        description="Tables to sync; defaults to all CUSTOM_DATA_TABLE_NAME* from profile.",
     )
 
 
@@ -1780,6 +2077,26 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_part": GetPartInput,
     "search_parts": SearchPartsInput,
     "discover_tools": DiscoverToolsInput,
+    "list_saved_prompts": ListSavedPromptsInput,
+    "search_saved_prompts": SearchSavedPromptsInput,
+    "get_saved_prompt": GetSavedPromptInput,
+    "record_prompt_use": RecordPromptUseInput,
+    "save_refined_prompt": SaveRefinedPromptInput,
+    "offer_save_refined_prompt": OfferSaveRefinedPromptInput,
+    "set_auto_save_refined_prompt": SetAutoSaveRefinedPromptInput,
+    "start_prompt_picker": StartPromptPickerInput,
+    "set_saved_prompt_enabled": SetSavedPromptEnabledInput,
+    "list_local_data": ListLocalDataInput,
+    "get_local_data_status": GetLocalDataStatusInput,
+    "load_local_data": LoadLocalDataInput,
+    "offer_use_local_data": OfferUseLocalDataInput,
+    "set_local_data_policy": SetLocalDataPolicyInput,
+    "sync_users_local": SyncUsersLocalInput,
+    "sync_groups_local": SyncGroupsLocalInput,
+    "sync_bml_local": SyncBmlLocalInput,
+    "sync_commerce_metadata_local": SyncCommerceMetadataLocalInput,
+    "sync_datatable_local": SyncDatatableLocalInput,
+    "sync_datatables_local": SyncDatatablesLocalInput,
 }
 
 

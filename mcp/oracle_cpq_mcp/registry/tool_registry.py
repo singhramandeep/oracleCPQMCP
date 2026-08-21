@@ -1,4 +1,4 @@
-"""Central catalog and search/filter helpers for Oracle CPQ MCP tools."""
+﻿"""Central catalog and search/filter helpers for Oracle CPQ MCP tools."""
 
 from __future__ import annotations
 
@@ -6,8 +6,9 @@ import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from mcp.types import ToolAnnotations
+from mcp.types import Icon, ToolAnnotations
 
+from oracle_cpq_mcp.registry.tool_icons import IconSpec, resolve_tool_icons
 from oracle_cpq_mcp.schemas.tool_outputs import get_tool_output_schema
 
 DomainName = Literal[
@@ -62,10 +63,19 @@ class ToolSpec:
     description: str
     tags: frozenset[str]
     read_only: bool
+    title: str
+    version: str
+    icons: tuple[IconSpec, ...]
     destructive: bool = False
     http_method: str | None = None
     api_path: str | None = None
     risk: RiskLevel = "READ_ONLY"
+
+
+def human_tool_title(name: str) -> str:
+    """Convert snake_case tool names into MCP annotation titles."""
+    special = {"bml": "BML", "cpq": "CPQ", "excel": "Excel"}
+    return " ".join(special.get(part, part.capitalize()) for part in name.split("_"))
 
 
 def _compute_risk(
@@ -74,9 +84,16 @@ def _compute_risk(
     operation: OperationName,
     destructive: bool,
 ) -> RiskLevel:
-    if name == "export_users_excel":
-        return "PRIVILEGED"
-    if name == "get_all_bml_code":
+    if name in {
+        "export_users_excel",
+        "get_all_bml_code",
+        "sync_users_local",
+        "sync_groups_local",
+        "sync_bml_local",
+        "sync_commerce_metadata_local",
+        "sync_datatable_local",
+        "sync_datatables_local",
+    }:
         return "PRIVILEGED"
     if destructive:
         return "DESTRUCTIVE"
@@ -96,29 +113,26 @@ def _spec(
     destructive: bool = False,
     http_method: str | None = None,
     api_path: str | None = None,
+    title: str | None = None,
+    version: str = "1.0.0",
+    icons: tuple[IconSpec, ...] | None = None,
 ) -> ToolSpec:
     merged_tags = frozenset({domain, operation, *tags})
-    spec = ToolSpec(
+    resolved_title = (title or human_tool_title(name)).strip()
+    resolved_icons = resolve_tool_icons(domain, icons)
+    return ToolSpec(
         name=name,
         domain=domain,
         operation=operation,
         description=description,
         tags=merged_tags,
         read_only=read_only,
+        title=resolved_title,
+        version=version,
+        icons=resolved_icons,
         destructive=destructive,
         http_method=http_method,
         api_path=api_path,
-    )
-    return ToolSpec(
-        name=spec.name,
-        domain=spec.domain,
-        operation=spec.operation,
-        description=spec.description,
-        tags=spec.tags,
-        read_only=spec.read_only,
-        destructive=spec.destructive,
-        http_method=spec.http_method,
-        api_path=spec.api_path,
         risk=_compute_risk(name, operation=operation, destructive=destructive),
     )
 
@@ -142,11 +156,15 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         "export_users_excel",
         domain="users",
         operation="read",
-        description="Export CPQ users to an Excel (.xlsx) file. Defaults to active users only.",
-        tags={"export", "excel"},
+        description=(
+            "Export CPQ users to an Excel (.xlsx) file. Defaults to active users only. "
+            "Also writes users.json + users.xlsx under data/{profile}/{env}/users/."
+        ),
+        tags={"export", "excel", "local_data"},
         read_only=True,
         http_method="GET",
         api_path="/users",
+        version="1.2.0",
     ),
     "get_user": _spec(
         "get_user",
@@ -352,15 +370,19 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         description=(
             "Download or retrieve BML source code from the CPQ site. "
             "delivery='zip' (default) exports all Commerce BML and BMLT files via "
-            "GET /adminMeta — equivalent to cpq-toolkit pull. "
+            "GET /adminMeta — equivalent to cpq-toolkit pull; saves the zip under "
+            "data/{profile}/{env}/bml/ and extracts the full folder tree to "
+            "data/{profile}/{env}/bml/site/. "
             "delivery='json' returns util library functions with scriptText inline "
-            "(paginated fetch of /bml/library/functions plus per-function detail). "
+            "(paginated fetch of /bml/library/functions plus per-function detail) and "
+            "writes library.json plus per-function .bml/.json under data/.../bml/. "
             "Admin permissions required."
         ),
-        tags={"export", "admin", "bml"},
+        tags={"export", "admin", "bml", "local_data"},
         read_only=True,
         http_method="GET",
         api_path="/adminMeta",
+        version="1.3.0",
     ),
     "get_bml_function": _spec(
         "get_bml_function",
@@ -1009,15 +1031,281 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         tags={"discovery"},
         read_only=True,
     ),
+    "list_saved_prompts": _spec(
+        "list_saved_prompts",
+        domain="meta",
+        operation="read",
+        description=(
+            "List locally saved refined prompts (title, tags, tools, last_run). "
+            "Does not call Oracle CPQ. Library file defaults to .config/saved_prompts.json."
+        ),
+        tags={"saved_prompts"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "search_saved_prompts": _spec(
+        "search_saved_prompts",
+        domain="meta",
+        operation="read",
+        description=(
+            "Search saved refined prompts by title text, tag, and/or tool domain. "
+            "Does not call Oracle CPQ."
+        ),
+        tags={"saved_prompts", "search"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "get_saved_prompt": _spec(
+        "get_saved_prompt",
+        domain="meta",
+        operation="read",
+        description=(
+            "Load one saved refined prompt by id, including refined_prompt text and variables. "
+            "Does not call Oracle CPQ."
+        ),
+        tags={"saved_prompts"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "record_prompt_use": _spec(
+        "record_prompt_use",
+        domain="meta",
+        operation="read",
+        description=(
+            "Update last_run_at and run_count for a saved prompt after the user runs it. "
+            "Writes only the local saved-prompts library (not Oracle CPQ)."
+        ),
+        tags={"saved_prompts"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "save_refined_prompt": _spec(
+        "save_refined_prompt",
+        domain="meta",
+        operation="read",
+        description=(
+            "Save a refined prompt (title, original user prompt, refined text, variables, "
+            "tags, tools, output_format) into the local library. "
+            "output_format is chat_text (default), json, or excel_download. "
+            "Dedupes by content hash (includes output_format). "
+            "Writes only .config/saved_prompts.json (or CPQ_SAVED_PROMPTS_PATH); not Oracle CPQ."
+        ),
+        tags={"saved_prompts"},
+        read_only=True,
+        version="1.1.0",
+    ),
+    "offer_save_refined_prompt": _spec(
+        "offer_save_refined_prompt",
+        domain="meta",
+        operation="read",
+        description=(
+            "Offer to save a refined prompt after a CPQ-related task. If save is omitted, returns "
+            "needs_user_input with choices: save once, save and always auto-save, or skip "
+            "(chat fallback when elicitation is unavailable). "
+            "With save=true persists via save_refined_prompt (including output_format); "
+            "with always=true also writes AUTO_SAVE_REFINED_PROMPT=true to the active profile .env. "
+            "Local library / profile file only; does not call Oracle CPQ."
+        ),
+        tags={"saved_prompts"},
+        read_only=True,
+        version="1.2.0",
+    ),
+    "set_auto_save_refined_prompt": _spec(
+        "set_auto_save_refined_prompt",
+        domain="meta",
+        operation="read",
+        description=(
+            "Set AUTO_SAVE_REFINED_PROMPT=true|false on the active customer profile .env "
+            "(allowlisted key rewrite only). Does not call Oracle CPQ. "
+            "Treat the tool result as source of truth for the rest of this session; "
+            "reload MCP if you need server instructions rebuilt from the new flag."
+        ),
+        tags={"saved_prompts"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "start_prompt_picker": _spec(
+        "start_prompt_picker",
+        domain="meta",
+        operation="read",
+        description=(
+            "Interactively pick an enabled saved refined prompt: all (by title), search, "
+            "by_tag, by_tool (also last5 / by_domain). Omit mode for the top-level menu; "
+            "pass prompt_id to load and record use. Disabled prompts are hidden. "
+            "Returns needs_user_input when the next choice is required. Does not call Oracle CPQ."
+        ),
+        tags={"saved_prompts", "discovery"},
+        read_only=True,
+        version="1.1.0",
+    ),
+    "set_saved_prompt_enabled": _spec(
+        "set_saved_prompt_enabled",
+        domain="meta",
+        operation="read",
+        description=(
+            "Enable or disable a saved refined prompt by id. Disabled prompts are hidden "
+            "from list/search/picker. Local library file only; does not call Oracle CPQ."
+        ),
+        tags={"saved_prompts"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "list_local_data": _spec(
+        "list_local_data",
+        domain="meta",
+        operation="read",
+        description=(
+            "List local data/{profile}/{env} snapshots (manifests) for the active profile. "
+            "Does not call Oracle CPQ. Use before live list/export tools when "
+            "LOCAL_DATA_POLICY is ask or prefer."
+        ),
+        tags={"local_data", "discovery"},
+        read_only=True,
+        version="1.1.0",
+    ),
+    "get_local_data_status": _spec(
+        "get_local_data_status",
+        domain="meta",
+        operation="read",
+        description=(
+            "Check whether a local snapshot exists for a domain "
+            "(users/groups/bml/commerce/datatables). "
+            "For commerce pass process_var_name; for datatables pass table_name. "
+            "Does not call Oracle CPQ."
+        ),
+        tags={"local_data"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "load_local_data": _spec(
+        "load_local_data",
+        domain="meta",
+        operation="read",
+        description=(
+            "Load a local snapshot summary and file paths under data/. "
+            "Default omits large payloads (include_payload=false) to save tokens. "
+            "Does not call Oracle CPQ."
+        ),
+        tags={"local_data"},
+        read_only=True,
+        version="1.1.0",
+    ),
+    "offer_use_local_data": _spec(
+        "offer_use_local_data",
+        domain="meta",
+        operation="read",
+        description=(
+            "Ask whether to use a local data/ snapshot or fetch fresh CPQ data. "
+            "Omit choice for needs_user_input (use_cache / fetch_fresh / prefer / never). "
+            "prefer/never also write LOCAL_DATA_POLICY on the profile .env. "
+            "Does not call Oracle CPQ."
+        ),
+        tags={"local_data"},
+        read_only=True,
+        version="1.1.0",
+    ),
+    "set_local_data_policy": _spec(
+        "set_local_data_policy",
+        domain="meta",
+        operation="read",
+        description=(
+            "Set LOCAL_DATA_POLICY=ask|prefer|never on the active customer profile .env "
+            "(allowlisted key rewrite only). Does not call Oracle CPQ. "
+            "Reload MCP if you need server instructions rebuilt from the new flag."
+        ),
+        tags={"local_data"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "sync_users_local": _spec(
+        "sync_users_local",
+        domain="users",
+        operation="read",
+        description=(
+            "Fetch all CPQ users (paginated) and write data/{profile}/{env}/users/ "
+            "(users.json + users.xlsx + manifest.json). Prefer this for a complete "
+            "local cache. Defaults to active users only."
+        ),
+        tags={"export", "excel", "local_data"},
+        read_only=True,
+        http_method="GET",
+        api_path="/users",
+        version="1.1.0",
+    ),
+    "sync_groups_local": _spec(
+        "sync_groups_local",
+        domain="groups",
+        operation="read",
+        description=(
+            "Fetch all company groups (paginated) and write data/{profile}/{env}/groups/ "
+            "(groups.json + groups.xlsx + manifest.json)."
+        ),
+        tags={"export", "excel", "local_data"},
+        read_only=True,
+        http_method="GET",
+        api_path="/companies/{company}/groups",
+        version="1.1.0",
+    ),
+    "sync_bml_local": _spec(
+        "sync_bml_local",
+        domain="bml",
+        operation="read",
+        description=(
+            "Fetch all util library BML functions with scriptText and write "
+            "data/{profile}/{env}/bml/ (library.json + functions/**/*.bml + **/*.json)."
+        ),
+        tags={"export", "bml", "local_data"},
+        read_only=True,
+        http_method="GET",
+        api_path="/bml/library/functions",
+        version="1.1.0",
+    ),
+    "sync_commerce_metadata_local": _spec(
+        "sync_commerce_metadata_local",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Fetch all header/line attributes and actions for a commerce process "
+            "(paginated) and write JSON + Excel under "
+            "data/{profile}/{env}/commerce/{process}/."
+        ),
+        tags={"export", "excel", "local_data"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcesses/{process}/documents/{doc}/{resource}",
+        version="1.1.0",
+    ),
+    "sync_datatable_local": _spec(
+        "sync_datatable_local",
+        domain="datatables",
+        operation="read",
+        description=(
+            "Fetch one data table meta + all rows and write "
+            "data/{profile}/{env}/datatables/{name}/ (meta.json, rows.json, rows.xlsx)."
+        ),
+        tags={"export", "excel", "local_data"},
+        read_only=True,
+        http_method="GET",
+        api_path="/datatables/{name}",
+        version="1.1.0",
+    ),
+    "sync_datatables_local": _spec(
+        "sync_datatables_local",
+        domain="datatables",
+        operation="read",
+        description=(
+            "Sync one or more data tables locally. Defaults to all "
+            "CUSTOM_DATA_TABLE_NAME* values from the profile."
+        ),
+        tags={"export", "excel", "local_data"},
+        read_only=True,
+        http_method="GET",
+        api_path="/datatables/{name}",
+        version="1.0.0",
+    ),
 }
 
 CPQ_API_TOOLS = frozenset(name for name, spec in TOOL_CATALOG.items() if spec.domain != "meta")
-
-
-def human_tool_title(name: str) -> str:
-    """Convert snake_case tool names into MCP annotation titles."""
-    special = {"bml": "BML", "cpq": "CPQ", "excel": "Excel"}
-    return " ".join(special.get(part, part.capitalize()) for part in name.split("_"))
 
 
 def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
@@ -1025,20 +1313,30 @@ def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
     meta: dict[str, Any] = {
         "domain": spec.domain,
         "operation": spec.operation,
+        "version": spec.version,
     }
     if spec.http_method:
         meta["http_method"] = spec.http_method
     if spec.api_path:
         meta["api_path"] = spec.api_path
 
+    mcp_icons = [
+        Icon(src=icon.src, mimeType=icon.mime_type, sizes=list(icon.sizes) if icon.sizes else None)
+        for icon in spec.icons
+    ]
+
     kwargs: dict[str, Any] = {
+        "title": spec.title,
+        "description": spec.description,
+        "version": spec.version,
+        "icons": mcp_icons,
         "tags": set(spec.tags),
         "annotations": ToolAnnotations(
             readOnlyHint=spec.read_only,
             destructiveHint=spec.destructive,
             idempotentHint=spec.read_only,
             openWorldHint=spec.domain != "meta",
-            title=human_tool_title(spec.name),
+            title=spec.title,
         ),
         "meta": meta,
     }
@@ -1052,9 +1350,19 @@ def tool_to_dict(spec: ToolSpec) -> dict[str, Any]:
     """Serialize a tool spec for discover_tools responses."""
     return {
         "name": spec.name,
+        "title": spec.title,
+        "version": spec.version,
         "domain": spec.domain,
         "operation": spec.operation,
         "description": spec.description,
+        "icons": [
+            {
+                "src": icon.src,
+                "mimeType": icon.mime_type,
+                "sizes": list(icon.sizes) if icon.sizes else None,
+            }
+            for icon in spec.icons
+        ],
         "tags": sorted(spec.tags),
         "http_method": spec.http_method,
         "api_path": spec.api_path,
@@ -1068,6 +1376,7 @@ def _searchable_text(spec: ToolSpec) -> str:
     return " ".join(
         [
             spec.name,
+            spec.title,
             spec.domain,
             spec.operation,
             spec.description,

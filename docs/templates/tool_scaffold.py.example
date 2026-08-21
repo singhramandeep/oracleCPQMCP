@@ -48,7 +48,7 @@ class ListWidgetsInput(_StrictModel):
 # ---------------------------------------------------------------------------
 # "list_widgets": _spec(
 #     "list_widgets",
-#     domain="widgets",
+#     domain="widgets",  # must be a DomainName Literal — extend if new domain
 #     operation="read",
 #     description=(
 #         "List widgets. Returns one page of results. If hasMore is true, call again "
@@ -56,6 +56,9 @@ class ListWidgetsInput(_StrictModel):
 #     ),
 #     tags={"paginated"},
 #     read_only=True,
+#     title="List Widgets",
+#     version="1.0.0",  # bump when this tool's behavior/schema/description/API changes
+#     # icons= omitted → domain default from registry/tool_icons.py
 #     http_method="GET",
 #     api_path="/widgets",
 # ),

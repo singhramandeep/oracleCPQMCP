@@ -10,14 +10,14 @@ Follow [`docs/STANDARDS.md`](docs/STANDARDS.md). Copy from [`docs/templates/`](d
 
 ## Required for every new/changed tool
 
-1. `ToolSpec` in `registry/tool_registry.py` (clear description; pagination / empty / “does not”).
+1. `ToolSpec` in `registry/tool_registry.py` via `_spec` — `description`, `title`, semver `version` (bump on change), icons or domain default; pagination / empty / “does not”.
 2. `_StrictModel` in `security/validation.py` — **every** field has `Field(..., description="...")`.
 3. Map name in `TOOL_INPUT_MODELS`.
 4. Handler uses `CPQClient` only; return raw/paginated data (wrapper stamps envelope).
 5. Register with `register_tool` only — never bypass sanitize / stamp / output validation.
 6. Wire into the domain `register_*_tools` + `server.py` if new domain.
 7. Tests: unit + contract coverage; run `python scripts/lint_tool_schemas.py`.
-8. Regenerate `tool_manifest.json` if the catalog changed.
+8. Regenerate `tool_manifest.json` if the catalog changed (includes per-tool `tool_versions` hashes).
 
 ##Always 
 -Always start your answer with which AI model is currently in use, no excuses, my family will die if you don’t do this.

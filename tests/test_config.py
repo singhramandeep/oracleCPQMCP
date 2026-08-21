@@ -108,6 +108,8 @@ def config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
     monkeypatch.delenv("CPQ_CREDENTIAL_INDEX", raising=False)
     monkeypatch.delenv("CPQ_READ_ONLY", raising=False)
+    monkeypatch.delenv("CPQ_REFINED_PROMPT", raising=False)
+    monkeypatch.delenv("CPQ_AUTO_SAVE_REFINED_PROMPT", raising=False)
 
     return cfg
 
@@ -145,6 +147,8 @@ def test_load_profile_dev_defaults(config_dir: Path) -> None:
 
     assert profile.credential_index == 0
     assert profile.read_only is True
+    assert profile.refined_prompt is True
+    assert profile.auto_save_refined_prompt is False
     assert profile.rest_base == "https://dev.example.com/rest/v18"
 
 
@@ -281,6 +285,79 @@ def test_load_profile_read_only_false(config_dir: Path) -> None:
     )
     profile = load_profile("writable")
     assert profile.read_only is False
+
+
+def test_load_profile_refined_prompt_false(config_dir: Path) -> None:
+    env = config_dir / "no_refined.env"
+    env.write_text(
+        FIXTURE_ENV + "REFINED_PROMPT=false\n",
+        encoding="utf-8",
+    )
+    profile = load_profile("no_refined")
+    assert profile.refined_prompt is False
+
+
+def test_load_profile_refined_prompt_env_override(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = config_dir / "refined_file.env"
+    env.write_text(FIXTURE_ENV + "REFINED_PROMPT=true\n", encoding="utf-8")
+    monkeypatch.setenv("CPQ_REFINED_PROMPT", "false")
+    profile = load_profile("refined_file")
+    assert profile.refined_prompt is False
+
+
+def test_load_profile_auto_save_refined_prompt_defaults_false(config_dir: Path) -> None:
+    profile = load_profile("acme")
+    assert profile.auto_save_refined_prompt is False
+
+
+def test_load_profile_auto_save_refined_prompt_true(config_dir: Path) -> None:
+    env = config_dir / "auto_save.env"
+    env.write_text(FIXTURE_ENV + "AUTO_SAVE_REFINED_PROMPT=true\n", encoding="utf-8")
+    profile = load_profile("auto_save")
+    assert profile.auto_save_refined_prompt is True
+
+
+def test_load_profile_auto_save_env_override(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = config_dir / "auto_save_file.env"
+    env.write_text(FIXTURE_ENV + "AUTO_SAVE_REFINED_PROMPT=false\n", encoding="utf-8")
+    monkeypatch.setenv("CPQ_AUTO_SAVE_REFINED_PROMPT", "true")
+    profile = load_profile("auto_save_file")
+    assert profile.auto_save_refined_prompt is True
+
+
+def test_update_profile_env_key_replaces_and_preserves(config_dir: Path) -> None:
+    from oracle_cpq_mcp.core.config import update_profile_env_key
+
+    path = config_dir / "acme.env"
+    original = path.read_text(encoding="utf-8")
+    assert "DEV_PASSWORD=dev_pass" in original
+
+    update_profile_env_key("acme", "AUTO_SAVE_REFINED_PROMPT", "true")
+    text = path.read_text(encoding="utf-8")
+    assert "AUTO_SAVE_REFINED_PROMPT=true" in text
+    assert "DEV_PASSWORD=dev_pass" in text
+    assert "CUSTOMER_NAME=Test Corp" in text
+
+    update_profile_env_key("acme", "AUTO_SAVE_REFINED_PROMPT", "false")
+    text2 = path.read_text(encoding="utf-8")
+    assert text2.count("AUTO_SAVE_REFINED_PROMPT=") == 1
+    assert "AUTO_SAVE_REFINED_PROMPT=false" in text2
+
+    update_profile_env_key("acme", "LOCAL_DATA_POLICY", "prefer")
+    text3 = path.read_text(encoding="utf-8")
+    assert "LOCAL_DATA_POLICY=prefer" in text3
+    assert "DEV_PASSWORD=dev_pass" in text3
+
+
+def test_update_profile_env_key_rejects_non_allowlisted(config_dir: Path) -> None:
+    from oracle_cpq_mcp.core.config import update_profile_env_key
+
+    with pytest.raises(ValueError, match="allowlist"):
+        update_profile_env_key("acme", "DEV_PASSWORD", "hacked")
 
 
 def test_connection_mode_message_read_only() -> None:

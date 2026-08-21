@@ -11,6 +11,10 @@ from oracle_cpq_mcp.core.bml_fetchers import (
     fetch_all_util_library_code,
 )
 from oracle_cpq_mcp.core.cpq_client import CPQClient
+from oracle_cpq_mcp.core.local_data import (
+    persist_bml_functions_snapshot,
+    persist_bml_zip_snapshot,
+)
 from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
 from oracle_cpq_mcp.core.preflight import (
     resolve_write_execution,
@@ -33,17 +37,29 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
             zip_bytes = client.get_bytes("/adminMeta")
             report_tool_progress(1, 1, message="BML export download complete")
             filename = bml_export_filename(client.profile)
+            try:
+                local = persist_bml_zip_snapshot(
+                    client.profile,
+                    zip_bytes,
+                    source_tool="get_all_bml_code",
+                    filename=filename,
+                    filters={"delivery": "zip"},
+                )
+            except OSError as exc:
+                local = {"error": str(exc)}
             summary = (
                 f"Downloaded all Commerce BML and BMLT files from "
                 f"{client.profile.customer_name} ({client.profile.environment}) "
-                f"to {filename}. Equivalent to cpq-toolkit pull."
+                f"to {filename} and extracted the site tree under "
+                f"data/{client.profile.customer_id}/{client.profile.environment}/bml/site/. "
+                f"Equivalent to cpq-toolkit pull."
             )
             return [
                 build_attachment_lead_envelope(
                     "get_all_bml_code",
                     message=summary,
                     filename=filename,
-                    extra={"delivery": "zip"},
+                    extra={"delivery": "zip", "local_snapshot": local},
                 ),
                 File(
                     data=zip_bytes,
@@ -53,6 +69,16 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
             ]
 
         functions, truncated, has_more = fetch_all_util_library_code(client)
+        try:
+            local = persist_bml_functions_snapshot(
+                client.profile,
+                functions,
+                source_tool="get_all_bml_code",
+                filters={"delivery": "json"},
+                extra={"truncated": truncated, "has_more": has_more},
+            )
+        except OSError as exc:
+            local = {"error": str(exc)}
         return {
             "delivery": "json",
             "customer": client.profile.customer_name,
@@ -61,9 +87,11 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
             "utilLibraryFunctions": functions,
             "truncated": truncated,
             "has_more": has_more,
+            "local_snapshot": local,
             "note": (
                 "JSON delivery returns util library scriptText only. "
-                "Use delivery='zip' for the full Commerce BML/BMLT site export."
+                "Use delivery='zip' for the full Commerce BML/BMLT site export. "
+                "Per-function .bml/.json files were written under data/ when persist succeeded."
             ),
         }
 

@@ -23,20 +23,27 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "respx>=0.21.0",
+    "httpx>=0.27.0",
+]
+prompt-studio = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
 ]
 
 [project.scripts]
 oracle-cpq-smoke = "utilities.smoke:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mcp/oracle_cpq_mcp", "utilities"]
+packages = ["utilities"]
 
+# Map package under mcp/ → import name oracle_cpq_mcp (do not also list it in packages;
+# that duplicates paths and breaks `pip install .`).
 [tool.hatch.build.targets.wheel.force-include]
 "mcp/oracle_cpq_mcp" = "oracle_cpq_mcp"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["mcp"]
+pythonpath = ["mcp", "."]
 markers = [
     "live_eval: hits a real CPQ sandbox (requires CPQ_LIVE_EVAL=1)",
 ]

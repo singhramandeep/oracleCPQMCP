@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prompt Studio</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="shell-header">
+      <div class="brand">
+        <span class="brand-mark"></span>
+        <span class="brand-name">Prompt Studio</span>
+      </div>
+      <div class="header-search">
+        <input id="searchInput" type="search" placeholder="Search prompts…" autocomplete="off" />
+      </div>
+      <div class="header-meta" id="statusLine">Library</div>
+    </header>
+
+    <aside class="shell-sidebar">
+      <nav class="nav-section">
+        <button type="button" class="nav-item active" data-view="all">All prompts</button>
+        <button type="button" class="nav-item" data-view="favorites">Favorites</button>
+        <button type="button" class="nav-item" data-view="suites">Suites</button>
+      </nav>
+      <div class="nav-section">
+        <div class="nav-label">Tags</div>
+        <div id="tagList" class="tag-list"></div>
+      </div>
+    </aside>
+
+    <main class="shell-content">
+      <section id="libraryView" class="view">
+        <div class="toolbar">
+          <h1 id="viewTitle">All prompts</h1>
+          <span id="resultCount" class="muted"></span>
+          <div class="toolbar-spacer"></div>
+          <div class="layout-toggle" role="group" aria-label="Layout">
+            <button type="button" class="layout-btn active" id="layoutCards" data-layout="cards">Cards</button>
+            <button type="button" class="layout-btn" id="layoutList" data-layout="list">List</button>
+          </div>
+          <button type="button" class="btn-secondary" id="refreshBtn" title="Reload from saved_prompts.json">Refresh</button>
+        </div>
+        <div id="promptGrid" class="prompt-grid"></div>
+        <p id="emptyState" class="empty hidden">No prompts match.</p>
+      </section>
+
+      <section id="suitesView" class="view hidden">
+        <div class="toolbar">
+          <h1>Suites</h1>
+          <div class="toolbar-spacer"></div>
+          <button type="button" class="btn-secondary" id="refreshSuitesBtn">Refresh</button>
+          <button type="button" class="btn-primary" id="newSuiteBtn">New suite</button>
+        </div>
+        <div id="suiteList" class="suite-list"></div>
+        <div id="suiteDetail" class="suite-detail hidden"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="runModal" class="modal">
+    <form method="dialog" id="runForm" class="modal-panel">
+      <header class="modal-header">
+        <h2 id="modalTitle">Run prompt</h2>
+        <button type="button" class="btn-ghost" id="closeModal" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <div id="formatBanner" class="format-banner" role="status">
+          Expected response format: <strong id="modalFormatLabel">Text</strong>
+        </div>
+        <div class="meta-row" id="modalMeta"></div>
+        <div class="stats-row" id="modalStats"></div>
+        <label class="field-label">Refined template</label>
+        <pre id="modalTemplate" class="code-block"></pre>
+        <div id="varFields" class="var-fields"></div>
+        <label class="field-label">Generated</label>
+        <textarea id="generatedOut" class="generated" readonly rows="10"></textarea>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn-secondary" id="copyBtn">Copy</button>
+        <button type="button" class="btn-primary" id="generateBtn">Generate</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="suitePickModal" class="modal">
+    <form method="dialog" class="modal-panel modal-sm">
+      <header class="modal-header">
+        <h2>Add to suite</h2>
+        <button type="button" class="btn-ghost" id="closeSuitePick" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <input id="newSuiteName" type="text" placeholder="Or create new suite…" />
+        <div id="suitePickList" class="suite-pick-list"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn-primary" id="createAndAddBtn">Create &amp; add</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

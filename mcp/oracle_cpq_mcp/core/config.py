@@ -10,6 +10,7 @@ from dotenv import dotenv_values
 from pydantic import BaseModel, Field, field_validator
 
 EnvironmentName = Literal["dev", "test", "prod"]
+LocalDataPolicy = Literal["ask", "prefer", "never"]
 
 
 class CredentialSet(BaseModel):
@@ -33,6 +34,9 @@ class CPQProfile(BaseModel):
     custom_data_table_names: list[str] = Field(default_factory=list)
     commerce_process_var_names: list[str] = Field(default_factory=list)
     read_only: bool = True
+    refined_prompt: bool = True
+    auto_save_refined_prompt: bool = False
+    local_data_policy: LocalDataPolicy = "ask"
 
     @field_validator("base_url")
     @classmethod
@@ -125,6 +129,95 @@ def _resolve_read_only(raw: dict[str, str | None]) -> bool:
     if os.environ.get("CPQ_READ_ONLY") is not None:
         return parse_bool_env(os.environ.get("CPQ_READ_ONLY"), default=True)
     return parse_bool_env(raw.get("READ_ONLY"), default=True)
+
+
+def _resolve_refined_prompt(raw: dict[str, str | None]) -> bool:
+    if os.environ.get("CPQ_REFINED_PROMPT") is not None:
+        return parse_bool_env(os.environ.get("CPQ_REFINED_PROMPT"), default=True)
+    return parse_bool_env(raw.get("REFINED_PROMPT"), default=True)
+
+
+def _resolve_auto_save_refined_prompt(raw: dict[str, str | None]) -> bool:
+    if os.environ.get("CPQ_AUTO_SAVE_REFINED_PROMPT") is not None:
+        return parse_bool_env(
+            os.environ.get("CPQ_AUTO_SAVE_REFINED_PROMPT"), default=False
+        )
+    return parse_bool_env(raw.get("AUTO_SAVE_REFINED_PROMPT"), default=False)
+
+
+def _resolve_local_data_policy(raw: dict[str, str | None]) -> LocalDataPolicy:
+    from oracle_cpq_mcp.core.local_data import parse_local_data_policy
+
+    if os.environ.get("CPQ_LOCAL_DATA_POLICY") is not None:
+        return parse_local_data_policy(os.environ.get("CPQ_LOCAL_DATA_POLICY"), default="ask")
+    return parse_local_data_policy(raw.get("LOCAL_DATA_POLICY"), default="ask")
+
+
+# Keys the MCP tools are allowed to rewrite in the active profile .env.
+PROFILE_ENV_WRITABLE_KEYS = frozenset(
+    {"AUTO_SAVE_REFINED_PROMPT", "LOCAL_DATA_POLICY"}
+)
+
+
+def update_profile_env_key(
+    customer_id: str,
+    key: str,
+    value: str,
+    *,
+    path: Path | None = None,
+) -> Path:
+    """Replace or append a single allowlisted key in the profile .env file.
+
+    Preserves comments and all other keys. Never used for credentials.
+    """
+    if key not in PROFILE_ENV_WRITABLE_KEYS:
+        raise ValueError(
+            f"Refusing to write env key {key!r}; allowlist is "
+            f"{sorted(PROFILE_ENV_WRITABLE_KEYS)}"
+        )
+    target = path or profile_path(customer_id)
+    if not target.is_file():
+        raise FileNotFoundError(f"Customer profile not found: {target}")
+
+    text = target.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    if lines and not lines[-1].endswith(("\n", "\r")):
+        # Normalize so we can append cleanly later
+        pass
+
+    key_prefix = f"{key}="
+    replaced = False
+    new_lines: list[str] = []
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith("#") or "=" not in line:
+            new_lines.append(line)
+            continue
+        # Compare key part (ignore leading whitespace)
+        left = line.split("=", 1)[0].strip()
+        if left == key:
+            eol = "\n"
+            if line.endswith("\r\n"):
+                eol = "\r\n"
+            elif line.endswith("\n"):
+                eol = "\n"
+            elif line.endswith("\r"):
+                eol = "\r"
+            else:
+                eol = "\n"
+            new_lines.append(f"{key}={value}{eol}")
+            replaced = True
+        else:
+            new_lines.append(line)
+
+    if not replaced:
+        needs_nl = bool(new_lines) and not new_lines[-1].endswith(("\n", "\r"))
+        if needs_nl:
+            new_lines[-1] = new_lines[-1] + "\n"
+        new_lines.append(f"{key}={value}\n")
+
+    target.write_text("".join(new_lines), encoding="utf-8")
+    return target
 
 
 def _collect_numbered_values(raw: dict[str, str | None], base_key: str) -> list[str]:
@@ -230,4 +323,7 @@ def load_profile(
         custom_data_table_names=_collect_numbered_values(raw, "CUSTOM_DATA_TABLE_NAME"),
         commerce_process_var_names=_collect_numbered_values(raw, "COMMERCE_PROCESS_VAR_NAME"),
         read_only=_resolve_read_only(raw),
+        refined_prompt=_resolve_refined_prompt(raw),
+        auto_save_refined_prompt=_resolve_auto_save_refined_prompt(raw),
+        local_data_policy=_resolve_local_data_policy(raw),
     )

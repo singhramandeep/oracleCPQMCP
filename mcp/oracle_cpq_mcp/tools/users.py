@@ -16,6 +16,7 @@ from fastmcp.utilities.types import File
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.progress import report_tool_progress
+from oracle_cpq_mcp.core.local_data import persist_users_snapshot
 from oracle_cpq_mcp.exporters.users_excel import (
 
     build_users_workbook,
@@ -119,6 +120,22 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
         )
 
+        try:
+            local = persist_users_snapshot(
+                client.profile,
+                users,
+                xlsx_bytes,
+                source_tool="export_users_excel",
+                filters={"status_filter": status_filter, "q_expr": q_expr},
+                extra={
+                    "truncated": fetch_result.truncated,
+                    "max_rows": fetch_result.max_items,
+                    "has_more": fetch_result.has_more,
+                },
+            )
+        except OSError as exc:
+            local = {"error": str(exc)}
+
         if fetch_result.truncated:
 
             summary = (
@@ -153,6 +170,7 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
                     "max_rows": fetch_result.max_items,
                     "row_count": len(users),
                     "has_more": fetch_result.has_more,
+                    "local_snapshot": local,
                 },
             ),
             File(

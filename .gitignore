@@ -9,6 +9,8 @@
 # --- Generated outputs ---
 .prompts
 exports/
+dat/
+data/
 *.xlsx
 *.xls
 
@@ -30,12 +32,20 @@ venv/
 # Customer CPQ profiles contain DEV_PASSWORD, TEST_PASSWORD, etc.
 .config/*.env
 !.config/.env.example
+.config/saved_prompts.json
+.config/saved_prompts.json.tmp
+.config/prompt_studio.json
+.config/prompt_studio.json.tmp
 docs/*.md 
 !docs/QUICKSTART.md
 !docs/SETUP.md
 !docs/STANDARDS.md
 !docs/COMMON_PROMPTS.md
 !docs/RELEASE_NOTES.md
+!docs/TOOL_CATALOG.md
+!docs/FEATURES.md
+!docs/PRE_COMMIT_REVIEW.md
+!docs/FAQ.md
 
 # Local Focalpoint/scratch dumps (never commit)
 tmp_*
