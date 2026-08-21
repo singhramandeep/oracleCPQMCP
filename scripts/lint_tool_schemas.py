@@ -10,16 +10,21 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Allow running without installing the package when PYTHONPATH=mcp is set,
-# or when invoked from repo root with mcp on sys.path.
+# Prefer the workspace package over any stale site-packages copy.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_MCP = _REPO_ROOT / "mcp"
-if str(_MCP) not in sys.path:
-    sys.path.insert(0, str(_MCP))
+_MCP = str(_REPO_ROOT / "mcp")
+if _MCP in sys.path:
+    sys.path.remove(_MCP)
+sys.path.insert(0, _MCP)
 
 from pydantic.fields import PydanticUndefined  # noqa: E402
 
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG  # noqa: E402
+from oracle_cpq_mcp.security.schema_integrity import (  # noqa: E402
+    SEMVER_RE,
+    collect_version_bump_violations,
+    load_manifest,
+)
 from oracle_cpq_mcp.security.validation import TOOL_INPUT_MODELS  # noqa: E402
 
 MIN_CATALOG_DESCRIPTION_LEN = 20
@@ -46,6 +51,18 @@ def collect_violations() -> list[str]:
                 f"{name}: catalog description too short "
                 f"(<{MIN_CATALOG_DESCRIPTION_LEN} chars)"
             )
+        title = (spec.title or "").strip()
+        if not title:
+            violations.append(f"{name}: catalog title is empty")
+        version = (spec.version or "").strip()
+        if not version:
+            violations.append(f"{name}: catalog version is empty")
+        elif not SEMVER_RE.match(version):
+            violations.append(
+                f"{name}: catalog version {version!r} must be semver MAJOR.MINOR.PATCH"
+            )
+        if not spec.icons:
+            violations.append(f"{name}: catalog icons resolved empty (need ≥1)")
 
     for name, model_cls in sorted(TOOL_INPUT_MODELS.items()):
         for field_name, field_info in model_cls.model_fields.items():
@@ -61,6 +78,11 @@ def collect_violations() -> list[str]:
                 violations.append(
                     f"{name}.{field_name}: optional field has no default/default_factory"
                 )
+
+    manifest = load_manifest()
+    previous_versions = (manifest or {}).get("tool_versions")
+    if isinstance(previous_versions, dict):
+        violations.extend(collect_version_bump_violations(previous_versions))
 
     return violations
 
