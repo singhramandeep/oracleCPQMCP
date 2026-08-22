@@ -42,12 +42,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -66,6 +69,13 @@ import com.geminibulk.imagegen.viewmodel.SelectedImage
 @Composable
 fun GeminiBulkScreen(viewModel: MainViewModel) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.snackbarMessage) {
+        val message = state.snackbarMessage ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        viewModel.clearSnackbarMessage()
+    }
 
     LaunchedEffect(state.errorMessage, state.statusMessage) {
         if (state.errorMessage != null || state.statusMessage != null) {
@@ -93,6 +103,7 @@ fun GeminiBulkScreen(viewModel: MainViewModel) {
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(title = { Text("Gemini Bulk Image") })
         },
@@ -117,6 +128,33 @@ fun GeminiBulkScreen(viewModel: MainViewModel) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = viewModel::saveApiKey, modifier = Modifier.fillMaxWidth()) {
                         Text("Save API Key")
+                    }
+                    when {
+                        state.isApiKeySaved -> {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "API key saved — tap Load Models to continue",
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            }
+                        }
+                        state.errorMessage != null && state.apiKey.isNotBlank() -> {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                state.errorMessage.orEmpty(),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                 }
             }

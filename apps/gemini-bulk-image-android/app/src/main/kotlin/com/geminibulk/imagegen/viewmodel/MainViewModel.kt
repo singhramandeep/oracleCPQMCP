@@ -40,8 +40,10 @@ data class MainUiState(
     val jobs: List<GenerationJob> = emptyList(),
     val isLoadingModels: Boolean = false,
     val isGenerating: Boolean = false,
+    val isApiKeySaved: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null,
+    val snackbarMessage: String? = null,
 )
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -51,21 +53,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(
         MainUiState(
-            apiKey = settings.getApiKey(),
-            selectedModelId = settings.getSelectedModelId(),
-            parallelEnabled = settings.getParallelEnabled(),
-            maxParallelism = settings.getMaxParallelism(),
+            apiKey = runCatching { settings.getApiKey() }.getOrDefault(""),
+            selectedModelId = runCatching { settings.getSelectedModelId() }.getOrDefault(""),
+            parallelEnabled = runCatching { settings.getParallelEnabled() }.getOrDefault(false),
+            maxParallelism = runCatching { settings.getMaxParallelism() }
+                .getOrDefault(SettingsRepository.DEFAULT_PARALLELISM),
+            isApiKeySaved = runCatching { settings.getApiKey().isNotBlank() }.getOrDefault(false),
         ),
     )
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
     fun updateApiKey(value: String) {
-        _uiState.update { it.copy(apiKey = value) }
+        _uiState.update {
+            it.copy(
+                apiKey = value,
+                isApiKeySaved = false,
+            )
+        }
     }
 
     fun saveApiKey() {
-        settings.saveApiKey(_uiState.value.apiKey)
-        _uiState.update { it.copy(statusMessage = "API key saved securely") }
+        val trimmed = _uiState.value.apiKey.trim()
+        if (trimmed.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    isApiKeySaved = false,
+                    errorMessage = "Enter your Gemini API key before saving.",
+                    snackbarMessage = "Enter your Gemini API key before saving.",
+                )
+            }
+            return
+        }
+
+        settings.saveApiKey(trimmed).fold(
+            onSuccess = {
+                _uiState.update {
+                    it.copy(
+                        apiKey = trimmed,
+                        isApiKeySaved = true,
+                        errorMessage = null,
+                        statusMessage = "API key saved",
+                        snackbarMessage = "API key saved successfully",
+                    )
+                }
+            },
+            onFailure = { ex ->
+                _uiState.update {
+                    it.copy(
+                        isApiKeySaved = false,
+                        errorMessage = ex.message ?: "Failed to save API key",
+                        snackbarMessage = "Failed to save API key",
+                    )
+                }
+            },
+        )
     }
 
     fun updatePrompt(value: String) {
@@ -298,5 +339,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearMessages() {
         _uiState.update { it.copy(statusMessage = null, errorMessage = null) }
+    }
+
+    fun clearSnackbarMessage() {
+        _uiState.update { it.copy(snackbarMessage = null) }
     }
 }

@@ -1,24 +1,42 @@
 package com.geminibulk.imagegen.api
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 class SettingsRepository(context: Context) {
-    private val prefs = EncryptedSharedPreferences.create(
-        context,
-        PREFS_NAME,
-        MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+    private val appContext = context.applicationContext
+    private val prefs: SharedPreferences by lazy { createPrefs() }
+
+    private fun createPrefs(): SharedPreferences {
+        return try {
+            EncryptedSharedPreferences.create(
+                appContext,
+                PREFS_NAME,
+                MasterKey.Builder(appContext)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build(),
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        } catch (ex: Exception) {
+            Log.w(TAG, "EncryptedSharedPreferences unavailable; using standard prefs", ex)
+            appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        }
+    }
 
     fun getApiKey(): String = prefs.getString(KEY_API, "").orEmpty()
 
-    fun saveApiKey(value: String) {
-        prefs.edit().putString(KEY_API, value.trim()).apply()
+    fun saveApiKey(value: String): Result<Unit> {
+        return try {
+            prefs.edit().putString(KEY_API, value.trim()).apply()
+            Result.success(Unit)
+        } catch (ex: Exception) {
+            Log.e(TAG, "Failed to save API key", ex)
+            Result.failure(ex)
+        }
     }
 
     fun getSelectedModelId(): String = prefs.getString(KEY_MODEL, "").orEmpty()
@@ -40,6 +58,7 @@ class SettingsRepository(context: Context) {
     }
 
     companion object {
+        private const val TAG = "SettingsRepository"
         private const val PREFS_NAME = "gemini_bulk_secure_prefs"
         private const val KEY_API = "api_key"
         private const val KEY_MODEL = "selected_model"
