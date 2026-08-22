@@ -9,7 +9,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
-import com.geminibulk.imagegen.data.EncodedImage
+import com.geminibulk.imagegen.api.EncodedImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream

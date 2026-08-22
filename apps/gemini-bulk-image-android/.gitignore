@@ -1,4 +1,4 @@
-apps/gemini-bulk-image-android/app/build/
 apps/gemini-bulk-image-android/.gradle/
 apps/gemini-bulk-image-android/build/
 apps/gemini-bulk-image-android/local.properties
+*.apk

@@ -56,8 +56,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import com.geminibulk.imagegen.data.CategorizedModel
-import com.geminibulk.imagegen.data.ModelTask
+import com.geminibulk.imagegen.api.CategorizedModel
+import com.geminibulk.imagegen.api.ModelTask
 import com.geminibulk.imagegen.domain.JobStatus
 import com.geminibulk.imagegen.viewmodel.MainViewModel
 import com.geminibulk.imagegen.viewmodel.SelectedImage

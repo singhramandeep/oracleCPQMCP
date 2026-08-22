@@ -1,8 +1,8 @@
 package com.geminibulk.imagegen.domain
 
-import com.geminibulk.imagegen.data.EncodedImage
-import com.geminibulk.imagegen.data.GenerateContentResponse
-import com.geminibulk.imagegen.data.GeminiRepository
+import com.geminibulk.imagegen.api.EncodedImage
+import com.geminibulk.imagegen.api.GenerateContentResponse
+import com.geminibulk.imagegen.api.GeminiRepository
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
