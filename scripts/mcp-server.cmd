@@ -12,4 +12,6 @@ if not exist "%PY%" (
 )
 
 cd /d "%ROOT%"
+REM Prefer live source under mcp/ over a stale site-packages copy (hatch force-include).
+set "PYTHONPATH=%ROOT%\mcp;%PYTHONPATH%"
 "%PY%" -m oracle_cpq_mcp

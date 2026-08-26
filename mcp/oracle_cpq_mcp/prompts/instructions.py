@@ -4,16 +4,19 @@ from __future__ import annotations
 
 BASE_SERVER_INSTRUCTIONS = (
     "Oracle CPQ MCP server for Users, Groups, Data Tables, BML, Commerce metadata, "
-    "Commerce transactions, Parts, Performance Logs, Tasks, and Configuration "
+    "Commerce transactions, Parts, Performance Logs, Metrics, Collaborative Quote "
+    "Queues, Site Admin (certificates/SSO), Tasks, and Configuration "
     "(productFamilies). "
     "All calls use the active customer profile from CPQ_CUSTOMER_PROFILE "
     "and environment from CPQ_ENVIRONMENT or the profile default. "
     "Use discover_tools to find tools by domain "
-    "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration) or "
+    "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/"
+    "metrics/collab/admin) or "
     "operation (read/write). Read-only tools are safe for exploration; write tools "
     "(update_user, create_group, deploy_datatables, create_datatable, export_datatables, "
     "export_bml_library_functions, generate_proposal, copy_transaction, "
-    "copy_transaction_lines, export_attachment, export_performance_logs) default to "
+    "copy_transaction_lines, export_attachment, export_performance_logs, "
+    "clear_collab_operation_queue) default to "
     "dry_run=true preflight "
     "mode and require a server-issued confirmation_token before mutating CPQ data. "
     "Never execute writes without user approval and a valid confirmation_token. "
@@ -27,7 +30,8 @@ REFINED_PROMPT_CORE = (
     "'### Refined prompt (Better token usage)' with these parts: "
     "(0) '**Title:**' one short human-readable line summarizing the task. "
     "(0b) '**Tags:**' comma-separated tags from domains used "
-    "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/meta) "
+    "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/"
+    "metrics/collab/admin/meta) "
     "plus intent tags when relevant (audit, export, write, discovery, read). No icons. "
     "(0c) '**Output format:**' how this answer was shared — one of: chat text, json, "
     "excel download (default chat text). Also include {{output_format}} in Variables "
@@ -54,12 +58,16 @@ REFINED_PROMPT_SAVE_ASK = (
     "(4) After the footer, call offer_save_refined_prompt (omit save) so the user can "
     "choose: save this prompt once, save and enable AUTO_SAVE_REFINED_PROMPT for future "
     "runs, or skip. Pass output_format=chat_text|json|excel_download (default chat_text). "
+    "Pass original_user_prompt as the verbatim user message that started this task "
+    "(not the refined footer, not a paraphrase). "
     "Do not invent ad-hoc scripts — use the MCP tools only. "
 )
 
 REFINED_PROMPT_SAVE_AUTO = (
     "(4) After the footer, call save_refined_prompt with the same title/tags/variables/"
     "tools/output_format (AUTO_SAVE_REFINED_PROMPT is enabled — do not ask). "
+    "Pass original_user_prompt as the verbatim user message that started this task "
+    "(not the refined footer, not a paraphrase). "
     "Dedupes by content hash. "
 )
 
@@ -97,14 +105,77 @@ LOCAL_DATA_NEVER = (
     "still persist full results into data/ for later runs."
 )
 
+POST_RESPONSE_EXPORT_CORE = (
+    " After a CPQ-related answer that includes tabular data, honor POST_RESPONSE_EXPORT. "
+    "Pass structured sheets [{name, columns?, rows}] to export tools — never scrape chat "
+    "markdown as the source of truth. Files land under data/{profile}/{env}/exports/."
+)
+
+POST_RESPONSE_EXPORT_ASK = (
+    " POST_RESPONSE_EXPORT=ask (default): after the refined-prompt footer/save step, "
+    "call offer_export_response (omit choice) with title and the same sheets used in chat. "
+    "Choices: excel / word / both / skip / always_excel / never. On excel/word/both/"
+    "always_excel, call export_response_excel and/or export_response_word with those sheets. "
+    "Skip for non-tabular answers or pure errors."
+)
+
+POST_RESPONSE_EXPORT_NEVER = (
+    " POST_RESPONSE_EXPORT=never: do not offer or auto-export tabular chat answers."
+)
+
+POST_RESPONSE_EXPORT_ALWAYS_EXCEL = (
+    " POST_RESPONSE_EXPORT=always_excel: after tabular answers (and after the refined-prompt "
+    "step), call export_response_excel with the structured sheets — do not ask first."
+)
+
+ALIAS_INSTRUCTIONS_HEADER = (
+    " Property aliases: when the user refers to a friendly alias phrase below, "
+    "use the mapped CPQ variable name in tool arguments (case-insensitive match). "
+)
+
+
+def _format_alias_section(
+    *,
+    commerce_process_aliases: dict[str, str] | None,
+    custom_data_table_aliases: dict[str, str] | None,
+) -> str:
+    commerce = commerce_process_aliases or {}
+    tables = custom_data_table_aliases or {}
+    if not commerce and not tables:
+        return ""
+    lines = [ALIAS_INSTRUCTIONS_HEADER, "## Property aliases"]
+    if commerce:
+        lines.append("Commerce processes:")
+        for alias, var_name in sorted(commerce.items(), key=lambda item: item[0]):
+            lines.append(
+                f'- "{alias}" → process_var_name={var_name}'
+            )
+    if tables:
+        lines.append("Data tables:")
+        for alias, var_name in sorted(tables.items(), key=lambda item: item[0]):
+            lines.append(f'- "{alias}" → table_name={var_name}')
+    return "\n".join(lines) + "\n"
+
+
+def _format_knowledge_section(title: str, body: str) -> str:
+    text = (body or "").strip()
+    if not text:
+        return ""
+    return f"\n## {title}\n{text}\n"
+
 
 def build_server_instructions(
     *,
     refined_prompt: bool,
     auto_save_refined_prompt: bool = False,
     local_data_policy: str = "ask",
+    post_response_export: str = "ask",
+    shared_knowledge: str = "",
+    customer_knowledge: str = "",
+    commerce_process_aliases: dict[str, str] | None = None,
+    custom_data_table_aliases: dict[str, str] | None = None,
 ) -> str:
-    """Compose MCP instructions; include refined-prompt and local-data protocol."""
+    """Compose MCP instructions; include refined-prompt, local-data, knowledge, aliases."""
     text = BASE_SERVER_INSTRUCTIONS + PICKER_INSTRUCTIONS + LOCAL_DATA_CORE
     policy = (local_data_policy or "ask").strip().lower()
     if policy == "prefer":
@@ -113,11 +184,24 @@ def build_server_instructions(
         text += LOCAL_DATA_NEVER
     else:
         text += LOCAL_DATA_ASK
-    if not refined_prompt:
-        return text
-    text += REFINED_PROMPT_CORE
-    if auto_save_refined_prompt:
-        text += REFINED_PROMPT_SAVE_AUTO
+    text += POST_RESPONSE_EXPORT_CORE
+    export_policy = (post_response_export or "ask").strip().lower()
+    if export_policy == "never":
+        text += POST_RESPONSE_EXPORT_NEVER
+    elif export_policy == "always_excel":
+        text += POST_RESPONSE_EXPORT_ALWAYS_EXCEL
     else:
-        text += REFINED_PROMPT_SAVE_ASK
+        text += POST_RESPONSE_EXPORT_ASK
+    if refined_prompt:
+        text += REFINED_PROMPT_CORE
+        if auto_save_refined_prompt:
+            text += REFINED_PROMPT_SAVE_AUTO
+        else:
+            text += REFINED_PROMPT_SAVE_ASK
+    text += _format_alias_section(
+        commerce_process_aliases=commerce_process_aliases,
+        custom_data_table_aliases=custom_data_table_aliases,
+    )
+    text += _format_knowledge_section("Shared knowledge", shared_knowledge)
+    text += _format_knowledge_section("Customer knowledge", customer_knowledge)
     return text

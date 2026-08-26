@@ -1,7 +1,8 @@
 {
-  "tool_definitions_sha256": "7ed534e31eec7ca00f580d514aa9a0469274d26f5f68502282140b428418accd",
-  "tool_count": 87,
+  "tool_definitions_sha256": "00a9161623faaf1f05aeeeabe798c999136b78a8d5460d2143d47579bb62be59",
+  "tool_count": 100,
   "tools": [
+    "clear_collab_operation_queue",
     "copy_transaction",
     "copy_transaction_lines",
     "create_datatable",
@@ -14,6 +15,8 @@
     "export_bml_library_functions",
     "export_datatables",
     "export_performance_logs",
+    "export_response_excel",
+    "export_response_word",
     "export_users_excel",
     "generate_proposal",
     "get_all_bml_code",
@@ -22,10 +25,13 @@
     "get_bml_common_function",
     "get_bml_dependent_attributes",
     "get_bml_function",
+    "get_certificate",
+    "get_collab_operation_queue",
     "get_commerce_action",
     "get_commerce_actions",
     "get_commerce_attribute",
     "get_commerce_attributes",
+    "get_commerce_ui_settings",
     "get_config_attribute",
     "get_config_layout",
     "get_config_menu_item",
@@ -44,6 +50,8 @@
     "get_product_family",
     "get_product_line",
     "get_saved_prompt",
+    "get_saved_search",
+    "get_sso_configuration",
     "get_task",
     "get_transaction",
     "get_transaction_line",
@@ -53,6 +61,7 @@
     "list_array_sets",
     "list_bml_common_functions",
     "list_bml_library_folders",
+    "list_certificates",
     "list_commerce_processes",
     "list_config_attributes",
     "list_config_menu_items",
@@ -61,16 +70,19 @@
     "list_group_users",
     "list_groups",
     "list_local_data",
+    "list_metrics",
     "list_models",
     "list_parts",
     "list_performance_logs",
     "list_product_families",
     "list_product_lines",
     "list_saved_prompts",
+    "list_saved_searches",
     "list_transaction_lines",
     "list_transactions",
     "list_users",
     "load_local_data",
+    "offer_export_response",
     "offer_save_refined_prompt",
     "offer_use_local_data",
     "record_prompt_use",
@@ -80,6 +92,7 @@
     "search_saved_prompts",
     "set_auto_save_refined_prompt",
     "set_local_data_policy",
+    "set_post_response_export",
     "set_saved_prompt_enabled",
     "start_prompt_picker",
     "sync_bml_local",
@@ -91,6 +104,10 @@
     "update_user"
   ],
   "tool_versions": {
+    "clear_collab_operation_queue": {
+      "version": "1.0.0",
+      "definition_sha256": "21b2c69c9021976357746714ddc02442080737c31c72947aec2e5133e49fb879"
+    },
     "copy_transaction": {
       "version": "1.0.0",
       "definition_sha256": "3301a386b19ba12da785aae01f41e057fc874c5eb987a5cdf248728afce3f0a7"
@@ -113,7 +130,7 @@
     },
     "discover_tools": {
       "version": "1.0.0",
-      "definition_sha256": "59b7e538435eb7be9c03af160c9cd38b11aac9e50c0300894efaaa67c31929ba"
+      "definition_sha256": "fc9237e8ae52ddb53116968b624012e3cb58d01097d1f2c22101399525d0e453"
     },
     "download_attachment": {
       "version": "1.0.0",
@@ -138,6 +155,14 @@
     "export_performance_logs": {
       "version": "1.0.0",
       "definition_sha256": "4314587bb61fdac84842a8a40cb4b4380ae420b0b2e1683696fc008afaab5e9e"
+    },
+    "export_response_excel": {
+      "version": "1.0.0",
+      "definition_sha256": "7bada64445560f2a132cb02f22473bbe933c7911f5121f693daa467685babede"
+    },
+    "export_response_word": {
+      "version": "1.0.0",
+      "definition_sha256": "d62988deee25317f2ef8afcf7dc81af7879b0fbeb77e01b90adc2781eb14a3a0"
     },
     "export_users_excel": {
       "version": "1.2.0",
@@ -171,6 +196,14 @@
       "version": "1.0.0",
       "definition_sha256": "f1058ac05e0d0302e48ad1e5a4e63f98bcc39e5862433cbb0f7f61183308a296"
     },
+    "get_certificate": {
+      "version": "1.0.0",
+      "definition_sha256": "c4be97a8be237a30022f29c9b3383e981201f3244b3032c83ff17784f8379b14"
+    },
+    "get_collab_operation_queue": {
+      "version": "1.0.0",
+      "definition_sha256": "2da8d1889720dbda3a8e8895a4c24102e0f8ecea03f586dc0f002230bf303e14"
+    },
     "get_commerce_action": {
       "version": "1.0.0",
       "definition_sha256": "acdaeb6b9d64d2a3d9cc5800a48e5e578c248804e3c6a06ec874e7af23a55cfd"
@@ -186,6 +219,10 @@
     "get_commerce_attributes": {
       "version": "1.0.0",
       "definition_sha256": "d3280745e001a95fb9639a92bcf1caad880d4eb440fc384374f0017c3065be6d"
+    },
+    "get_commerce_ui_settings": {
+      "version": "1.0.0",
+      "definition_sha256": "99aca4161000b4f2284746eb10376f46f1402854470b09ce8ed3509455ccc1d8"
     },
     "get_config_attribute": {
       "version": "1.0.0",
@@ -259,6 +296,14 @@
       "version": "1.0.0",
       "definition_sha256": "9a451c26def4261051a09e26c3de30ec5e836654af7c5cdaf98b3aecbf865483"
     },
+    "get_saved_search": {
+      "version": "1.0.0",
+      "definition_sha256": "31f2e3ce27f1960cbc03cf649de67a5ee4fa2e023ffc1739aa0d379bc94e12a6"
+    },
+    "get_sso_configuration": {
+      "version": "1.0.0",
+      "definition_sha256": "08fe40390f76ed1c1c0b53a2f1462b110b6bae954a05391fdfe0e4828a35724b"
+    },
     "get_task": {
       "version": "1.0.0",
       "definition_sha256": "5b89d495c957dd4d4d2af3c2f3ece9188f4ffbc5c21f35f69b363953398efc46"
@@ -295,6 +340,10 @@
       "version": "1.0.0",
       "definition_sha256": "6142f850a26632e4a151feb99da97f6d7c67bb01ad5cfe6621aab3a752b5a9d3"
     },
+    "list_certificates": {
+      "version": "1.0.0",
+      "definition_sha256": "0adef1c5f7c4108e3fcd880cd9b1c2bf2ed6383bcfedbb53ac124ff1499d1528"
+    },
     "list_commerce_processes": {
       "version": "1.0.0",
       "definition_sha256": "765fcf5f9f1c3d0cad1980ce9093916d3a412d1fa8b5f21c8aa3d90809ba8c4f"
@@ -327,6 +376,10 @@
       "version": "1.1.0",
       "definition_sha256": "4556dbb5d11fd23f2650cb905553ed30b49bfc52e7b2ce5b7057e77072538d98"
     },
+    "list_metrics": {
+      "version": "1.0.0",
+      "definition_sha256": "ba313494bb1612aee26a8dc45944df5515ebc004f8d0ad1eab069221f279b1a8"
+    },
     "list_models": {
       "version": "1.0.0",
       "definition_sha256": "d349b14564e036ce51a759bac5bc0f4fea502689d97773bccb2cd87e21bb8800"
@@ -351,6 +404,10 @@
       "version": "1.0.0",
       "definition_sha256": "95e2d803b3e193b4d7be3f00e7970da150eb88c9df2553fee80403401e59bedc"
     },
+    "list_saved_searches": {
+      "version": "1.0.0",
+      "definition_sha256": "be39de2c41832b9addb559fcee4c55c19f38c91d906e4918d6671f5dd4a6651b"
+    },
     "list_transaction_lines": {
       "version": "1.0.0",
       "definition_sha256": "8214aaea0f5a808d4d3feb08d22892d6b3f06763e29e82293dc291e1407406aa"
@@ -366,6 +423,10 @@
     "load_local_data": {
       "version": "1.1.0",
       "definition_sha256": "00307f19e42a2a3c0c147cbe11102f6df4f3ca50447253313118d36c83162256"
+    },
+    "offer_export_response": {
+      "version": "1.0.0",
+      "definition_sha256": "5197b845c1e9a483057d443c69b65164624c6129a55fc095e76c6881dd03abd4"
     },
     "offer_save_refined_prompt": {
       "version": "1.2.0",
@@ -402,6 +463,10 @@
     "set_local_data_policy": {
       "version": "1.0.0",
       "definition_sha256": "8a44180cb8410e6882fdf851fdef29a6dba9bba304297be69092e6485873a1da"
+    },
+    "set_post_response_export": {
+      "version": "1.0.0",
+      "definition_sha256": "9111b3e30d358b309284fe089eef03743c5bcfe063b85a8cfb27b69cd8c7a658"
     },
     "set_saved_prompt_enabled": {
       "version": "1.0.0",

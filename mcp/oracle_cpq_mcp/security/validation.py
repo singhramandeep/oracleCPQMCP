@@ -306,6 +306,9 @@ class DiscoverToolsInput(_StrictModel):
         "parts",
         "tasks",
         "configuration",
+        "metrics",
+        "collab",
+        "admin",
         "all",
     ] = Field(
         default="all",
@@ -567,6 +570,102 @@ class SetLocalDataPolicyInput(_StrictModel):
     )
 
 
+class ExportResponseSheetInput(_StrictModel):
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        description="Worksheet / table title (truncated to 31 chars for Excel).",
+    )
+    columns: list[str] | None = Field(
+        default=None,
+        max_length=200,
+        description="Optional column order; defaults to union of row keys.",
+    )
+    rows: list[dict[str, Any]] = Field(
+        default_factory=list,
+        max_length=10_000,
+        description="Row objects (dict per row). Total rows across sheets capped at 10k.",
+    )
+
+
+class OfferExportResponseInput(_StrictModel):
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Short title for the export (used in filenames and the offer question).",
+    )
+    sheets: list[ExportResponseSheetInput] | None = Field(
+        default=None,
+        max_length=20,
+        description="Optional structured tables for context / pending summary (max 20 sheets).",
+    )
+    notes: str | None = Field(
+        default=None,
+        max_length=8000,
+        description="Optional prose for Word exports (ignored by Excel).",
+    )
+    choice: (
+        Literal["excel", "word", "both", "skip", "always_excel", "never"] | None
+    ) = Field(
+        default=None,
+        description=(
+            "Omit for needs_user_input; then retry with excel / word / both / skip / "
+            "always_excel / never."
+        ),
+    )
+
+
+class ExportResponseExcelInput(_StrictModel):
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Export title (used in the .xlsx filename stem).",
+    )
+    sheets: list[ExportResponseSheetInput] = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+        description="One or more sheets: {name, columns?, rows}.",
+    )
+    notes: str | None = Field(
+        default=None,
+        max_length=8000,
+        description="Optional notes (ignored for Excel; accepted for API symmetry).",
+    )
+
+
+class ExportResponseWordInput(_StrictModel):
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Document title / .docx filename stem.",
+    )
+    sheets: list[ExportResponseSheetInput] = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+        description="One or more tables: {name, columns?, rows}.",
+    )
+    notes: str | None = Field(
+        default=None,
+        max_length=8000,
+        description="Optional intro paragraphs inserted above the tables.",
+    )
+
+
+class SetPostResponseExportInput(_StrictModel):
+    policy: Literal["ask", "never", "always_excel"] = Field(
+        ...,
+        description=(
+            "Write POST_RESPONSE_EXPORT=ask|never|always_excel to the active profile .env."
+        ),
+    )
+
+
 class SyncUsersLocalInput(_StrictModel):
     status_filter: UserStatusFilter = Field(
         default="active",
@@ -697,6 +796,192 @@ class ListPerformanceLogsInput(_StrictModel):
             if not spec or not _ORDERBY_PATTERN.match(spec) or len(spec) > 80:
                 raise ValueError(f"Invalid orderby entry: {spec}")
         return v
+
+
+_ISO_TS_DESC = (
+    "ISO-8601 timestamp (e.g. 2026-08-11T00:00:00.000Z). "
+    "Combined into the Metrics API MongoDB-style q parameter."
+)
+
+
+class ListMetricsInput(_StrictModel):
+    limit: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Page size (1–1000). Clamped by the server.",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based offset for pagination.",
+    )
+    total_results: bool = Field(
+        default=True,
+        description="When true, request totalResults from CPQ.",
+    )
+    name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Optional exact metric name filter (e.g. QUOTES); case-insensitive.",
+    )
+    start_time: str | None = Field(
+        default=None,
+        max_length=64,
+        description=f"Filter startTime $gte. {_ISO_TS_DESC}",
+    )
+    end_time: str | None = Field(
+        default=None,
+        max_length=64,
+        description=f"Filter endTime $lte. {_ISO_TS_DESC}",
+    )
+    date_modified_from: str | None = Field(
+        default=None,
+        max_length=64,
+        description=f"Filter dateModified $gte. {_ISO_TS_DESC}",
+    )
+    date_modified_to: str | None = Field(
+        default=None,
+        max_length=64,
+        description=f"Filter dateModified $lte. {_ISO_TS_DESC}",
+    )
+    date_added_from: str | None = Field(
+        default=None,
+        max_length=64,
+        description=f"Filter dateAdded $gte. {_ISO_TS_DESC}",
+    )
+    date_added_to: str | None = Field(
+        default=None,
+        max_length=64,
+        description=f"Filter dateAdded $lte. {_ISO_TS_DESC}",
+    )
+
+
+class GetCollabOperationQueueInput(_StrictModel):
+    bs_id: int = Field(
+        ...,
+        ge=1,
+        description="Commerce document / transaction bs_id for the collab queue.",
+    )
+
+
+class ClearCollabOperationQueueInput(_StrictModel):
+    bs_id: int = Field(
+        ...,
+        ge=1,
+        description="Commerce document / transaction bs_id whose queue will be cleared.",
+    )
+    dry_run: bool = Field(
+        default=True,
+        description="When true (default), run preflight only and do not clear the queue.",
+    )
+    confirmation_token: str | None = Field(
+        default=None,
+        max_length=2048,
+        description="Server-issued token required when dry_run=false.",
+    )
+
+
+class GetCommerceUiSettingsInput(_StrictModel):
+    """No parameters — GET /commerceUISettings."""
+
+
+class ListSavedSearchesInput(_StrictModel):
+    resource_var_name: str | None = Field(
+        default=None,
+        max_length=256,
+        description=(
+            "searchResources path segment (e.g. commerceDocumentsOraclecpqoTransaction). "
+            "When omitted, derived from process_var_name / profile."
+        ),
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "Commerce process variable name used when resource_var_name is omitted. "
+            "Defaults to profile COMMERCE_PROCESS_VAR_NAME."
+        ),
+    )
+    show_all: Literal["ALL", "HIDDEN", "VISIBLE", "INACTIVE"] = Field(
+        default="VISIBLE",
+        description="Maps to CPQ showAll query (ALL|HIDDEN|VISIBLE|INACTIVE).",
+    )
+    limit: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Page size (1–1000).",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based offset for pagination.",
+    )
+    total_results: bool = Field(
+        default=True,
+        description="When true, request totalResults from CPQ.",
+    )
+
+    @field_validator("limit")
+    @classmethod
+    def clamp_limit_field(cls, v: int) -> int:
+        return clamp_limit(v)
+
+    @field_validator("resource_var_name", "process_var_name")
+    @classmethod
+    def validate_search_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid identifier: {v}")
+        return v
+
+
+class GetSavedSearchInput(_StrictModel):
+    search_id: int = Field(
+        ...,
+        ge=1,
+        description="Numeric saved search id (path searchId).",
+    )
+    resource_var_name: str | None = Field(
+        default=None,
+        max_length=256,
+        description=(
+            "searchResources path segment. When omitted, derived from process_var_name "
+            "/ profile."
+        ),
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description=(
+            "Commerce process variable name used when resource_var_name is omitted."
+        ),
+    )
+
+    @field_validator("resource_var_name", "process_var_name")
+    @classmethod
+    def validate_search_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid identifier: {v}")
+        return v
+
+
+class ListCertificatesInput(_StrictModel):
+    """No parameters — GET /certificates."""
+
+
+class GetCertificateInput(_StrictModel):
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=256,
+        pattern=CPQ_ID_PATTERN,
+        description="Certificate name (path segment).",
+    )
+
+
+class GetSsoConfigurationInput(_StrictModel):
+    """No parameters — GET /ssoConfiguration."""
 
 
 class GetPerformanceLogInput(_StrictModel):
@@ -2073,6 +2358,15 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "list_performance_logs": ListPerformanceLogsInput,
     "get_performance_log": GetPerformanceLogInput,
     "export_performance_logs": ExportPerformanceLogsInput,
+    "list_metrics": ListMetricsInput,
+    "get_collab_operation_queue": GetCollabOperationQueueInput,
+    "clear_collab_operation_queue": ClearCollabOperationQueueInput,
+    "get_commerce_ui_settings": GetCommerceUiSettingsInput,
+    "list_saved_searches": ListSavedSearchesInput,
+    "get_saved_search": GetSavedSearchInput,
+    "list_certificates": ListCertificatesInput,
+    "get_certificate": GetCertificateInput,
+    "get_sso_configuration": GetSsoConfigurationInput,
     "list_parts": ListPartsInput,
     "get_part": GetPartInput,
     "search_parts": SearchPartsInput,
@@ -2091,6 +2385,10 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "load_local_data": LoadLocalDataInput,
     "offer_use_local_data": OfferUseLocalDataInput,
     "set_local_data_policy": SetLocalDataPolicyInput,
+    "offer_export_response": OfferExportResponseInput,
+    "export_response_excel": ExportResponseExcelInput,
+    "export_response_word": ExportResponseWordInput,
+    "set_post_response_export": SetPostResponseExportInput,
     "sync_users_local": SyncUsersLocalInput,
     "sync_groups_local": SyncGroupsLocalInput,
     "sync_bml_local": SyncBmlLocalInput,

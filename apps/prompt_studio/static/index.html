@@ -25,9 +25,13 @@
         <button type="button" class="nav-item" data-view="favorites">Favorites</button>
         <button type="button" class="nav-item" data-view="suites">Suites</button>
       </nav>
-      <div class="nav-section">
+      <div class="nav-section tags-section">
         <div class="nav-label">Tags</div>
         <div id="tagList" class="tag-list"></div>
+      </div>
+      <div class="sidebar-total" aria-live="polite">
+        <div id="sidebarTotalCount" class="sidebar-total-number">0</div>
+        <div class="sidebar-total-label">prompts available</div>
       </div>
     </aside>
 
@@ -41,6 +45,7 @@
             <button type="button" class="layout-btn active" id="layoutCards" data-layout="cards">Cards</button>
             <button type="button" class="layout-btn" id="layoutList" data-layout="list">List</button>
           </div>
+          <button type="button" class="btn-secondary" id="downloadAllBtn" title="Download full saved_prompts.json">Download all</button>
           <button type="button" class="btn-secondary" id="refreshBtn" title="Reload from saved_prompts.json">Refresh</button>
         </div>
         <div id="promptGrid" class="prompt-grid"></div>
@@ -72,8 +77,18 @@
         </div>
         <div class="meta-row" id="modalMeta"></div>
         <div class="stats-row" id="modalStats"></div>
-        <label class="field-label">Refined template</label>
-        <pre id="modalTemplate" class="code-block"></pre>
+        <div class="field-head">
+          <label class="field-label">Original user prompt</label>
+          <button type="button" class="field-toggle" id="toggleOriginal"
+                  aria-controls="modalOriginal" aria-expanded="false">Show more</button>
+        </div>
+        <pre id="modalOriginal" class="code-block code-block-original is-collapsed"></pre>
+        <div class="field-head">
+          <label class="field-label">Refined template</label>
+          <button type="button" class="field-toggle" id="toggleTemplate"
+                  aria-controls="modalTemplate" aria-expanded="false">Show more</button>
+        </div>
+        <pre id="modalTemplate" class="code-block is-collapsed"></pre>
         <div id="varFields" class="var-fields"></div>
         <label class="field-label">Generated</label>
         <textarea id="generatedOut" class="generated" readonly rows="10"></textarea>

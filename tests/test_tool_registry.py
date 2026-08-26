@@ -13,7 +13,7 @@ from oracle_cpq_mcp.registry.tool_registry import (
 
 
 def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
-    assert len(CPQ_API_TOOLS) == 72
+    assert len(CPQ_API_TOOLS) == 81
     assert "discover_tools" in TOOL_CATALOG
     assert "list_saved_prompts" in TOOL_CATALOG
     assert "start_prompt_picker" in TOOL_CATALOG
@@ -23,13 +23,26 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "get_commerce_attributes" in TOOL_CATALOG
     assert "list_performance_logs" in TOOL_CATALOG
     assert "get_performance_log" in TOOL_CATALOG
+    assert "list_metrics" in TOOL_CATALOG
+    assert "get_collab_operation_queue" in TOOL_CATALOG
+    assert "clear_collab_operation_queue" in TOOL_CATALOG
+    assert "get_commerce_ui_settings" in TOOL_CATALOG
+    assert "list_saved_searches" in TOOL_CATALOG
+    assert "get_saved_search" in TOOL_CATALOG
+    assert "list_certificates" in TOOL_CATALOG
+    assert "get_certificate" in TOOL_CATALOG
+    assert "get_sso_configuration" in TOOL_CATALOG
     assert "list_transactions" in TOOL_CATALOG
     assert "generate_proposal" in TOOL_CATALOG
     assert "export_attachment" in TOOL_CATALOG
     assert "list_parts" in TOOL_CATALOG
     assert "get_task" in TOOL_CATALOG
     assert "list_product_families" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 87
+    assert "offer_export_response" in TOOL_CATALOG
+    assert "export_response_excel" in TOOL_CATALOG
+    assert "export_response_word" in TOOL_CATALOG
+    assert "set_post_response_export" in TOOL_CATALOG
+    assert len(TOOL_CATALOG) == 100
 
 
 def test_filter_users_read_tools() -> None:
@@ -46,6 +59,7 @@ def test_filter_users_read_tools() -> None:
 def test_filter_write_tools() -> None:
     names = {spec.name for spec in filter_tools(operation="write")}
     assert names == {
+        "clear_collab_operation_queue",
         "copy_transaction",
         "copy_transaction_lines",
         "create_datatable",
@@ -87,12 +101,15 @@ def test_filter_commerce_read_tools() -> None:
         "get_commerce_actions",
         "get_commerce_attribute",
         "get_commerce_attributes",
+        "get_commerce_ui_settings",
         "get_document_layout",
         "get_line_actions",
         "get_line_attributes",
+        "get_saved_search",
         "get_transaction",
         "get_transaction_line",
         "list_commerce_processes",
+        "list_saved_searches",
         "list_transaction_lines",
         "list_transactions",
         "sync_commerce_metadata_local",

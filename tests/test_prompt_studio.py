@@ -113,3 +113,109 @@ def test_api_list_search_favorite_generate(studio_client):
 def test_api_health(studio_client):
     client, _ = studio_client
     assert client.get("/api/health").json()["status"] == "ok"
+
+
+def test_api_list_includes_original_preview(studio_client):
+    client, entry = studio_client
+    listed = client.get("/api/prompts").json()
+    match = next(p for p in listed["prompts"] if p["id"] == entry.id)
+    assert match["original_user_prompt"] == "list users"
+    assert "list users" in match["original_preview"]
+
+
+def test_api_library_info(studio_client, tmp_path: Path):
+    client, _ = studio_client
+    info = client.get("/api/library_info").json()
+    assert info["exists"] is True
+    assert info["enabled_count"] >= 1
+    assert info["total_count"] >= info["enabled_count"]
+    assert info["path"].endswith("saved_prompts.json")
+    assert info["last_modified"] is not None
+    assert "T" in info["last_modified"] and info["last_modified"].endswith("Z")
+
+
+def test_api_delete_prompt(studio_client):
+    client, entry = studio_client
+    studio_store.toggle_favorite(entry.id)
+    suite = studio_store.create_suite("with prompt")
+    studio_store.add_prompt_to_suite(suite["id"], entry.id)
+
+    deleted = client.delete(f"/api/prompts/{entry.id}")
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted"] is True
+    ids = {p["id"] for p in client.get("/api/prompts").json()["prompts"]}
+    assert entry.id not in ids
+    assert entry.id not in (studio_store.load_store().get("favorites") or [])
+    updated_suite = studio_store.get_suite(suite["id"])
+    assert updated_suite is not None
+    assert entry.id not in (updated_suite.get("prompt_ids") or [])
+
+    again = client.delete(f"/api/prompts/{entry.id}")
+    assert again.status_code == 404
+
+
+def test_api_download_prompts_library(studio_client):
+    client, entry = studio_client
+
+    resp = client.get("/api/prompts/download")
+    assert resp.status_code == 200
+    assert "attachment" in (resp.headers.get("content-disposition") or "").lower()
+    assert "saved_prompts_" in (resp.headers.get("content-disposition") or "")
+    assert "application/json" in (resp.headers.get("content-type") or "")
+    payload = resp.json()
+    assert "prompts" in payload
+    ids = [p.get("id") for p in payload["prompts"] if isinstance(p, dict)]
+    assert entry.id in ids
+
+    index_html = client.get("/").text
+    assert 'id="downloadAllBtn"' in index_html
+    js = client.get("/static/app.js").text
+    assert "/api/prompts/download" in js
+
+
+def test_run_modal_expandable_prompt_blocks(studio_client):
+    client, _ = studio_client
+
+    index_html = client.get("/").text
+    assert 'id="toggleOriginal"' in index_html
+    assert 'id="toggleTemplate"' in index_html
+    assert 'aria-controls="modalOriginal"' in index_html
+    assert 'aria-controls="modalTemplate"' in index_html
+    assert "is-collapsed" in index_html
+
+    css = client.get("/static/styles.css").text
+    assert ".code-block.is-collapsed" in css
+    assert ".code-block-original.is-collapsed" in css
+    assert "flex: none" in css
+    assert ".field-head" in css
+    assert ".field-toggle" in css
+
+
+def test_sidebar_total_prompts_markup(studio_client):
+    client, _ = studio_client
+
+    index_html = client.get("/").text
+    assert 'id="sidebarTotalCount"' in index_html
+    assert "prompts available" in index_html
+    assert 'class="sidebar-total"' in index_html
+    assert "tags-section" in index_html
+
+    css = client.get("/static/styles.css").text
+    assert ".sidebar-total" in css
+    assert ".sidebar-total-number" in css
+    assert "margin-top: auto" in css
+    assert "max-height: min(42vh, 260px)" in css
+    assert ".action-menu-panel" in css
+    assert ".card-meta-line" in css
+
+    js = client.get("/static/app.js").text
+    assert "updateSidebarTotal" in js
+    assert "total_count" in js
+    assert "await refreshLibrary()" in js
+    assert "updateResultCount" in js
+    assert "matching" in js
+    assert "secondaryActionsHtml" in js
+    assert "cardMetaHtml" in js
+    assert "el.title" in js
+    assert "LOADED" not in js
+    assert "from ${info.path}" not in js

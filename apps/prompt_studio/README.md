@@ -47,17 +47,20 @@ Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Bound to localhost only; no
 - Rich metadata: format, run count, last run, created, placeholders
 - Favorites (star toggle)
 - Suites (named ordered prompt lists; add from cards)
-- Run / fill: detect `{{snake_case}}` placeholders, recent values, Generate + Copy
+- Run / fill: detect `{{snake_case}}` placeholders, recent values, Generate + Copy; `{{output_format}}` uses a dropdown (Text / JSON / Excel download)
 - Run modal shows **expected response format** (Text by default; JSON / Excel download when set)
-- **Refresh** reloads `.config/saved_prompts.json` after Cursor/MCP saves a refined prompt
+- **Refresh** reloads `.config/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, and library last write)
+- **Download all** downloads the full library JSON (`GET /api/prompts/download`; includes disabled prompts by default)
+- Run modal shows **original user prompt** and refined template
+- **Remove** on cards/list permanently deletes a prompt from the shared library after **two** confirms; also clears favorites/suite references
 
-After an agent saves a new refined prompt, click **Refresh** in the toolbar so the library updates (no auto-poll).
+Studio and MCP share the same `.config/saved_prompts.json` (override with `CPQ_SAVED_PROMPTS_PATH`). Refresh only shows prompts that were **saved via MCP** (`save_refined_prompt` / offer-save); Cursor chat history alone never appears. If the status “library last write” is old, the agent did not call save (set `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP).
 
 ## Backlog
 
 - Export suite as one markdown / clipboard pack
 - Record “generated at” + bump `record_use` via MCP when tools available
-- Edit/disable prompts from UI (write through to saved library)
+- Edit / soft-disable prompts from UI (hard Remove is available)
 - Keyboard shortcuts (`/`, `f` favorite, `g` generate)
 - Deep-link `?prompt_id=` / `?suite=` (partially supported)
 - Dark-mode workspace toggle

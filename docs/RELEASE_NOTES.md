@@ -1,9 +1,9 @@
 # Release notes
 
 Changelog for the **Oracle CPQ MCP** server. Format inspired by [Keep a Changelog](https://keepachangelog.com/).  
-Package version today: **`0.1.0`** (see [`pyproject.toml`](../pyproject.toml)).
+Package version today: **`0.2.0`** (see [`pyproject.toml`](../pyproject.toml)).
 
-Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [QUICKSTART.md](QUICKSTART.md) · [SECURITY.md](../SECURITY.md)
+Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [QUICKSTART.md](QUICKSTART.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
 
 ## How to refresh
 
@@ -17,10 +17,13 @@ Narrative sections above the markers are **hand-maintained** — update them whe
 
 ## How to cut a versioned release
 
+See also the contributor checklist in the [README](../README.md#update-the-package-version).
+
 1. Bump `version` in [`pyproject.toml`](../pyproject.toml).
-2. Move the current Unreleased **Highlights / Added / Changed / …** blocks under a new heading such as `## [0.2.0] - YYYY-MM-DD`.
+2. Move the current Unreleased **Highlights / Added / Changed / …** blocks under a new heading such as `## [0.3.0] - YYYY-MM-DD`.
 3. Leave a fresh Unreleased section and keep the standalone git-commits HTML comment markers for future commits.
-4. Commit and optionally tag: `git tag v0.2.0`.
+4. If tools changed: regenerate `tool_manifest.json` and `docs/TOOL_CATALOG.md`, then run tests.
+5. Commit and optionally tag: `git tag v0.3.0`.
 
 ---
 
@@ -28,162 +31,88 @@ Narrative sections above the markers are **hand-maintained** — update them whe
 
 ### Highlights
 
-Major capability growth since the early “few tools + quickstart” phase: the server is now an **87-tool** CPQ agent surface with **local caching**, **reusable refined prompts**, optional **Prompt Studio** UI, and expanded **docs** (FAQ, features, formal catalog).
+_(Nothing yet — add bullets here as you land work after 0.2.0.)_
+
+### Git commits (auto-generated)
+
+<!-- git-commits -->
+<!-- /git-commits -->
+
+---
+
+## [0.2.0] - 2026-08-26
+
+### Highlights
+
+**100 MCP tools**, local caching, reusable refined prompts, optional Prompt Studio, and stronger operator diagnostics.
 
 | Area | What you get |
 |------|----------------|
-| Tool catalog | **87** MCP tools across users, groups, datatables, BML, commerce, performance, parts, tasks, configuration, and meta |
+| Tool catalog | **100** tools — users, groups, datatables, BML, commerce (incl. saved searches), metrics, collab, **admin** (certificates/SSO), performance, parts, tasks, configuration, meta |
+| Diagnostics | **DEBUG_MODE** file logging of redacted CPQ request traces under `logs/{profile}-{environment}.log` |
 | Local cache | Snapshots under `data/{profile}/{env}/` with ask/prefer/never policy |
-| Refined prompts | Automatic end-of-task footer (title, tags, format, tools used, `{{vars}}`) + optional auto-save + picker |
-| Prompt Studio | Local UI on **8765**: cards/list, favorites/suites, placeholder Run modal, expected output format |
-| BML | Full zip export **and** extract to `data/.../bml/site/` for offline analysis |
-| Docs | FAQ (incl. dual-env), FEATURES + HITL security, TOOL_CATALOG, pre-commit review |
+| Refined prompts | End-of-task footer + optional auto-save + picker |
+| Prompt Studio | UI on **8765** — cards/list, favorites/suites, Run modal, **Download all** library JSON |
+| Docs | FAQ, FEATURES, formal TOOL_CATALOG, contributor version-bump section in README |
 
 ### Added
 
-#### MCP tools and domains
+#### This release focus
 
-- Expanded catalog to **87 tools** with formal per-tool tables in [`TOOL_CATALOG.md`](TOOL_CATALOG.md) (regenerate: `python scripts/generate_tool_catalog.py`).
-- **Tasks** — `get_task`, `download_task_file` (async export follow-up; **untested live**).
-- **Configuration** — `productFamilies` / layout-cache family (list/get attributes, array sets, menu items, layouts; **untested live**).
-- **Parts** — list/get/search parts.
-- **Commerce transactions** — list/get transactions and lines, layouts, proposal/attachment/copy flows (writes remain dry-run + confirmation).
-- **Performance logs** — list/get/export performance log events.
-- Broader **BML** surface beyond zip export — scripts search, common functions, library folders, dependent attributes, library export (**some untested live**).
-- Broader **datatables** — fields APIs, create/export (**create/export untested live**).
-- **`discover_tools`** — filter the catalog by domain and read/write operation.
+- Commerce **saved searches** — `list_saved_searches`, `get_saved_search` (`GET /searchResources/...`; resource defaults from commerce process var).
+- Site **admin** domain — `list_certificates`, `get_certificate`, `get_sso_configuration`; PEM / IdP / SAML keystore fields redacted to `[REDACTED]`.
+- Prompt Studio **Download all** — `GET /api/prompts/download` (full `.config/saved_prompts.json`; includes disabled by default).
+- **DEBUG_MODE API file logging** — profile `DEBUG_MODE` (default `true`; host `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`). Appends timestamped, redacted request traces (curl + parameters) to `logs/{profile}-{environment}.log`. Passwords stay `***`; response bodies are not logged. Live `CPQClient` HTTP only (cache-only work writes nothing).
+- Formal catalog at **100** tools ([`TOOL_CATALOG.md`](TOOL_CATALOG.md); regenerate: `python scripts/generate_tool_catalog.py`).
 
-#### Saved refined prompts (automatic end-of-task footer)
+#### Catalog domains already in this line (summary)
 
-After **any** CPQ-related task (live MCP tools, local `data/` cache reads, or both), the agent is instructed to append a reusable block:
+Shipped earlier in the 0.1.x → 0.2.0 growth path (not re-listed as new APIs this week):
 
-```text
-### Refined prompt (Better token usage)
-```
+- Metrics (`list_metrics`), collab queues, commerce UI settings, transactions, performance logs, parts, tasks, configuration (`productFamilies`), broader BML/datatables, `discover_tools`.
+- Refined-prompt footer + library tools; local `data/` sync policy; post-response Excel/Word export.
+- BML zip + extract to `data/.../bml/site/`; Prompt Studio app; FAQ / FEATURES / pre-commit docs.
 
-That footer is intentionally detailed so the next run uses fewer tokens. It includes:
-
-| Section | Purpose |
-|---------|---------|
-| **Title** | One-line name for the reusable prompt |
-| **Tags** | Searchable labels (e.g. `users`, `bml`, `audit`) |
-| **Output format** | `chat_text` (default), `json`, or `excel_download` — also as `{{output_format}}` |
-| **Cached data** | `yes` / `no` / `mixed` (with path when cached) |
-| **Prose body** | 1–3 plain-English paragraphs with `{{snake_case}}` placeholders |
-| **Variables** | Explicit list (must include `{{output_format}}`) |
-| **Tools (for the agent)** | Exact MCP tool names used / required, or `none (local file read only)` |
-
-**Turn on/off the footer:** profile `REFINED_PROMPT=true` (default). Set `REFINED_PROMPT=false` (or `CPQ_REFINED_PROMPT=false`) to disable.
-
-**Saving prompts (offer vs auto-save):**
-
-- By default (`AUTO_SAVE_REFINED_PROMPT=false`), after the footer the agent calls `offer_save_refined_prompt` with choices: **save once** / **save and always** / **skip**.
-- Choosing **save and always** writes `AUTO_SAVE_REFINED_PROMPT=true` via `set_auto_save_refined_prompt`, so future refined prompts are saved without asking (`save_refined_prompt`).
-- Library file: `.config/saved_prompts.json` (gitignored). Each saved entry stores `output_format` and is honored when replayed.
-- Disable entries with `set_saved_prompt_enabled` (disabled prompts stay hidden from pickers).
-
-**Pick / reuse later:**
-
-- Cursor: **`/OracleCPQ_SavedPrompts`** or say “use a saved prompt” → `start_prompt_picker` (all / search / by tag / by tool).
-- Related tools: `list_saved_prompts`, `search_saved_prompts`, `get_saved_prompt`, `record_prompt_use`.
-- Also exposed as MCP resource `cpq://saved-prompts` and prompt `run_saved_prompt`.
-
-#### Local `data/` snapshots
-
-- Path: `data/{profile}/{env}/…` (gitignored); override root with `CPQ_LOCAL_DATA_DIR`.
-- Tools: `list_local_data`, `get_local_data_status`, `load_local_data`, `offer_use_local_data`, `set_local_data_policy`.
-- Sync tools: `sync_users_local`, `sync_groups_local`, `sync_bml_local`, `sync_commerce_metadata_local`, `sync_datatable_local` / `sync_datatables_local`.
-- Policy: `LOCAL_DATA_POLICY=ask|prefer|never` (default `ask`).
-- Auto-persist from flows such as `export_users_excel` and `get_all_bml_code`.
-
-#### BML zip + site extract
-
-- `get_all_bml_code` (`delivery=zip`) downloads Commerce BML/BMLT via `/adminMeta`.
-- Persist keeps the `.zip` **and** extracts the full tree to `data/.../bml/site/` (zip-slip safe; replaced each fetch).
-- Manifest records `bml_zip`, `site_dir`, and extracted file `item_count`.
-- Enables offline impact analysis (e.g. which BML files reference a data table).
-
-#### Prompt Studio (optional local app)
-
-Lightweight **local** FastAPI + static UI to work with the same saved-prompt library the MCP tools write — without calling Oracle CPQ.
-
-**Install & run** (from repo root, prefer project venv):
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install '.[prompt-studio]'
-.\.venv\Scripts\python.exe -m apps.prompt_studio
-```
-
-Open [http://127.0.0.1:8765](http://127.0.0.1:8765) (binds to `127.0.0.1` only).
-
-**What you can do in the UI:**
-
-- **Cards** or **List** views of saved refined prompts from `.config/saved_prompts.json`
-- **Refresh** to reload after MCP saves a new prompt
-- Filter / search by tags; mark **favorites**; organize **suites**
-- **Run** modal: fill `{{placeholders}}`, preview the resolved prompt, and see **expected response format** (Text / JSON / Excel) matching the saved `output_format`
-- Studio-only state (favorites, suites, variable history) in `.config/prompt_studio.json` (gitignored)
-
-**Not a substitute for MCP:** Prompt Studio does not hit CPQ APIs and does not bypass write guardrails. Use it to craft/reuse prompts; execute CPQ work through the MCP agent.
-
-More detail: [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) and [FEATURES — Prompt Studio](FEATURES.md#prompt-studio-enable-and-run).
-
-#### Documentation
-
-- [`FAQ.md`](FAQ.md) — install, credentials, **dual environments in one prompt**, security, cache, BML, Prompt Studio, troubleshooting.
-- [`FEATURES.md`](FEATURES.md) — product capabilities + **security guardrails / human-in-the-loop**.
-- [`PRE_COMMIT_REVIEW.md`](PRE_COMMIT_REVIEW.md) — secrets / catalog / test checklist before commit.
-- [`TOOL_CATALOG.md`](TOOL_CATALOG.md) — formal Parameters / Filters tables for all tools.
-- README + QUICKSTART updates (Antigravity-first MCP setup, Prompt Studio, FAQ link).
-
-#### Packaging / tooling
-
-- Hatch packaging fix: do not double-include `oracle_cpq_mcp` in `packages` + `force-include` (broken `pip install .`).
-- `scripts/generate_tool_catalog.py` for regenerating TOOL_CATALOG from the registry.
-- Shared Excel records helper for exports; users export can land under local `data/`.
+Details for those areas remain in [FEATURES.md](FEATURES.md) and the README domain summary.
 
 ### Changed
 
-- [`.config/.env.example`](../.config/.env.example) documents `REFINED_PROMPT`, `AUTO_SAVE_REFINED_PROMPT`, `LOCAL_DATA_POLICY`, and related knobs.
-- Server instructions and Cursor rules encode refined-prompt footer + local-data policy workflow.
-- Schema integrity / validation / `tool_manifest.json` updated for the expanded catalog and new meta tools.
-- Output envelopes remain consistent: `{status, tool, data}` (errors `{status: error, code, message, hint, details}`); file tools return `[envelope, File]`.
+- README tool list slimmed to a **domain summary** (full per-tool tables live in TOOL_CATALOG).
+- README adds **Update the package version** for contributors cutting releases.
+- `.env.example` / server instructions cover DEBUG_MODE, refined prompts, local-data policy, post-response export.
+- Schema integrity / `tool_manifest.json` updated for the 100-tool catalog.
 
-### Security (ongoing)
+### Security
 
-- Default **`READ_ONLY=true`** blocks mutations.
-- Writes use **dry-run preflight** + HMAC **`confirmation_token`** (requires `CPQ_CONFIRMATION_SECRET` when writes enabled).
-- Prod blocked unless `CPQ_ALLOW_PROD=1`.
-- Credentials never belong in MCP JSON; see [SECURITY.md](../SECURITY.md) and [FAQ](FAQ.md).
+- Default **`READ_ONLY=true`**; writes use dry-run + HMAC `confirmation_token`.
+- Certificate/SSO PEM material never returned unredacted through MCP.
+- Credentials never belong in MCP JSON — [SECURITY.md](../SECURITY.md).
 
 ### Known gaps / testing honesty
 
-Offline unit/contract tests cover the catalog. Against **live** CPQ, these remain **untested** (see README table):
+Offline unit/contract tests cover the catalog. Against **live** CPQ, still **untested**:
 
 - Tasks (`get_task`, `download_task_file`)
 - Configuration / `productFamilies` / layout cache
 - Some newer BML extensions and datatable create/export writes
+- Saved searches / certificates / SSO may 404 on sites still on REST **v18** (Oracle docs target **v19**)
 
-Previously shipped domains (users, groups, core datatable list/get/deploy, core BML export, commerce metadata, performance, parts, `discover_tools`) are in active use.
-
-**Dual environments:** one MCP process = one active env. For a single prompt that analyzes **dev and test**, register two MCP server entries (`CPQ_ENVIRONMENT=dev` and `test`) or compare `data/{profile}/dev` vs `data/{profile}/test` — see [FAQ](FAQ.md#can-the-llm-connect-with-two-environments-at-the-same-time).
+**Dual environments:** one MCP process = one active env. For dev+test in one prompt, use two MCP entries or compare `data/{profile}/dev` vs `test` — [FAQ](FAQ.md#can-the-llm-connect-with-two-environments-at-the-same-time).
 
 ### Earlier milestones (summarized)
-
-Useful context for readers skimming git history:
 
 | Milestone | Summary |
 |-----------|---------|
 | Commerce metadata | Main + line attribute/action tools; process defaults from `COMMERCE_PROCESS_VAR_NAME` |
 | BML export | `get_all_bml_code` zip + util-library JSON delivery |
-| MCP quality | JSON Schema output contracts, best-practice envelopes/annotations/progress, schema integrity |
-| Cross-platform MCP | Antigravity / Cursor / VS Code example configs; Windows `.cmd` + Unix `.sh` launchers |
-| Catalog growth | Jump to **67** tools (tasks, configuration, parts, transactions) before the later **87** expansion |
-| Quickstart | Restructured first-time setup (clone, profile, smoke test, IDE MCP) |
+| MCP quality | JSON Schema output contracts, envelopes/annotations/progress, schema integrity |
+| Cross-platform MCP | Antigravity / Cursor / VS Code examples; `.cmd` + `.sh` launchers |
+| Catalog growth | 67 → 87 → **100** tools |
+| Quickstart | First-time setup (clone, profile, smoke test, IDE MCP) |
 
-### Git commits (auto-generated)
+### Git commits (through 0.2.0 cut)
 
-<!-- git-commits -->
+<!-- git-commits-0.2.0 -->
 - `d88bb7b` some documentation
 - `2ee4c83` Added couple of tools, better prompt suggestios, prompt studio
 - `fda086e` release notes
@@ -199,4 +128,6 @@ Useful context for readers skimming git history:
 - `0714bcb` Add commerce and line-level attribute and action metadata tools
 - `130ba9b` Add get_all_bml_code MCP tool for BML export and util library source
 - `ceaa2a6` first commit
-<!-- /git-commits -->
+<!-- /git-commits-0.2.0 -->
+
+Note: the live auto-update script only rewrites the **Unreleased** `<!-- git-commits -->` block. Historical lists above are frozen for this release.

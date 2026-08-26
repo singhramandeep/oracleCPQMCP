@@ -70,6 +70,31 @@ def commerce_documents_base(
     )
 
 
+def commerce_transaction_search_resource(
+    process_var_name: str,
+    doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+) -> str:
+    """Build searchResources path segment (no leading slash).
+
+    Example: oraclecpqo + transaction -> commerceDocumentsOraclecpqoTransaction
+    """
+    return commerce_documents_base(process_var_name, doc_var_name).lstrip("/")
+
+
+def resolve_search_resource_var_name(
+    profile: CPQProfile,
+    resource_var_name: str | None,
+    process_var_name: str | None = None,
+) -> str | dict[str, Any]:
+    """Return explicit search resource name, or derive from commerce process."""
+    if resource_var_name:
+        return resource_var_name
+    resolved = resolve_process_var_name(profile, process_var_name)
+    if isinstance(resolved, dict):
+        return resolved
+    return commerce_transaction_search_resource(resolved)
+
+
 def commerce_layout_path(process_var_name: str, doc_var_name: str) -> str:
     """Build Commerce process document layout path."""
     return f"/commerceProcesses/{process_var_name}/layouts/{doc_var_name}"

@@ -22,6 +22,7 @@ def profile() -> CPQProfile:
         rest_version="v18",
         company_login_name="_host",
         read_only=False,
+        debug_mode=False,
     )
 
 
@@ -140,6 +141,7 @@ def test_mutating_request_blocked_when_read_only(profile: CPQProfile) -> None:
         rest_version=profile.rest_version,
         company_login_name=profile.company_login_name,
         read_only=True,
+        debug_mode=False,
     )
     client = CPQClient(read_only_profile)
     patch_route = respx.patch("https://dev.example.com/rest/v18/users/12345").mock(
@@ -163,6 +165,7 @@ def test_parts_search_allowed_when_read_only(profile: CPQProfile) -> None:
         rest_version=profile.rest_version,
         company_login_name=profile.company_login_name,
         read_only=True,
+        debug_mode=False,
     )
     client = CPQClient(read_only_profile)
     route = respx.post("https://dev.example.com/rest/v18/parts/actions/search").mock(
@@ -207,3 +210,62 @@ def test_get_bytes_api_error(client: CPQClient) -> None:
     with pytest.raises(CPQAPIError) as exc_info:
         client.get_bytes("/adminMeta")
     assert exc_info.value.status_code == 403
+
+
+@respx.mock
+def test_debug_mode_writes_redacted_log_with_query_params(
+    profile: CPQProfile, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CPQ_DEBUG_LOG_DIR", str(tmp_path))
+    debug_profile = profile.model_copy(update={"debug_mode": True})
+    client = CPQClient(debug_profile)
+    respx.get("https://dev.example.com/rest/v18/metrics").mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    client.get("/metrics", params={"name": "QUOTES", "limit": 100})
+
+    log_path = tmp_path / "test-dev.log"
+    assert log_path.is_file()
+    text = log_path.read_text(encoding="utf-8")
+    assert "CURL:" in text
+    assert "Parameters:" in text
+    assert "query.name = QUOTES" in text
+    assert "query.limit = 100" in text
+    assert "body = (none)" in text
+    assert "user:***" in text
+    assert profile.password not in text
+    assert "GET" in text
+    assert "Status: 200" in text
+
+
+@respx.mock
+def test_debug_mode_disabled_writes_no_log(
+    profile: CPQProfile, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CPQ_DEBUG_LOG_DIR", str(tmp_path))
+    client = CPQClient(profile)
+    respx.get("https://dev.example.com/rest/v18/users").mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    client.get("/users")
+    assert not (tmp_path / "test-dev.log").exists()
+
+
+@respx.mock
+def test_debug_mode_logs_post_body_keys(
+    profile: CPQProfile, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CPQ_DEBUG_LOG_DIR", str(tmp_path))
+    debug_profile = profile.model_copy(update={"debug_mode": True})
+    client = CPQClient(debug_profile)
+    respx.post("https://dev.example.com/rest/v18/datatables/actions/deploy").mock(
+        return_value=httpx.Response(200, json={"status": "ok"})
+    )
+    client.post(
+        "/datatables/actions/deploy",
+        json_body={"selections": ["Status"], "nested": {"a": 1}},
+    )
+    text = (tmp_path / "test-dev.log").read_text(encoding="utf-8")
+    assert "body.selections =" in text
+    assert "body.nested =" in text
+    assert profile.password not in text

@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 
 EnvironmentName = Literal["dev", "test", "prod"]
 LocalDataPolicy = Literal["ask", "prefer", "never"]
+PostResponseExportPolicy = Literal["ask", "never", "always_excel"]
 
 
 class CredentialSet(BaseModel):
@@ -33,10 +34,17 @@ class CPQProfile(BaseModel):
     credential_index: int = 0
     custom_data_table_names: list[str] = Field(default_factory=list)
     commerce_process_var_names: list[str] = Field(default_factory=list)
+    customer_knowledge_file: str | None = None
+    commerce_process_aliases: dict[str, str] = Field(default_factory=dict)
+    custom_data_table_aliases: dict[str, str] = Field(default_factory=dict)
     read_only: bool = True
     refined_prompt: bool = True
     auto_save_refined_prompt: bool = False
+    debug_mode: bool = True
     local_data_policy: LocalDataPolicy = "ask"
+    post_response_export: PostResponseExportPolicy = "ask"
+    # METRICS_<NAME> → description; keys are NAME suffixes (e.g. QUOTES).
+    metric_descriptions: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("base_url")
     @classmethod
@@ -145,6 +153,12 @@ def _resolve_auto_save_refined_prompt(raw: dict[str, str | None]) -> bool:
     return parse_bool_env(raw.get("AUTO_SAVE_REFINED_PROMPT"), default=False)
 
 
+def _resolve_debug_mode(raw: dict[str, str | None]) -> bool:
+    if os.environ.get("CPQ_DEBUG_MODE") is not None:
+        return parse_bool_env(os.environ.get("CPQ_DEBUG_MODE"), default=True)
+    return parse_bool_env(raw.get("DEBUG_MODE"), default=True)
+
+
 def _resolve_local_data_policy(raw: dict[str, str | None]) -> LocalDataPolicy:
     from oracle_cpq_mcp.core.local_data import parse_local_data_policy
 
@@ -153,9 +167,25 @@ def _resolve_local_data_policy(raw: dict[str, str | None]) -> LocalDataPolicy:
     return parse_local_data_policy(raw.get("LOCAL_DATA_POLICY"), default="ask")
 
 
+def _resolve_post_response_export(raw: dict[str, str | None]) -> PostResponseExportPolicy:
+    def _parse(value: str | None, *, default: PostResponseExportPolicy = "ask") -> PostResponseExportPolicy:
+        if value is None or not str(value).strip():
+            return default
+        normalized = str(value).strip().lower()
+        if normalized in ("ask", "never", "always_excel"):
+            return normalized  # type: ignore[return-value]
+        raise ValueError(
+            f"Invalid POST_RESPONSE_EXPORT={value!r}; use ask, never, or always_excel"
+        )
+
+    if os.environ.get("CPQ_POST_RESPONSE_EXPORT") is not None:
+        return _parse(os.environ.get("CPQ_POST_RESPONSE_EXPORT"), default="ask")
+    return _parse(raw.get("POST_RESPONSE_EXPORT"), default="ask")
+
+
 # Keys the MCP tools are allowed to rewrite in the active profile .env.
 PROFILE_ENV_WRITABLE_KEYS = frozenset(
-    {"AUTO_SAVE_REFINED_PROMPT", "LOCAL_DATA_POLICY"}
+    {"AUTO_SAVE_REFINED_PROMPT", "LOCAL_DATA_POLICY", "POST_RESPONSE_EXPORT"}
 )
 
 
@@ -235,6 +265,107 @@ def _collect_numbered_values(raw: dict[str, str | None], base_key: str) -> list[
     return values
 
 
+def _max_numbered_index(raw: dict[str, str | None], *base_keys: str) -> int:
+    """Highest `_N` suffix present for any of the base keys (0 = primary only / none)."""
+    max_index = 0
+    for base_key in base_keys:
+        if base_key in raw:
+            max_index = max(max_index, 0)
+        index = 1
+        while f"{base_key}_{index}" in raw:
+            max_index = max(max_index, index)
+            index += 1
+    return max_index
+
+
+def _slot_value(raw: dict[str, str | None], base_key: str, index: int) -> str | None:
+    key = base_key if index == 0 else f"{base_key}_{index}"
+    return (raw.get(key) or "").strip() or None
+
+
+def pair_aliases_from_raw(
+    raw: dict[str, str | None],
+    *,
+    name_key: str,
+    alias_key: str,
+    enabled_key: str | None = None,
+) -> tuple[list[str], dict[str, str]]:
+    """Return (non-empty names in slot order, alias→name map) index-aligned.
+
+    When ``enabled_key`` is set (e.g. ``COMMERCE_PROCESS_ENABLED``), slots with
+    ``ENABLED[_N]=false`` are omitted from names and aliases (default true if unset).
+    """
+    index_keys = (name_key, alias_key) + ((enabled_key,) if enabled_key else ())
+    max_index = _max_numbered_index(raw, *index_keys)
+    # If neither name nor alias key exists, empty
+    if max_index == 0 and name_key not in raw and alias_key not in raw:
+        # Still allow primary if only present via empty check
+        if _slot_value(raw, name_key, 0) is None and _slot_value(raw, alias_key, 0) is None:
+            return [], {}
+
+    names: list[str] = []
+    aliases: dict[str, str] = {}
+    # Iterate 0..max_index inclusive when any primary/numbered key exists
+    last = max_index
+    if name_key in raw or alias_key in raw or last > 0:
+        for index in range(0, last + 1):
+            name = _slot_value(raw, name_key, index)
+            alias = _slot_value(raw, alias_key, index)
+            if not name:
+                continue
+            if enabled_key is not None:
+                enabled_raw = _slot_value(raw, enabled_key, index)
+                if not parse_bool_env(enabled_raw, default=True):
+                    continue
+            names.append(name)
+            if alias:
+                aliases[normalize_alias_key(alias)] = name
+    return names, aliases
+
+
+def normalize_alias_key(text: str) -> str:
+    """Normalize alias text for case-insensitive, whitespace-collapsed lookup."""
+    return " ".join(text.strip().lower().split())
+
+
+def resolve_alias(aliases: dict[str, str], text: str) -> str | None:
+    """Resolve a user phrase to a variable name, or None if unknown."""
+    if not text or not aliases:
+        return None
+    return aliases.get(normalize_alias_key(text))
+
+
+def resolve_commerce_process_alias(profile: CPQProfile, text: str) -> str | None:
+    """Resolve a commerce-process alias phrase using the profile map."""
+    return resolve_alias(profile.commerce_process_aliases, text)
+
+
+def resolve_custom_data_table_alias(profile: CPQProfile, text: str) -> str | None:
+    """Resolve a data-table alias phrase using the profile map."""
+    return resolve_alias(profile.custom_data_table_aliases, text)
+
+
+def _resolve_customer_knowledge_file(raw: dict[str, str | None]) -> str | None:
+    value = (raw.get("CUSTOMER_KNOWLEDGE_FILE") or "").strip()
+    return value or None
+
+
+def _collect_metric_descriptions(raw: dict[str, str | None]) -> dict[str, str]:
+    """Parse METRICS_* keys into {NAME: description} (last duplicate wins)."""
+    prefix = "METRICS_"
+    descriptions: dict[str, str] = {}
+    for key, value in raw.items():
+        if not key or not key.startswith(prefix):
+            continue
+        name = key[len(prefix) :].strip().upper()
+        if not name:
+            continue
+        text = (value or "").strip()
+        if text:
+            descriptions[name] = text
+    return descriptions
+
+
 def _collect_credential_suffixes(raw: dict[str, str | None], prefix: str) -> list[str]:
     suffixes = [""]
     index = 1
@@ -311,6 +442,16 @@ def load_profile(
 
     resolved_index = _resolve_credential_index(credential_index, len(credentials))
 
+    commerce_names, commerce_aliases = pair_aliases_from_raw(
+        raw,
+        name_key="COMMERCE_PROCESS_VAR_NAME",
+        alias_key="COMMERCE_PROCESS_ALIAS",
+        enabled_key="COMMERCE_PROCESS_ENABLED",
+    )
+    table_names, table_aliases = pair_aliases_from_raw(
+        raw, name_key="CUSTOM_DATA_TABLE_NAME", alias_key="CUSTOM_DATA_TABLE_ALIAS"
+    )
+
     return CPQProfile(
         customer_name=raw.get("CUSTOMER_NAME") or customer_id,
         customer_id=customer_id,
@@ -320,10 +461,16 @@ def load_profile(
         company_login_name=raw.get("COMPANY_LOGIN_NAME") or "_host",
         credentials=credentials,
         credential_index=resolved_index,
-        custom_data_table_names=_collect_numbered_values(raw, "CUSTOM_DATA_TABLE_NAME"),
-        commerce_process_var_names=_collect_numbered_values(raw, "COMMERCE_PROCESS_VAR_NAME"),
+        custom_data_table_names=table_names,
+        commerce_process_var_names=commerce_names,
+        customer_knowledge_file=_resolve_customer_knowledge_file(raw),
+        commerce_process_aliases=commerce_aliases,
+        custom_data_table_aliases=table_aliases,
         read_only=_resolve_read_only(raw),
         refined_prompt=_resolve_refined_prompt(raw),
         auto_save_refined_prompt=_resolve_auto_save_refined_prompt(raw),
+        debug_mode=_resolve_debug_mode(raw),
         local_data_policy=_resolve_local_data_policy(raw),
+        post_response_export=_resolve_post_response_export(raw),
+        metric_descriptions=_collect_metric_descriptions(raw),
     )

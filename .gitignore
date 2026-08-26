@@ -8,9 +8,11 @@
 
 # --- Generated outputs ---
 .prompts
+.knowledge/
 exports/
 dat/
 data/
+logs/
 *.xlsx
 *.xls
 
@@ -50,7 +52,8 @@ docs/*.md
 # Local Focalpoint/scratch dumps (never commit)
 tmp_*
 
-
+# API debug logs (DEBUG_MODE) — may contain usernames and business query strings
+logs/
 
 # Root or stray env files
 .env

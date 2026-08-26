@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -48,9 +50,13 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Prompt Studio", version="0.1.0")
 
     def _entry_summary(entry: saved_library.SavedPrompt, favorites: set[str]) -> dict[str, Any]:
+        original = entry.original_user_prompt or ""
+        preview = original if len(original) <= 160 else original[:157] + "…"
         return {
             "id": entry.id,
             "title": entry.title,
+            "original_user_prompt": original,
+            "original_preview": preview,
             "tags": entry.tags,
             "tools": entry.tools,
             "output_format": entry.output_format,
@@ -64,6 +70,24 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/api/library_info")
+    def library_info() -> dict[str, Any]:
+        path = saved_library.saved_prompts_path()
+        enabled = saved_library.list_entries(path)
+        all_entries = saved_library.list_entries(path, include_disabled=True)
+        last_modified: str | None = None
+        if path.is_file():
+            last_modified = datetime.fromtimestamp(
+                path.stat().st_mtime, tz=timezone.utc
+            ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {
+            "path": str(path.resolve()),
+            "exists": path.is_file(),
+            "enabled_count": len(enabled),
+            "total_count": len(all_entries),
+            "last_modified": last_modified,
+        }
 
     @app.get("/api/prompts")
     def list_prompts(
@@ -94,6 +118,37 @@ def create_app() -> FastAPI:
             "count": len(entries),
             "prompts": [_entry_summary(e, favorites) for e in entries],
         }
+
+    @app.get("/api/prompts/download", response_model=None)
+    def download_prompts(
+        include_disabled: bool = Query(default=True),
+    ) -> FileResponse | Response:
+        """Download the full saved-prompts library as JSON."""
+        path = saved_library.saved_prompts_path()
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+        filename = f"saved_prompts_{stamp}.json"
+        if include_disabled and path.is_file():
+            return FileResponse(
+                path,
+                media_type="application/json",
+                filename=filename,
+            )
+        data = saved_library.load_library(path)
+        if not include_disabled:
+            data = {
+                **data,
+                "prompts": [
+                    p
+                    for p in data.get("prompts", [])
+                    if isinstance(p, dict) and p.get("enabled", True)
+                ],
+            }
+        body = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+        return Response(
+            content=body,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @app.get("/api/prompts/{prompt_id}")
     def get_prompt(prompt_id: str) -> dict[str, Any]:
@@ -128,6 +183,13 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Prompt not found")
         favorited = studio_store.toggle_favorite(prompt_id)
         return FavoriteOut(prompt_id=prompt_id, favorited=favorited)
+
+    @app.delete("/api/prompts/{prompt_id}")
+    def delete_prompt(prompt_id: str) -> dict[str, bool]:
+        if not saved_library.delete_prompt(prompt_id):
+            raise HTTPException(status_code=404, detail="Prompt not found")
+        studio_store.remove_prompt_references(prompt_id)
+        return {"deleted": True}
 
     @app.get("/api/suites")
     def get_suites() -> dict[str, Any]:

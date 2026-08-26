@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
 
 from oracle_cpq_mcp.core.config import CPQProfile
+from oracle_cpq_mcp.core.debug_api_log import append_api_debug_log
 from oracle_cpq_mcp.core.errors import CPQAPIError, classify_http_error, sanitize_message
 
 logger = logging.getLogger(__name__)
@@ -91,6 +93,32 @@ class CPQClient:
             json_body=body,
         )
 
+    def _debug_file_log(
+        self,
+        *,
+        method: str,
+        path: str,
+        url: str,
+        curl_command: str,
+        params: dict[str, Any] | None = None,
+        json_body: Any = None,
+        accept: str | None = None,
+        status: str | int,
+        duration_ms: float | None = None,
+    ) -> None:
+        append_api_debug_log(
+            self.profile,
+            method=method,
+            path=path,
+            url=url,
+            curl_command=curl_command,
+            params=params,
+            json_body=json_body,
+            accept=accept,
+            status=status,
+            duration_ms=duration_ms,
+        )
+
     def request(
         self,
         method: str,
@@ -112,6 +140,16 @@ class CPQClient:
                 "Set READ_ONLY=false in the profile .env to allow DML."
             )
             logger.error("CPQ request blocked — curl: %s", curl_command)
+            self._debug_file_log(
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                params=params,
+                json_body=json_body,
+                status="BLOCKED",
+                duration_ms=0.0,
+            )
             raise CPQAPIError(
                 message,
                 code="READ_ONLY_BLOCKED",
@@ -126,6 +164,7 @@ class CPQClient:
         url = self._build_url(path, params)
         curl_command = self._to_curl(method, url, json_body)
         self._log_request(method, url, json_body)
+        started = time.perf_counter()
 
         try:
             with httpx.Client(
@@ -138,6 +177,17 @@ class CPQClient:
             ) as client:
                 response = client.request(method.upper(), url, json=json_body)
         except httpx.RequestError as exc:
+            duration_ms = (time.perf_counter() - started) * 1000.0
+            self._debug_file_log(
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                params=params,
+                json_body=json_body,
+                status="ERROR",
+                duration_ms=duration_ms,
+            )
             message = sanitize_message(str(exc), self.profile.password)
             logger.error(
                 "CPQ request failed — curl: %s — response: (none)",
@@ -153,6 +203,18 @@ class CPQClient:
                 curl_command=curl_command,
                 password=self.profile.password,
             ) from exc
+
+        duration_ms = (time.perf_counter() - started) * 1000.0
+        self._debug_file_log(
+            method=method_upper,
+            path=path,
+            url=url,
+            curl_command=curl_command,
+            params=params,
+            json_body=json_body,
+            status=response.status_code,
+            duration_ms=duration_ms,
+        )
 
         if response.status_code >= 400:
             body: Any
@@ -207,6 +269,7 @@ class CPQClient:
         url = self._build_url(path, params)
         curl_command = self._to_curl(method_upper, url)
         self._log_request(method_upper, url)
+        started = time.perf_counter()
 
         try:
             with httpx.Client(
@@ -218,6 +281,17 @@ class CPQClient:
             ) as client:
                 response = client.get(url)
         except httpx.RequestError as exc:
+            duration_ms = (time.perf_counter() - started) * 1000.0
+            self._debug_file_log(
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                params=params,
+                accept=accept,
+                status="ERROR",
+                duration_ms=duration_ms,
+            )
             message = sanitize_message(str(exc), self.profile.password)
             logger.error(
                 "CPQ binary request failed — curl: %s — response: (none)",
@@ -233,6 +307,18 @@ class CPQClient:
                 curl_command=curl_command,
                 password=self.profile.password,
             ) from exc
+
+        duration_ms = (time.perf_counter() - started) * 1000.0
+        self._debug_file_log(
+            method=method_upper,
+            path=path,
+            url=url,
+            curl_command=curl_command,
+            params=params,
+            accept=accept,
+            status=response.status_code,
+            duration_ms=duration_ms,
+        )
 
         if response.status_code >= 400:
             body: Any
@@ -286,6 +372,17 @@ class CPQClient:
         ):
             url = self._build_url(path, params)
             curl_command = self._to_curl(method_upper, url, json_body)
+            self._debug_file_log(
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                params=params,
+                json_body=json_body,
+                accept=accept,
+                status="BLOCKED",
+                duration_ms=0.0,
+            )
             raise CPQAPIError(
                 f"READ_ONLY mode — POST {path} is blocked. "
                 "Set READ_ONLY=false in the profile .env to allow DML.",
@@ -301,6 +398,7 @@ class CPQClient:
         url = self._build_url(path, params)
         curl_command = self._to_curl(method_upper, url, json_body)
         self._log_request(method_upper, url, json_body)
+        started = time.perf_counter()
 
         try:
             with httpx.Client(
@@ -313,6 +411,18 @@ class CPQClient:
             ) as client:
                 response = client.post(url, json=json_body)
         except httpx.RequestError as exc:
+            duration_ms = (time.perf_counter() - started) * 1000.0
+            self._debug_file_log(
+                method=method_upper,
+                path=path,
+                url=url,
+                curl_command=curl_command,
+                params=params,
+                json_body=json_body,
+                accept=accept,
+                status="ERROR",
+                duration_ms=duration_ms,
+            )
             message = sanitize_message(str(exc), self.profile.password)
             logger.error(
                 "CPQ binary POST failed — curl: %s — response: (none)",
@@ -328,6 +438,19 @@ class CPQClient:
                 curl_command=curl_command,
                 password=self.profile.password,
             ) from exc
+
+        duration_ms = (time.perf_counter() - started) * 1000.0
+        self._debug_file_log(
+            method=method_upper,
+            path=path,
+            url=url,
+            curl_command=curl_command,
+            params=params,
+            json_body=json_body,
+            accept=accept,
+            status=response.status_code,
+            duration_ms=duration_ms,
+        )
 
         if response.status_code >= 400:
             body: Any

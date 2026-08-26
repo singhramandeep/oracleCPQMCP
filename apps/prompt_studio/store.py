@@ -175,6 +175,31 @@ def delete_suite(suite_id: str, path: Path | None = None) -> bool:
     return True
 
 
+def remove_prompt_references(prompt_id: str, path: Path | None = None) -> bool:
+    """Drop prompt_id from favorites and all suite prompt_ids. Returns True if changed."""
+    store = load_store(path)
+    changed = False
+
+    favs = [f for f in (store.get("favorites") or []) if f != prompt_id]
+    if len(favs) != len(store.get("favorites") or []):
+        store["favorites"] = favs
+        changed = True
+
+    suites = list(store.get("suites") or [])
+    new_suites: list[dict[str, Any]] = []
+    for suite in suites:
+        ids = list(suite.get("prompt_ids") or [])
+        filtered = [pid for pid in ids if pid != prompt_id]
+        if len(filtered) != len(ids):
+            suite = {**suite, "prompt_ids": filtered, "updated_at": _utc_now()}
+            changed = True
+        new_suites.append(suite)
+    if changed:
+        store["suites"] = new_suites
+        save_store(store, path)
+    return changed
+
+
 def add_prompt_to_suite(
     suite_id: str,
     prompt_id: str,

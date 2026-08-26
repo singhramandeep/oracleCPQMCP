@@ -21,6 +21,9 @@ DomainName = Literal[
     "parts",
     "tasks",
     "configuration",
+    "metrics",
+    "collab",
+    "admin",
     "meta",
 ]
 OperationName = Literal["read", "write"]
@@ -34,6 +37,9 @@ DomainFilter = Literal[
     "parts",
     "tasks",
     "configuration",
+    "metrics",
+    "collab",
+    "admin",
     "all",
 ]
 OperationFilter = Literal["read", "write", "all"]
@@ -938,6 +944,150 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         http_method="POST",
         api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionName}",
     ),
+    "list_metrics": _spec(
+        "list_metrics",
+        domain="metrics",
+        operation="read",
+        description=(
+            "List Oracle CPQ site metrics (GET /metrics). Returns one page of items "
+            "(name, value, startTime, endTime, dateModified, dateAdded). Optional "
+            "filters: name (exact), start_time/end_time, date_modified_from/to, "
+            "date_added_from/to — combined into the MongoDB-style q query param. "
+            "Each item is enriched with description from profile METRICS_<NAME> env "
+            "keys when present. Requires REST version that exposes /metrics "
+            "(docs target v19; set REST_API_VERSION=v19 if v18 returns 404). "
+            "Does not modify CPQ data."
+        ),
+        tags={"paginated", "metrics"},
+        read_only=True,
+        http_method="GET",
+        api_path="/metrics",
+    ),
+    "get_collab_operation_queue": _spec(
+        "get_collab_operation_queue",
+        domain="collab",
+        operation="read",
+        description=(
+            "Get the collaborative quote operation queue for a commerce document "
+            "(GET /collabOperationQueues/{bs_id}). Returns queuedOperations, "
+            "currentlyExecutingOperation, operationCount, and node. Requires a "
+            "REST version that exposes collabOperationQueues (docs target v19). "
+            "Does not clear the queue."
+        ),
+        tags={"collab", "queue"},
+        read_only=True,
+        http_method="GET",
+        api_path="/collabOperationQueues/{bs_id}",
+    ),
+    "clear_collab_operation_queue": _spec(
+        "clear_collab_operation_queue",
+        domain="collab",
+        operation="write",
+        description=(
+            "Clear the collaborative quote operation queue for a commerce document "
+            "(POST /collabOperationQueues/{bs_id}/actions/clearCurrentQueue). "
+            "Destructive — removes queued/current collab operations for that bs_id."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "collab", "queue"},
+        read_only=False,
+        destructive=True,
+        http_method="POST",
+        api_path="/collabOperationQueues/{bs_id}/actions/clearCurrentQueue",
+    ),
+    "get_commerce_ui_settings": _spec(
+        "get_commerce_ui_settings",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get Commerce UI and general site settings "
+            "(GET /commerceUISettings). Returns commerceSettings and "
+            "generalSiteSettings as provided by CPQ. Requires a REST version that "
+            "exposes this resource (docs target v19; set REST_API_VERSION=v19 if "
+            "v18 returns 404). Read-only; does not change site configuration."
+        ),
+        tags={"commerce", "ui", "settings"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceUISettings",
+    ),
+    "list_saved_searches": _spec(
+        "list_saved_searches",
+        domain="commerce",
+        operation="read",
+        description=(
+            "List saved searches for a commerce document resource "
+            "(GET /searchResources/{resource_var_name}). Paginated with limit/offset. "
+            "Optional show_all maps to query showAll (ALL|HIDDEN|VISIBLE|INACTIVE; "
+            "default VISIBLE). When resource_var_name is omitted, derives "
+            "commerceDocuments{Process}Transaction from process_var_name / profile "
+            "COMMERCE_PROCESS_VAR_NAME (e.g. oraclecpqo → "
+            "commerceDocumentsOraclecpqoTransaction). Docs target REST v19 "
+            "(404 if unsupported). Does not modify CPQ data."
+        ),
+        tags={"paginated", "commerce", "saved_search"},
+        read_only=True,
+        http_method="GET",
+        api_path="/searchResources/{resourceVarName}",
+    ),
+    "get_saved_search": _spec(
+        "get_saved_search",
+        domain="commerce",
+        operation="read",
+        description=(
+            "Get one saved search by numeric search_id "
+            "(GET /searchResources/{resource_var_name}/{search_id}). "
+            "resource_var_name optional — same default derivation as "
+            "list_saved_searches. Docs target REST v19. Does not modify CPQ data."
+        ),
+        tags={"commerce", "saved_search"},
+        read_only=True,
+        http_method="GET",
+        api_path="/searchResources/{resourceVarName}/{searchId}",
+    ),
+    "list_certificates": _spec(
+        "list_certificates",
+        domain="admin",
+        operation="read",
+        description=(
+            "List site certificates (GET /certificates). PEM/certificate material "
+            "in responses is redacted ([REDACTED]) before reaching the LLM. "
+            "Docs target REST v19 (set REST_API_VERSION=v19 if v18 returns 404). "
+            "Read-only; does not change site configuration."
+        ),
+        tags={"admin", "certificates"},
+        read_only=True,
+        http_method="GET",
+        api_path="/certificates",
+    ),
+    "get_certificate": _spec(
+        "get_certificate",
+        domain="admin",
+        operation="read",
+        description=(
+            "Get one site certificate by name (GET /certificates/{name}). "
+            "PEM/certificate material is redacted ([REDACTED]) in MCP responses. "
+            "Docs target REST v19. Read-only."
+        ),
+        tags={"admin", "certificates"},
+        read_only=True,
+        http_method="GET",
+        api_path="/certificates/{name}",
+    ),
+    "get_sso_configuration": _spec(
+        "get_sso_configuration",
+        domain="admin",
+        operation="read",
+        description=(
+            "Get site SSO configuration (GET /ssoConfiguration). IdP certificate "
+            "and SAML keystore fields are redacted ([REDACTED]) in MCP responses. "
+            "Docs target REST v19. Read-only; does not change SSO settings."
+        ),
+        tags={"admin", "sso"},
+        read_only=True,
+        http_method="GET",
+        api_path="/ssoConfiguration",
+    ),
     "list_performance_logs": _spec(
         "list_performance_logs",
         domain="performance",
@@ -1024,7 +1174,8 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         operation="read",
         description=(
             "Search and filter the Oracle CPQ MCP tool catalog by domain "
-            "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration), "
+            "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/"
+            "metrics/collab/admin), "
             "operation, or free-text query. Use this to find read-only vs write tools "
             "before calling them."
         ),
@@ -1214,6 +1365,64 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "Reload MCP if you need server instructions rebuilt from the new flag."
         ),
         tags={"local_data"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "offer_export_response": _spec(
+        "offer_export_response",
+        domain="meta",
+        operation="read",
+        description=(
+            "After a tabular chat answer, offer to export structured sheets to Excel and/or Word. "
+            "Omit choice for needs_user_input (excel / word / both / skip / always_excel / never). "
+            "always_excel/never also write POST_RESPONSE_EXPORT on the profile .env. "
+            "Pass title and optional sheets/notes for context; on excel/word/both the agent must "
+            "call export_response_excel / export_response_word with the same structured sheets "
+            "(do not scrape markdown). Local files only; does not call Oracle CPQ."
+        ),
+        tags={"export", "excel", "local_data"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "export_response_excel": _spec(
+        "export_response_excel",
+        domain="meta",
+        operation="read",
+        description=(
+            "Build a multi-sheet Excel (.xlsx) from structured sheets "
+            "[{name, columns?, rows}] and write under data/{profile}/{env}/exports/. "
+            "Returns an attachment lead envelope plus File bytes. Caps: 20 sheets, 10k rows total. "
+            "Does not call Oracle CPQ."
+        ),
+        tags={"export", "excel"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "export_response_word": _spec(
+        "export_response_word",
+        domain="meta",
+        operation="read",
+        description=(
+            "Build a Word (.docx) from structured sheets (optional notes) and write under "
+            "data/{profile}/{env}/exports/. Returns attachment lead with path + file:// URI "
+            "plus File bytes. Requires optional dependency python-docx "
+            '(pip install python-docx or pip install -e ".[docs]"). '
+            "Does not call Oracle CPQ."
+        ),
+        tags={"export"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "set_post_response_export": _spec(
+        "set_post_response_export",
+        domain="meta",
+        operation="read",
+        description=(
+            "Set POST_RESPONSE_EXPORT=ask|never|always_excel on the active customer profile .env "
+            "(allowlisted key rewrite only). Does not call Oracle CPQ. "
+            "Reload MCP if you need server instructions rebuilt from the new flag."
+        ),
+        tags={"export", "local_data"},
         read_only=True,
         version="1.0.0",
     ),

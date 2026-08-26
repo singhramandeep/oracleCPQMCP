@@ -7,7 +7,7 @@
 > python scripts/generate_tool_catalog.py
 > ```
 
-**Total tools:** 87
+**Total tools:** 100
 
 This document is the formal per-tool reference for the GitHub repository. Each row is one MCP tool function with **Parameters** and **Filters** (from Pydantic validation models), output contract, tags, and API metadata from `TOOL_CATALOG`.
 
@@ -23,6 +23,9 @@ This document is the formal per-tool reference for the GitHub repository. Each r
 - [tasks](#tasks)
 - [configuration](#configuration)
 - [meta](#meta)
+- [admin](#admin)
+- [collab](#collab)
+- [metrics](#metrics)
 
 ## users
 
@@ -126,7 +129,7 @@ _9 tool(s)_
 
 ## commerce
 
-_18 tool(s)_
+_21 tool(s)_
 
 | Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |
 |------|---------|----|------|------|------------|------------|---------|--------|
@@ -139,12 +142,15 @@ _18 tool(s)_
 | `get_commerce_actions` | `1.0.0` | `read` | `READ_ONLY` | `actions`, `commerce`, `metadata`, `paginated`, `read` | GET /commerceProcesses/{processVarName}/documents/{docVarName}/actionDefs | `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction'); `expand_all` (bool, default False); `limit` (int, default 100); `offset` (int, default 0) | - | read envelope `{status, tool, data}` |
 | `get_commerce_attribute` | `1.0.0` | `read` | `READ_ONLY` | `attributes`, `commerce`, `metadata`, `read` | GET /commerceProcesses/{processVarName}/documents/{docVarName}/attributes/{attributeVarName} | `attribute_var_name` (str, required); `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction'); `expand_all` (bool, default False) | - | read envelope `{status, tool, data}` |
 | `get_commerce_attributes` | `1.0.0` | `read` | `READ_ONLY` | `attributes`, `commerce`, `metadata`, `paginated`, `read` | GET /commerceProcesses/{processVarName}/documents/{docVarName}/attributes | `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction'); `expand_all` (bool, default False); `limit` (int, default 100); `offset` (int, default 0) | - | read envelope `{status, tool, data}` |
+| `get_commerce_ui_settings` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `read`, `settings`, `ui` | GET /commerceUISettings | - | - | read envelope `{status, tool, data}` |
 | `get_document_layout` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `layout`, `metadata`, `read` | GET /commerceProcesses/{processVarName}/layouts/{mainDocVarName} | `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction') | - | read envelope `{status, tool, data}` |
 | `get_line_actions` | `1.0.0` | `read` | `READ_ONLY` | `actions`, `commerce`, `line`, `metadata`, `paginated`, `read` | GET /commerceProcesses/{processVarName}/documents/{docVarName}/actionDefs | `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transactionLine'); `expand_all` (bool, default False); `limit` (int, default 100); `offset` (int, default 0) | - | read envelope `{status, tool, data}` |
 | `get_line_attributes` | `1.0.0` | `read` | `READ_ONLY` | `attributes`, `commerce`, `line`, `metadata`, `paginated`, `read` | GET /commerceProcesses/{processVarName}/documents/{docVarName}/attributes | `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transactionLine'); `expand_all` (bool, default False); `limit` (int, default 100); `offset` (int, default 0) | - | read envelope `{status, tool, data}` |
+| `get_saved_search` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `read`, `saved_search` | GET /searchResources/{resourceVarName}/{searchId} | `search_id` (int, required); `resource_var_name` (str \| None, default None); `process_var_name` (str \| None, default None) | - | read envelope `{status, tool, data}` |
 | `get_transaction` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `read`, `transactions` | GET /commerceDocuments{Process}{Doc}/{id} | `transaction_id` (str, required); `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction'); `expand` (str \| None, default None); `exclude_field_types` (str \| None, default None) | - | read envelope `{status, tool, data}` |
 | `get_transaction_line` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `lines`, `read`, `transactions` | GET /commerceDocuments{Process}{Doc}/{id}/transactionLine/{documentNumber} | `transaction_id` (str, required); `document_number` (str, required); `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction'); `expand` (str \| None, default None); `exclude_field_types` (str \| None, default None) | - | read envelope `{status, tool, data}` |
 | `list_commerce_processes` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `metadata`, `paginated`, `read` | GET /commerceProcessSetups | `limit` (int, default 100); `offset` (int, default 0) | - | read envelope `{status, tool, data}` |
+| `list_saved_searches` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `paginated`, `read`, `saved_search` | GET /searchResources/{resourceVarName} | `resource_var_name` (str \| None, default None); `process_var_name` (str \| None, default None); `show_all` (Literal['ALL', 'HIDDEN', 'VISIBLE', 'INACTIVE'], default 'VISIBLE'); `limit` (int, default 100); `offset` (int, default 0); `total_results` (bool, default True) | - | read envelope `{status, tool, data}` |
 | `list_transaction_lines` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `lines`, `paginated`, `read`, `transactions` | GET /commerceDocuments{Process}{Doc}/{id}/transactionLine | `limit` (int, default 100); `offset` (int, default 0); `total_results` (bool, default True); `fields` (list[str] \| None, default None); `orderby` (list[str] \| None, default None); `expand` (str \| None, default None); `exclude_field_types` (str \| None, default None); `transaction_id` (str, required); `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction') | `q_expr` (str \| None, default None) | read envelope `{status, tool, data}` |
 | `list_transactions` | `1.0.0` | `read` | `READ_ONLY` | `commerce`, `paginated`, `read`, `transactions` | GET /commerceDocuments{Process}{Doc} | `limit` (int, default 100); `offset` (int, default 0); `total_results` (bool, default True); `fields` (list[str] \| None, default None); `orderby` (list[str] \| None, default None); `expand` (str \| None, default None); `exclude_field_types` (str \| None, default None); `process_var_name` (str \| None, default None); `doc_var_name` (str, default 'transaction') | `q_expr` (str \| None, default None) | read envelope `{status, tool, data}` |
 | `sync_commerce_metadata_local` | `1.1.0` | `read` | `PRIVILEGED` | `commerce`, `excel`, `export`, `local_data`, `read` | GET /commerceProcesses/{process}/documents/{doc}/{resource} | `process_var_name` (str \| None, default None); `expand_all` (bool, default True) | - | read envelope `{status, tool, data}` |
@@ -160,12 +166,15 @@ _18 tool(s)_
 - **`get_commerce_actions`** — Get metadata for actions on a Commerce MAIN document (default doc_var_name='transaction' — not the line document). Returns one page of results (limit/offset). If hasMore is true, call again with offset = offset + limit.…
 - **`get_commerce_attribute`** — Get one Commerce document attribute definition by attribute_var_name. Defaults process from profile, doc_var_name=transaction. Does not list all attributes (use get_commerce_attributes).
 - **`get_commerce_attributes`** — Get metadata for attributes on a Commerce MAIN document (default doc_var_name='transaction' — not the line document). Returns one page of results (limit/offset). If hasMore is true, call again with offset = offset + lim…
+- **`get_commerce_ui_settings`** — Get Commerce UI and general site settings (GET /commerceUISettings). Returns commerceSettings and generalSiteSettings as provided by CPQ. Requires a REST version that exposes this resource (docs target v19; set REST_API…
 - **`get_document_layout`** — Get Commerce desktop layout definition for a process document (panels, tabs, actions, attributes). Defaults process from profile and doc_var_name='transaction'. Does not return live quote data.
 - **`get_line_actions`** — Get metadata for actions on a Commerce LINE document (default doc_var_name='transactionLine' — not the main/header document). Returns one page of results (limit/offset). If hasMore is true, call again with offset = offs…
 - **`get_line_attributes`** — Get metadata for attributes on a Commerce LINE document (default doc_var_name='transactionLine' — not the main/header document). Returns one page of results (limit/offset). If hasMore is true, call again with offset = o…
+- **`get_saved_search`** — Get one saved search by numeric search_id (GET /searchResources/{resource_var_name}/{search_id}). resource_var_name optional — same default derivation as list_saved_searches. Docs target REST v19. Does not modify CPQ da…
 - **`get_transaction`** — Get one Commerce transaction by numeric transaction_id. Optional expand / exclude_field_types. Defaults process from profile.
 - **`get_transaction_line`** — Get a single transaction line by transaction_id and document_number (line document number).
 - **`list_commerce_processes`** — List Commerce process setups (admin metadata). Paginated. Does not list live transactions.
+- **`list_saved_searches`** — List saved searches for a commerce document resource (GET /searchResources/{resource_var_name}). Paginated with limit/offset. Optional show_all maps to query showAll (ALL\|HIDDEN\|VISIBLE\|INACTIVE; default VISIBLE). When…
 - **`list_transaction_lines`** — List line items for a Commerce transaction. Paginated collection with the same filter params as list_transactions. Empty items means no lines for that id.
 - **`list_transactions`** — List Commerce transactions for the configured process (GET /commerceDocuments{Process}{Doc}). Returns one page; if hasMore is true, call again with offset = offset + limit. Supports q_expr, fields, orderby, expand, excl…
 - **`sync_commerce_metadata_local`** — Fetch all header/line attributes and actions for a commerce process (paginated) and write JSON + Excel under data/{profile}/{env}/commerce/{process}/.
@@ -260,16 +269,19 @@ _16 tool(s)_
 
 ## meta
 
-_15 tool(s)_
+_19 tool(s)_
 
 | Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |
 |------|---------|----|------|------|------------|------------|---------|--------|
 | `discover_tools` | `1.0.0` | `read` | `READ_ONLY` | `discovery`, `meta`, `read` | — | `limit` (int, default 20) | `query` (str \| None, default None); `domain` (Literal['users', 'groups', 'datatables', 'bml', 'commerce', 'performance', …], default 'all'); `operation` (Literal['read', 'write', 'all'], default 'all') | read envelope `{status, tool, data}` |
+| `export_response_excel` | `1.0.0` | `read` | `READ_ONLY` | `excel`, `export`, `meta`, `read` | — | `title` (str, required); `sheets` (list[ExportResponseSheetInput], required); `notes` (str \| None, default None) | - | attachment/list (no root object schema) |
+| `export_response_word` | `1.0.0` | `read` | `READ_ONLY` | `export`, `meta`, `read` | — | `title` (str, required); `sheets` (list[ExportResponseSheetInput], required); `notes` (str \| None, default None) | - | attachment/list (no root object schema) |
 | `get_local_data_status` | `1.0.0` | `read` | `READ_ONLY` | `local_data`, `meta`, `read` | — | `process_var_name` (str \| None, default None); `table_name` (str \| None, default None) | `domain` (Literal['users', 'groups', 'bml', 'commerce', 'datatables'], required) | read envelope `{status, tool, data}` |
 | `get_saved_prompt` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `prompt_id` (str, required) | - | read envelope `{status, tool, data}` |
 | `list_local_data` | `1.1.0` | `read` | `READ_ONLY` | `discovery`, `local_data`, `meta`, `read` | — | - | - | read envelope `{status, tool, data}` |
 | `list_saved_prompts` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `limit` (int, default 50) | - | read envelope `{status, tool, data}` |
 | `load_local_data` | `1.1.0` | `read` | `READ_ONLY` | `local_data`, `meta`, `read` | — | `process_var_name` (str \| None, default None); `table_name` (str \| None, default None); `include_payload` (bool, default False); `payload_keys` (list[str] \| None, default None) | `domain` (Literal['users', 'groups', 'bml', 'commerce', 'datatables'], required) | read envelope `{status, tool, data}` |
+| `offer_export_response` | `1.0.0` | `read` | `READ_ONLY` | `excel`, `export`, `local_data`, `meta`, `read` | — | `title` (str, required); `sheets` (list[ExportResponseSheetInput] \| None, default None); `notes` (str \| None, default None); `choice` (Literal['excel', 'word', 'both', 'skip', 'always_excel', 'never'] \| None, default None) | - | read envelope `{status, tool, data}` |
 | `offer_save_refined_prompt` | `1.2.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `title` (str, required); `original_user_prompt` (str, required); `refined_prompt` (str, required); `variables` (dict[str, Any] \| None, default None); `tags` (list[str] \| None, default None); `tools` (list[str] \| None, default None); `output_format` (Literal['chat_text', 'json', 'excel_download'], default 'chat_text'); `save` (bool \| None, default None); `always` (bool \| None, default None) | - | read envelope `{status, tool, data}` |
 | `offer_use_local_data` | `1.1.0` | `read` | `READ_ONLY` | `local_data`, `meta`, `read` | — | `process_var_name` (str \| None, default None); `table_name` (str \| None, default None); `choice` (Literal['use_cache', 'fetch_fresh', 'prefer', 'never'] \| None, default None) | `domain` (Literal['users', 'groups', 'bml', 'commerce', 'datatables'], required) | read envelope `{status, tool, data}` |
 | `record_prompt_use` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `prompt_id` (str, required) | - | read envelope `{status, tool, data}` |
@@ -277,17 +289,21 @@ _15 tool(s)_
 | `search_saved_prompts` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts`, `search` | — | `limit` (int, default 20) | `query` (str \| None, default None); `tag` (str \| None, default None); `tool_domain` (str \| None, default None) | read envelope `{status, tool, data}` |
 | `set_auto_save_refined_prompt` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `enabled` (bool, required) | - | read envelope `{status, tool, data}` |
 | `set_local_data_policy` | `1.0.0` | `read` | `READ_ONLY` | `local_data`, `meta`, `read` | — | `policy` (Literal['ask', 'prefer', 'never'], required) | - | read envelope `{status, tool, data}` |
+| `set_post_response_export` | `1.0.0` | `read` | `READ_ONLY` | `export`, `local_data`, `meta`, `read` | — | `policy` (Literal['ask', 'never', 'always_excel'], required) | - | read envelope `{status, tool, data}` |
 | `set_saved_prompt_enabled` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `prompt_id` (str, required); `enabled` (bool, required) | - | read envelope `{status, tool, data}` |
 | `start_prompt_picker` | `1.1.0` | `read` | `READ_ONLY` | `discovery`, `meta`, `read`, `saved_prompts` | — | `mode` (str \| None, default None); `prompt_id` (str \| None, default None) | `query` (str \| None, default None); `tag` (str \| None, default None); `tool_domain` (str \| None, default None); `tool` (str \| None, default None) | read envelope `{status, tool, data}` |
 
 ### Descriptions
 
-- **`discover_tools`** — Search and filter the Oracle CPQ MCP tool catalog by domain (users/groups/datatables/bml/commerce/performance/parts/tasks/configuration), operation, or free-text query. Use this to find read-only vs write tools before c…
+- **`discover_tools`** — Search and filter the Oracle CPQ MCP tool catalog by domain (users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/metrics/collab/admin), operation, or free-text query. Use this to find read-only vs…
+- **`export_response_excel`** — Build a multi-sheet Excel (.xlsx) from structured sheets [{name, columns?, rows}] and write under data/{profile}/{env}/exports/. Returns an attachment lead envelope plus File bytes. Caps: 20 sheets, 10k rows total. Does…
+- **`export_response_word`** — Build a Word (.docx) from structured sheets (optional notes) and write under data/{profile}/{env}/exports/. Returns attachment lead with path + file:// URI plus File bytes. Requires optional dependency python-docx (pip…
 - **`get_local_data_status`** — Check whether a local snapshot exists for a domain (users/groups/bml/commerce/datatables). For commerce pass process_var_name; for datatables pass table_name. Does not call Oracle CPQ.
 - **`get_saved_prompt`** — Load one saved refined prompt by id, including refined_prompt text and variables. Does not call Oracle CPQ.
 - **`list_local_data`** — List local data/{profile}/{env} snapshots (manifests) for the active profile. Does not call Oracle CPQ. Use before live list/export tools when LOCAL_DATA_POLICY is ask or prefer.
 - **`list_saved_prompts`** — List locally saved refined prompts (title, tags, tools, last_run). Does not call Oracle CPQ. Library file defaults to .config/saved_prompts.json.
 - **`load_local_data`** — Load a local snapshot summary and file paths under data/. Default omits large payloads (include_payload=false) to save tokens. Does not call Oracle CPQ.
+- **`offer_export_response`** — After a tabular chat answer, offer to export structured sheets to Excel and/or Word. Omit choice for needs_user_input (excel / word / both / skip / always_excel / never). always_excel/never also write POST_RESPONSE_EXPO…
 - **`offer_save_refined_prompt`** — Offer to save a refined prompt after a CPQ-related task. If save is omitted, returns needs_user_input with choices: save once, save and always auto-save, or skip (chat fallback when elicitation is unavailable). With sav…
 - **`offer_use_local_data`** — Ask whether to use a local data/ snapshot or fetch fresh CPQ data. Omit choice for needs_user_input (use_cache / fetch_fresh / prefer / never). prefer/never also write LOCAL_DATA_POLICY on the profile .env. Does not cal…
 - **`record_prompt_use`** — Update last_run_at and run_count for a saved prompt after the user runs it. Writes only the local saved-prompts library (not Oracle CPQ).
@@ -295,8 +311,51 @@ _15 tool(s)_
 - **`search_saved_prompts`** — Search saved refined prompts by title text, tag, and/or tool domain. Does not call Oracle CPQ.
 - **`set_auto_save_refined_prompt`** — Set AUTO_SAVE_REFINED_PROMPT=true\|false on the active customer profile .env (allowlisted key rewrite only). Does not call Oracle CPQ. Treat the tool result as source of truth for the rest of this session; reload MCP if…
 - **`set_local_data_policy`** — Set LOCAL_DATA_POLICY=ask\|prefer\|never on the active customer profile .env (allowlisted key rewrite only). Does not call Oracle CPQ. Reload MCP if you need server instructions rebuilt from the new flag.
+- **`set_post_response_export`** — Set POST_RESPONSE_EXPORT=ask\|never\|always_excel on the active customer profile .env (allowlisted key rewrite only). Does not call Oracle CPQ. Reload MCP if you need server instructions rebuilt from the new flag.
 - **`set_saved_prompt_enabled`** — Enable or disable a saved refined prompt by id. Disabled prompts are hidden from list/search/picker. Local library file only; does not call Oracle CPQ.
 - **`start_prompt_picker`** — Interactively pick an enabled saved refined prompt: all (by title), search, by_tag, by_tool (also last5 / by_domain). Omit mode for the top-level menu; pass prompt_id to load and record use. Disabled prompts are hidden.…
+
+## admin
+
+_3 tool(s)_
+
+| Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |
+|------|---------|----|------|------|------------|------------|---------|--------|
+| `get_certificate` | `1.0.0` | `read` | `READ_ONLY` | `admin`, `certificates`, `read` | GET /certificates/{name} | `name` (str, required) | - | read envelope `{status, tool, data}` |
+| `get_sso_configuration` | `1.0.0` | `read` | `READ_ONLY` | `admin`, `read`, `sso` | GET /ssoConfiguration | - | - | read envelope `{status, tool, data}` |
+| `list_certificates` | `1.0.0` | `read` | `READ_ONLY` | `admin`, `certificates`, `read` | GET /certificates | - | - | read envelope `{status, tool, data}` |
+
+### Descriptions
+
+- **`get_certificate`** — Get one site certificate by name (GET /certificates/{name}). PEM/certificate material is redacted ([REDACTED]) in MCP responses. Docs target REST v19. Read-only.
+- **`get_sso_configuration`** — Get site SSO configuration (GET /ssoConfiguration). IdP certificate and SAML keystore fields are redacted ([REDACTED]) in MCP responses. Docs target REST v19. Read-only; does not change SSO settings.
+- **`list_certificates`** — List site certificates (GET /certificates). PEM/certificate material in responses is redacted ([REDACTED]) before reaching the LLM. Docs target REST v19 (set REST_API_VERSION=v19 if v18 returns 404). Read-only; does not…
+
+## collab
+
+_2 tool(s)_
+
+| Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |
+|------|---------|----|------|------|------------|------------|---------|--------|
+| `clear_collab_operation_queue` | `1.0.0` | `write` | `DESTRUCTIVE` | `collab`, `confirmation`, `dry_run`, `queue`, `write` | POST /collabOperationQueues/{bs_id}/actions/clearCurrentQueue | `bs_id` (int, required); `dry_run` (bool, default True); `confirmation_token` (str \| None, default None) | - | write envelope `{status, tool, data}` |
+| `get_collab_operation_queue` | `1.0.0` | `read` | `READ_ONLY` | `collab`, `queue`, `read` | GET /collabOperationQueues/{bs_id} | `bs_id` (int, required) | - | read envelope `{status, tool, data}` |
+
+### Descriptions
+
+- **`clear_collab_operation_queue`** — Clear the collaborative quote operation queue for a commerce document (POST /collabOperationQueues/{bs_id}/actions/clearCurrentQueue). Destructive — removes queued/current collab operations for that bs_id. Safe executio…
+- **`get_collab_operation_queue`** — Get the collaborative quote operation queue for a commerce document (GET /collabOperationQueues/{bs_id}). Returns queuedOperations, currentlyExecutingOperation, operationCount, and node. Requires a REST version that exp…
+
+## metrics
+
+_1 tool(s)_
+
+| Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |
+|------|---------|----|------|------|------------|------------|---------|--------|
+| `list_metrics` | `1.0.0` | `read` | `READ_ONLY` | `metrics`, `paginated`, `read` | GET /metrics | `limit` (int, default 100); `offset` (int, default 0); `total_results` (bool, default True) | `name` (str \| None, default None); `start_time` (str \| None, default None); `end_time` (str \| None, default None); `date_modified_from` (str \| None, default None); `date_modified_to` (str \| None, default None); `date_added_from` (str \| None, default None); `date_added_to` (str \| None, default None) | read envelope `{status, tool, data}` |
+
+### Descriptions
+
+- **`list_metrics`** — List Oracle CPQ site metrics (GET /metrics). Returns one page of items (name, value, startTime, endTime, dateModified, dateAdded). Optional filters: name (exact), start_time/end_time, date_modified_from/to, date_added_f…
 
 ---
 

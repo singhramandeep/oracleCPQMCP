@@ -110,6 +110,8 @@ def config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("CPQ_READ_ONLY", raising=False)
     monkeypatch.delenv("CPQ_REFINED_PROMPT", raising=False)
     monkeypatch.delenv("CPQ_AUTO_SAVE_REFINED_PROMPT", raising=False)
+    monkeypatch.delenv("CPQ_POST_RESPONSE_EXPORT", raising=False)
+    monkeypatch.delenv("CPQ_DEBUG_MODE", raising=False)
 
     return cfg
 
@@ -149,6 +151,7 @@ def test_load_profile_dev_defaults(config_dir: Path) -> None:
     assert profile.read_only is True
     assert profile.refined_prompt is True
     assert profile.auto_save_refined_prompt is False
+    assert profile.debug_mode is True
     assert profile.rest_base == "https://dev.example.com/rest/v18"
 
 
@@ -287,6 +290,28 @@ def test_load_profile_read_only_false(config_dir: Path) -> None:
     assert profile.read_only is False
 
 
+def test_load_profile_debug_mode_defaults_true(config_dir: Path) -> None:
+    profile = load_profile("acme")
+    assert profile.debug_mode is True
+
+
+def test_load_profile_debug_mode_false(config_dir: Path) -> None:
+    env = config_dir / "no_debug.env"
+    env.write_text(FIXTURE_ENV + "DEBUG_MODE=false\n", encoding="utf-8")
+    profile = load_profile("no_debug")
+    assert profile.debug_mode is False
+
+
+def test_load_profile_debug_mode_env_override(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = config_dir / "debug_file.env"
+    env.write_text(FIXTURE_ENV + "DEBUG_MODE=true\n", encoding="utf-8")
+    monkeypatch.setenv("CPQ_DEBUG_MODE", "false")
+    profile = load_profile("debug_file")
+    assert profile.debug_mode is False
+
+
 def test_load_profile_refined_prompt_false(config_dir: Path) -> None:
     env = config_dir / "no_refined.env"
     env.write_text(
@@ -352,6 +377,11 @@ def test_update_profile_env_key_replaces_and_preserves(config_dir: Path) -> None
     assert "LOCAL_DATA_POLICY=prefer" in text3
     assert "DEV_PASSWORD=dev_pass" in text3
 
+    update_profile_env_key("acme", "POST_RESPONSE_EXPORT", "always_excel")
+    text4 = path.read_text(encoding="utf-8")
+    assert "POST_RESPONSE_EXPORT=always_excel" in text4
+    assert "DEV_PASSWORD=dev_pass" in text4
+
 
 def test_update_profile_env_key_rejects_non_allowlisted(config_dir: Path) -> None:
     from oracle_cpq_mcp.core.config import update_profile_env_key
@@ -365,4 +395,114 @@ def test_connection_mode_message_read_only() -> None:
 
     assert "read-only" in connection_mode_message(True).lower()
     assert "dml" in connection_mode_message(False).lower()
+
+
+def test_load_profile_aliases_and_knowledge_file(config_dir: Path) -> None:
+    from oracle_cpq_mcp.core.config import (
+        resolve_commerce_process_alias,
+        resolve_custom_data_table_alias,
+    )
+
+    env = config_dir / "alias.env"
+    env.write_text(
+        FIXTURE_ENV
+        + "CUSTOMER_KNOWLEDGE_FILE=focalpoint.md\n"
+        + "COMMERCE_PROCESS_ALIAS=base commerce process\n"
+        + "CUSTOM_DATA_TABLE_ALIAS=model master\n"
+        + "COMMERCE_PROCESS_VAR_NAME_1=otherProc\n"
+        + "COMMERCE_PROCESS_ALIAS_1=Secondary Process\n",
+        encoding="utf-8",
+    )
+    profile = load_profile("alias")
+    assert profile.customer_knowledge_file == "focalpoint.md"
+    assert profile.commerce_process_aliases["base commerce process"] == "oraclecpqo_bmClone_2"
+    assert profile.commerce_process_aliases["secondary process"] == "otherProc"
+    assert profile.custom_data_table_aliases["model master"] == "ModelMaster"
+    assert resolve_commerce_process_alias(profile, "Base Commerce Process") == (
+        "oraclecpqo_bmClone_2"
+    )
+    assert resolve_custom_data_table_alias(profile, "  MODEL   MASTER ") == "ModelMaster"
+
+
+def test_load_profile_blank_alias_skipped(config_dir: Path) -> None:
+    env = config_dir / "blank_alias.env"
+    env.write_text(
+        FIXTURE_ENV
+        + "COMMERCE_PROCESS_ALIAS=\n"
+        + "COMMERCE_PROCESS_VAR_NAME_1=otherProc\n"
+        + "COMMERCE_PROCESS_ALIAS_1=secondary\n",
+        encoding="utf-8",
+    )
+    profile = load_profile("blank_alias")
+    assert profile.commerce_process_var_names == ["oraclecpqo_bmClone_2", "otherProc"]
+    assert "base" not in profile.commerce_process_aliases
+    assert profile.commerce_process_aliases == {"secondary": "otherProc"}
+
+
+def test_load_profile_commerce_enabled_omits_disabled_middle(config_dir: Path) -> None:
+    env = config_dir / "commerce_enabled.env"
+    env.write_text(
+        FIXTURE_ENV
+        + "COMMERCE_PROCESS_ALIAS=primary process\n"
+        + "COMMERCE_PROCESS_ENABLED=true\n"
+        + "COMMERCE_PROCESS_VAR_NAME_1=middleProc\n"
+        + "COMMERCE_PROCESS_ALIAS_1=middle process\n"
+        + "COMMERCE_PROCESS_ENABLED_1=false\n"
+        + "COMMERCE_PROCESS_VAR_NAME_2=lastProc\n"
+        + "COMMERCE_PROCESS_ALIAS_2=last process\n"
+        + "COMMERCE_PROCESS_ENABLED_2=true\n",
+        encoding="utf-8",
+    )
+    profile = load_profile("commerce_enabled")
+    assert profile.commerce_process_var_names == ["oraclecpqo_bmClone_2", "lastProc"]
+    assert profile.commerce_process_var_name == "oraclecpqo_bmClone_2"
+    assert "middle process" not in profile.commerce_process_aliases
+    assert profile.commerce_process_aliases["primary process"] == "oraclecpqo_bmClone_2"
+    assert profile.commerce_process_aliases["last process"] == "lastProc"
+
+
+def test_load_profile_commerce_enabled_primary_disabled(config_dir: Path) -> None:
+    env = config_dir / "commerce_primary_off.env"
+    env.write_text(
+        FIXTURE_ENV
+        + "COMMERCE_PROCESS_ALIAS=primary process\n"
+        + "COMMERCE_PROCESS_ENABLED=false\n"
+        + "COMMERCE_PROCESS_VAR_NAME_1=secondProc\n"
+        + "COMMERCE_PROCESS_ALIAS_1=second process\n"
+        + "COMMERCE_PROCESS_ENABLED_1=true\n",
+        encoding="utf-8",
+    )
+    profile = load_profile("commerce_primary_off")
+    assert profile.commerce_process_var_names == ["secondProc"]
+    assert profile.commerce_process_var_name == "secondProc"
+    assert "primary process" not in profile.commerce_process_aliases
+    assert profile.commerce_process_aliases == {"second process": "secondProc"}
+
+
+def test_load_profile_commerce_enabled_defaults_true(config_dir: Path) -> None:
+    env = config_dir / "commerce_enabled_default.env"
+    env.write_text(
+        FIXTURE_ENV
+        + "COMMERCE_PROCESS_ALIAS=primary process\n"
+        + "COMMERCE_PROCESS_VAR_NAME_1=otherProc\n"
+        + "COMMERCE_PROCESS_ALIAS_1=other process\n",
+        encoding="utf-8",
+    )
+    profile = load_profile("commerce_enabled_default")
+    assert profile.commerce_process_var_names == ["oraclecpqo_bmClone_2", "otherProc"]
+    assert profile.commerce_process_aliases["other process"] == "otherProc"
+
+
+def test_load_profile_metric_descriptions(config_dir: Path) -> None:
+    env = config_dir / "metrics.env"
+    env.write_text(
+        FIXTURE_ENV
+        + "METRICS_QUOTES=Total number of quotes\n"
+        + "METRICS_DISKSPACE=Disk space used\n"
+        + "METRICS_QUOTES= Last wins quotes\n",
+        encoding="utf-8",
+    )
+    profile = load_profile("metrics")
+    assert profile.metric_descriptions["QUOTES"] == "Last wins quotes"
+    assert profile.metric_descriptions["DISKSPACE"] == "Disk space used"
 

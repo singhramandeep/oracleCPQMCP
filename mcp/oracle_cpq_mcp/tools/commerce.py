@@ -177,3 +177,9 @@ def register_commerce_tools(mcp: Any, client: CPQClient) -> None:
 
     list_commerce_processes.__doc__ = TOOL_CATALOG["list_commerce_processes"].description
     register_tool(mcp, list_commerce_processes, "list_commerce_processes")
+
+    def get_commerce_ui_settings() -> dict[str, Any]:
+        return client.get("/commerceUISettings")
+
+    get_commerce_ui_settings.__doc__ = TOOL_CATALOG["get_commerce_ui_settings"].description
+    register_tool(mcp, get_commerce_ui_settings, "get_commerce_ui_settings")

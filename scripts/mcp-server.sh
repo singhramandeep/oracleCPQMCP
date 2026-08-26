@@ -12,4 +12,6 @@ if [[ ! -x "$PY" ]]; then
 fi
 
 cd "$ROOT"
+# Prefer live source under mcp/ over a stale site-packages copy (hatch force-include).
+export PYTHONPATH="$ROOT/mcp${PYTHONPATH:+:$PYTHONPATH}"
 exec "$PY" -m oracle_cpq_mcp

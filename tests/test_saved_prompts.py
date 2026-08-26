@@ -6,6 +6,7 @@ from pathlib import Path
 
 from oracle_cpq_mcp.prompts.saved_library import (
     content_hash_for,
+    delete_prompt,
     get_entry,
     last_used,
     list_entries,
@@ -180,6 +181,20 @@ def test_enabled_defaults_true_and_filters_lists(tmp_path: Path, monkeypatch) ->
     assert search_entries(query="Keep", path=path, include_disabled=True)
     loaded = get_entry(entry.id, path=path)
     assert loaded is not None and loaded.enabled is False
+
+
+def test_delete_prompt_removes_entry(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "saved_prompts.json"
+    monkeypatch.setenv("CPQ_SAVED_PROMPTS_PATH", str(path))
+    entry, _ = upsert_prompt(
+        title="Gone soon",
+        original_user_prompt="delete me",
+        refined_prompt="Do {{thing}}",
+        path=path,
+    )
+    assert delete_prompt(entry.id, path=path) is True
+    assert get_entry(entry.id, path=path) is None
+    assert delete_prompt(entry.id, path=path) is False
 
 
 def test_search_by_tool(tmp_path: Path, monkeypatch) -> None:

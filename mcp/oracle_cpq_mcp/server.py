@@ -11,21 +11,27 @@ from fastmcp import FastMCP
 from oracle_cpq_mcp import __version__
 from oracle_cpq_mcp.core.config import CPQProfile, connection_mode_message, load_profile
 from oracle_cpq_mcp.core.cpq_client import CPQClient
+from oracle_cpq_mcp.core.knowledge import load_base_knowledge, load_customer_knowledge
 from oracle_cpq_mcp.security.schema_integrity import verify_schema_integrity
 from oracle_cpq_mcp.security.settings import load_security_settings
 from oracle_cpq_mcp.prompts.instructions import build_server_instructions
 from oracle_cpq_mcp.prompts.mcp_surface import register_saved_prompt_resources_and_prompts
 from oracle_cpq_mcp.tools._register import configure_security
+from oracle_cpq_mcp.tools.admin import register_admin_tools
 from oracle_cpq_mcp.tools.bml import register_bml_tools
+from oracle_cpq_mcp.tools.collab import register_collab_tools
 from oracle_cpq_mcp.tools.commerce import register_commerce_tools
 from oracle_cpq_mcp.tools.configuration import register_configuration_tools
 from oracle_cpq_mcp.tools.datatables import register_datatable_tools
 from oracle_cpq_mcp.tools.discovery import register_discovery_tools
 from oracle_cpq_mcp.tools.groups import register_group_tools
 from oracle_cpq_mcp.tools.local_data import register_local_data_tools
+from oracle_cpq_mcp.tools.metrics import register_metrics_tools
 from oracle_cpq_mcp.tools.parts import register_parts_tools
 from oracle_cpq_mcp.tools.performance import register_performance_tools
+from oracle_cpq_mcp.tools.response_export import register_response_export_tools
 from oracle_cpq_mcp.tools.saved_prompts import register_saved_prompt_tools
+from oracle_cpq_mcp.tools.saved_searches import register_saved_search_tools
 from oracle_cpq_mcp.tools.tasks import register_tasks_tools
 from oracle_cpq_mcp.tools.transactions import register_transaction_tools
 from oracle_cpq_mcp.tools.users import register_user_tools
@@ -46,7 +52,8 @@ def _load_startup_profile() -> CPQProfile:
     logging.getLogger(__name__).info(
         "Loaded profile %s (%s) env=%s rest=%s credentials=%d active_index=%d "
         "user=%s read_only=%s refined_prompt=%s auto_save_refined_prompt=%s "
-        "local_data_policy=%s",
+        "local_data_policy=%s post_response_export=%s knowledge_file=%s "
+        "commerce_aliases=%d table_aliases=%d",
         profile.customer_id,
         profile.customer_name,
         profile.environment,
@@ -58,16 +65,27 @@ def _load_startup_profile() -> CPQProfile:
         profile.refined_prompt,
         profile.auto_save_refined_prompt,
         profile.local_data_policy,
+        profile.post_response_export,
+        profile.customer_knowledge_file,
+        len(profile.commerce_process_aliases),
+        len(profile.custom_data_table_aliases),
     )
     logging.getLogger(__name__).info(connection_mode_message(profile.read_only))
     return profile
 
 
 _profile = _load_startup_profile()
+_shared_knowledge = load_base_knowledge()
+_customer_knowledge = load_customer_knowledge(_profile.customer_knowledge_file)
 SERVER_INSTRUCTIONS = build_server_instructions(
     refined_prompt=_profile.refined_prompt,
     auto_save_refined_prompt=_profile.auto_save_refined_prompt,
     local_data_policy=_profile.local_data_policy,
+    post_response_export=_profile.post_response_export,
+    shared_knowledge=_shared_knowledge,
+    customer_knowledge=_customer_knowledge,
+    commerce_process_aliases=_profile.commerce_process_aliases,
+    custom_data_table_aliases=_profile.custom_data_table_aliases,
 )
 
 mcp = FastMCP(
@@ -103,9 +121,14 @@ register_commerce_tools(mcp, _client)
 register_transaction_tools(mcp, _client)
 register_parts_tools(mcp, _client)
 register_performance_tools(mcp, _client)
+register_metrics_tools(mcp, _client)
+register_collab_tools(mcp, _client)
+register_saved_search_tools(mcp, _client)
+register_admin_tools(mcp, _client)
 register_tasks_tools(mcp, _client)
 register_configuration_tools(mcp, _client)
 register_local_data_tools(mcp, _client)
+register_response_export_tools(mcp, _client)
 register_discovery_tools(mcp)
 register_saved_prompt_tools(mcp)
 register_saved_prompt_resources_and_prompts(mcp)

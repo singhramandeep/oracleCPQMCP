@@ -18,6 +18,10 @@ SENSITIVE_FIELD_NAMES = frozenset(
         "set-cookie",
         "secret",
         "token",
+        # Certificate / SSO PEM and keystore blobs (matched case-insensitively).
+        "certificate",
+        "idprovidercertificate",
+        "samlrequestkeystore",
     }
 )
 

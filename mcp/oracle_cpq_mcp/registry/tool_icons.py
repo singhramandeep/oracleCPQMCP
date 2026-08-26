@@ -84,6 +84,24 @@ _DOMAIN_ICON_SPECS: dict[str, IconSpec] = {
         '<path d="M24 8v6M24 34v6M8 24h6M34 24h6M12 12l4 4M32 32l4 4M36 12l-4 4M16 32l-4 4" '
         'stroke="#fff" stroke-width="3"/>',
     ),
+    "metrics": _icon(
+        "#0d9488",
+        '<path d="M10 34V20h5v14H10zm9 0V12h5v22h-5zm9 0V24h5v10h-5zm9 0V16h5v18h-5z" '
+        'fill="#fff"/>',
+    ),
+    "collab": _icon(
+        "#c026d3",
+        '<circle cx="16" cy="20" r="5" fill="#fff"/>'
+        '<circle cx="32" cy="20" r="5" fill="#fff"/>'
+        '<path d="M10 36c0-5 4-8 6-8h4m8 0h4c2 0 6 3 6 8" '
+        'stroke="#fff" stroke-width="3" fill="none"/>',
+    ),
+    "admin": _icon(
+        "#475569",
+        '<path d="M24 10l10 4v8c0 8-6 12-10 14-4-2-10-6-10-14v-8l10-4z" '
+        'fill="none" stroke="#fff" stroke-width="3"/>'
+        '<path d="M20 24l3 3 6-6" stroke="#fff" stroke-width="3" fill="none"/>',
+    ),
     "meta": _icon(
         "#0f766e",
         '<circle cx="24" cy="24" r="14" fill="none" stroke="#fff" stroke-width="3"/>'

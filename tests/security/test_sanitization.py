@@ -16,6 +16,24 @@ def test_redact_password_in_nested_dict() -> None:
     assert redacted["credentials"]["password"] == "[REDACTED]"
 
 
+def test_redact_certificate_and_sso_pem_fields() -> None:
+    payload = {
+        "items": [
+            {
+                "name": "siteCert",
+                "certificate": "-----BEGIN CERTIFICATE-----\nabc\n-----END-----",
+            }
+        ],
+        "idProviderCertificate": "idp-pem",
+        "samlRequestKeyStore": "ks-pem",
+    }
+    redacted = redact_sensitive_data(payload)
+    assert redacted["items"][0]["name"] == "siteCert"
+    assert redacted["items"][0]["certificate"] == "[REDACTED]"
+    assert redacted["idProviderCertificate"] == "[REDACTED]"
+    assert redacted["samlRequestKeyStore"] == "[REDACTED]"
+
+
 def test_sanitize_tool_output_preserves_success_fields() -> None:
     payload = {"partyNumber": "123", "password": "hidden"}
     result = sanitize_tool_output(payload, max_bytes=10000)

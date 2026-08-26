@@ -8,6 +8,8 @@
     layout: localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "cards",
     prompts: [],
     suites: [],
+    libraryTotal: 0,
+    libraryPath: null,
     activePromptId: null,
     suitePickPromptId: null,
     activeSuiteId: null,
@@ -36,11 +38,23 @@
     };
   }
 
+  const OUTPUT_FORMAT_OPTIONS = [
+    { value: "chat_text", label: "Text" },
+    { value: "json", label: "JSON" },
+    { value: "excel_download", label: "Excel download" },
+  ];
+
+  const OUTPUT_FORMAT_VALUES = new Set(OUTPUT_FORMAT_OPTIONS.map((o) => o.value));
+
+  function normalizeOutputFormat(value) {
+    const key = (value || "chat_text").toLowerCase();
+    return OUTPUT_FORMAT_VALUES.has(key) ? key : "chat_text";
+  }
+
   function formatLabel(outputFormat) {
-    const key = (outputFormat || "chat_text").toLowerCase();
-    if (key === "json") return "JSON";
-    if (key === "excel_download") return "Excel download";
-    return "Text";
+    const key = normalizeOutputFormat(outputFormat);
+    const match = OUTPUT_FORMAT_OPTIONS.find((o) => o.value === key);
+    return match ? match.label : "Text";
   }
 
   function formatWhen(iso) {
@@ -69,24 +83,48 @@
   }
 
   function chipHtml(p) {
-    const tags = (p.tags || []).map((t) => `<span class="chip">${escapeHtml(t)}</span>`).join("");
-    const tools = (p.tools || [])
-      .slice(0, 4)
-      .map((t) => `<span class="chip tool">${escapeHtml(t)}</span>`)
-      .join("");
-    return tags + tools;
+    const tags = p.tags || [];
+    const maxTags = 3;
+    const shown = tags.slice(0, maxTags);
+    let html = shown.map((t) => `<span class="chip">${escapeHtml(t)}</span>`).join("");
+    const extra = tags.length - shown.length;
+    if (extra > 0) {
+      html += `<span class="chip more">+${extra}</span>`;
+    }
+    return html;
   }
 
-  function metaStatsHtml(p) {
+  function cardMetaHtml(p) {
     const fmt = formatLabel(p.output_format);
+    const runs = p.run_count || 0;
     return `
-      <div class="stat-grid">
-        <div><span class="stat-key">Format</span><span class="stat-val format-badge">${escapeHtml(fmt)}</span></div>
-        <div><span class="stat-key">Runs</span><span class="stat-val">${p.run_count || 0}</span></div>
-        <div><span class="stat-key">Last run</span><span class="stat-val">${escapeHtml(formatWhen(p.last_run_at))}</span></div>
-        <div><span class="stat-key">Created</span><span class="stat-val">${escapeHtml(formatWhen(p.created_at))}</span></div>
-        <div><span class="stat-key">Placeholders</span><span class="stat-val">${p.placeholder_count || 0}</span></div>
+      <div class="card-meta-line">
+        <span class="format-badge">${escapeHtml(fmt)}</span>
+        <span>${runs} run${runs === 1 ? "" : "s"}</span>
+        <span class="meta-sep">·</span>
+        <span>${escapeHtml(formatWhen(p.last_run_at))}</span>
       </div>`;
+  }
+
+  function secondaryActionsHtml(promptId) {
+    return `
+      <div class="action-menu">
+        <button type="button" class="action-menu-toggle" data-menu-toggle="${promptId}"
+                aria-haspopup="true" aria-expanded="false" title="More actions">⋯</button>
+        <div class="action-menu-panel hidden" role="menu">
+          <button type="button" role="menuitem" data-suite-add="${promptId}">Add to suite…</button>
+          <button type="button" role="menuitem" class="danger" data-delete="${promptId}">Remove</button>
+        </div>
+      </div>`;
+  }
+
+  function closeAllActionMenus() {
+    document.querySelectorAll(".action-menu-panel").forEach((panel) => {
+      panel.classList.add("hidden");
+    });
+    document.querySelectorAll(".action-menu-toggle").forEach((btn) => {
+      btn.setAttribute("aria-expanded", "false");
+    });
   }
 
   function syncLayoutButtons() {
@@ -135,11 +173,25 @@
     renderPrompts();
   }
 
+  function updateResultCount() {
+    const el = $("resultCount");
+    const n = state.prompts.length;
+    const filtered = Boolean(state.q || state.tag || state.view === "favorites");
+    if (!filtered) {
+      el.textContent = "";
+      el.classList.add("hidden");
+      return;
+    }
+    el.classList.remove("hidden");
+    el.textContent = `${n} matching`;
+  }
+
   function renderPrompts() {
     const grid = $("promptGrid");
     const empty = $("emptyState");
-    $("resultCount").textContent = `${state.prompts.length} prompt${state.prompts.length === 1 ? "" : "s"}`;
+    updateResultCount();
     syncLayoutButtons();
+    closeAllActionMenus();
     grid.innerHTML = "";
     if (!state.prompts.length) {
       empty.classList.remove("hidden");
@@ -166,6 +218,7 @@
         row.innerHTML = `
           <div class="list-title-cell">
             <strong>${escapeHtml(p.title)}</strong>
+            <div class="original-preview muted">${escapeHtml(p.original_preview || p.original_user_prompt || "(no original prompt recorded)")}</div>
             <div class="chip-row compact">${chipHtml(p)}</div>
           </div>
           <span class="format-badge">${escapeHtml(formatLabel(p.output_format))}</span>
@@ -174,7 +227,7 @@
           <div class="list-actions">
             <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
             <button type="button" class="btn-primary" data-run="${p.id}">Run</button>
-            <button type="button" class="btn-secondary" data-suite-add="${p.id}">Add to suite…</button>
+            ${secondaryActionsHtml(p.id)}
           </div>`;
         grid.appendChild(row);
         return;
@@ -187,11 +240,12 @@
           <h3 class="card-title">${escapeHtml(p.title)}</h3>
           <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
         </div>
+        <p class="original-preview">${escapeHtml(p.original_preview || p.original_user_prompt || "(no original prompt recorded)")}</p>
         <div class="chip-row">${chipHtml(p)}</div>
-        ${metaStatsHtml(p)}
+        ${cardMetaHtml(p)}
         <div class="card-actions">
           <button type="button" class="btn-primary" data-run="${p.id}">Run</button>
-          <button type="button" class="btn-secondary" data-suite-add="${p.id}">Add to suite…</button>
+          ${secondaryActionsHtml(p.id)}
         </div>`;
       grid.appendChild(card);
     });
@@ -205,21 +259,41 @@
     $("viewTitle").textContent = state.tag ? `Tag: ${state.tag}` : titles[state.view] || "All prompts";
     $("libraryView").classList.toggle("hidden", state.view === "suites");
     $("suitesView").classList.toggle("hidden", state.view !== "suites");
-    if (state.view !== "suites") {
-      $("statusLine").textContent = "Library";
+  }
+
+  function stampUpdated(info) {
+    const el = $("statusLine");
+    const t = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    const count =
+      info && typeof info.total_count === "number" ? info.total_count : state.libraryTotal;
+    const label = count === 1 ? "1 prompt" : `${count} prompts`;
+    el.textContent = `Updated ${t} · ${label}`;
+    const path = (info && info.path) || state.libraryPath;
+    const mtime = info && info.last_modified;
+    if (path) {
+      el.title = mtime ? `${path}\nLast write: ${mtime}` : path;
     } else {
-      $("statusLine").textContent = "Suites";
+      el.removeAttribute("title");
     }
   }
 
-  function stampUpdated() {
-    const t = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-    $("statusLine").textContent = `Updated ${t}`;
+  function updateSidebarTotal(info) {
+    const el = $("sidebarTotalCount");
+    if (!el) return;
+    const n = info && typeof info.total_count === "number" ? info.total_count : 0;
+    el.textContent = String(n);
+    state.libraryTotal = n;
+    if (info && info.path) state.libraryPath = info.path;
   }
 
   async function refreshLibrary() {
-    await Promise.all([loadTags(), loadPrompts()]);
-    stampUpdated();
+    const [, , info] = await Promise.all([
+      loadTags(),
+      loadPrompts(),
+      api("/api/library_info").catch(() => null),
+    ]);
+    updateSidebarTotal(info);
+    stampUpdated(info);
   }
 
   async function refreshSuites() {
@@ -227,13 +301,30 @@
     if (state.activeSuiteId) {
       await openSuite(state.activeSuiteId);
     }
-    stampUpdated();
+    stampUpdated(null);
+  }
+
+  function setBlockExpanded(pre, btn, expanded) {
+    pre.classList.toggle("is-collapsed", !expanded);
+    btn.textContent = expanded ? "Show less" : "Show more";
+    btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+  }
+
+  function syncBlockToggle(preId, btnId) {
+    const pre = $(preId);
+    const btn = $(btnId);
+    setBlockExpanded(pre, btn, false);
+    btn.classList.toggle("hidden", pre.scrollHeight <= pre.clientHeight);
   }
 
   async function openRun(promptId) {
     const detail = await api(`/api/prompts/${promptId}`);
     state.activePromptId = promptId;
     $("modalTitle").textContent = detail.title;
+    $("modalOriginal").textContent =
+      detail.original_user_prompt && String(detail.original_user_prompt).trim()
+        ? detail.original_user_prompt
+        : "(not recorded)";
     $("modalTemplate").textContent = detail.refined_prompt;
     $("generatedOut").value = "";
     $("modalFormatLabel").textContent = formatLabel(detail.output_format);
@@ -264,6 +355,30 @@
     (detail.placeholders || []).forEach((name) => {
       const wrap = document.createElement("div");
       wrap.className = "var-field";
+
+      if (name === "output_format") {
+        const selected = normalizeOutputFormat(
+          (detail.variables && detail.variables.output_format) || detail.output_format
+        );
+        wrap.innerHTML = `<label for="var_output_format">{{output_format}}</label>`;
+        const select = document.createElement("select");
+        select.id = "var_output_format";
+        select.name = "output_format";
+        OUTPUT_FORMAT_OPTIONS.forEach(({ value, label }) => {
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = label;
+          opt.selected = value === selected;
+          select.appendChild(opt);
+        });
+        select.addEventListener("change", () => {
+          $("modalFormatLabel").textContent = formatLabel(select.value);
+        });
+        wrap.appendChild(select);
+        fields.appendChild(wrap);
+        return;
+      }
+
       const hint = detail.variables && detail.variables[name] != null ? String(detail.variables[name]) : "";
       const recent = (detail.recent_values && detail.recent_values[name]) || [];
       wrap.innerHTML = `<label for="var_${name}">{{${name}}}</label>
@@ -287,13 +402,15 @@
       fields.appendChild(wrap);
     });
     $("runModal").showModal();
+    syncBlockToggle("modalOriginal", "toggleOriginal");
+    syncBlockToggle("modalTemplate", "toggleTemplate");
   }
 
   async function generate() {
     if (!state.activePromptId) return;
     const values = {};
-    $("varFields").querySelectorAll("input").forEach((input) => {
-      values[input.name] = input.value;
+    $("varFields").querySelectorAll("input, select").forEach((field) => {
+      values[field.name] = field.value;
     });
     const data = await api("/api/generate", {
       method: "POST",
@@ -315,6 +432,18 @@
   async function toggleFavorite(promptId) {
     await api(`/api/prompts/${promptId}/favorite`, { method: "POST" });
     await loadPrompts();
+  }
+
+  async function deletePrompt(promptId) {
+    if (!confirm("Remove this prompt from the library?")) return;
+    if (!confirm("This permanently deletes the prompt. Continue?")) return;
+    await api(`/api/prompts/${promptId}`, { method: "DELETE" });
+    if (state.activePromptId === promptId) {
+      state.activePromptId = null;
+      const modal = $("runModal");
+      if (modal.open) modal.close();
+    }
+    await refreshLibrary();
   }
 
   async function loadSuites() {
@@ -356,7 +485,7 @@
       card.className = "prompt-card";
       card.innerHTML = `
         <h3 class="card-title">${escapeHtml(p.title)}</h3>
-        ${metaStatsHtml(p)}
+        ${cardMetaHtml(p)}
         <div class="card-actions"><button type="button" class="btn-primary" data-run="${p.id}">Run</button></div>`;
       grid.appendChild(card);
     });
@@ -422,13 +551,42 @@
     $("promptGrid").addEventListener("click", (e) => {
       const t = e.target;
       if (!(t instanceof HTMLElement)) return;
+      const menuToggle = t.closest("[data-menu-toggle]");
+      if (menuToggle instanceof HTMLElement && menuToggle.dataset.menuToggle) {
+        e.stopPropagation();
+        const menu = menuToggle.closest(".action-menu");
+        const panel = menu && menu.querySelector(".action-menu-panel");
+        const wasOpen = panel && !panel.classList.contains("hidden");
+        closeAllActionMenus();
+        if (panel && !wasOpen) {
+          panel.classList.remove("hidden");
+          menuToggle.setAttribute("aria-expanded", "true");
+        }
+        return;
+      }
       if (t.dataset.run) openRun(t.dataset.run);
       if (t.dataset.fav) toggleFavorite(t.dataset.fav);
-      if (t.dataset.suiteAdd) openSuitePicker(t.dataset.suiteAdd);
+      if (t.dataset.suiteAdd) {
+        closeAllActionMenus();
+        openSuitePicker(t.dataset.suiteAdd);
+      }
+      if (t.dataset.delete) {
+        closeAllActionMenus();
+        deletePrompt(t.dataset.delete).catch(alert);
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (t instanceof HTMLElement && t.closest(".action-menu")) return;
+      closeAllActionMenus();
     });
 
     $("layoutCards").addEventListener("click", () => setLayout("cards"));
     $("layoutList").addEventListener("click", () => setLayout("list"));
+    $("downloadAllBtn").addEventListener("click", () => {
+      window.location.href = "/api/prompts/download";
+    });
     $("refreshBtn").addEventListener("click", () => refreshLibrary().catch(alert));
     $("refreshSuitesBtn").addEventListener("click", () => refreshSuites().catch(alert));
 
@@ -457,6 +615,16 @@
     });
 
     $("closeModal").addEventListener("click", () => $("runModal").close());
+    $("toggleOriginal").addEventListener("click", () => {
+      const pre = $("modalOriginal");
+      const btn = $("toggleOriginal");
+      setBlockExpanded(pre, btn, pre.classList.contains("is-collapsed"));
+    });
+    $("toggleTemplate").addEventListener("click", () => {
+      const pre = $("modalTemplate");
+      const btn = $("toggleTemplate");
+      setBlockExpanded(pre, btn, pre.classList.contains("is-collapsed"));
+    });
     $("generateBtn").addEventListener("click", () => generate().catch(alert));
     $("copyBtn").addEventListener("click", () => copyGenerated().catch(alert));
     $("closeSuitePick").addEventListener("click", () => $("suitePickModal").close());
@@ -486,7 +654,7 @@
     bindEvents();
     syncNav();
     syncLayoutButtons();
-    await Promise.all([loadTags(), loadPrompts()]);
+    await refreshLibrary();
   }
 
   init().catch((err) => {

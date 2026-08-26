@@ -279,6 +279,22 @@ def set_enabled(
     return None
 
 
+def delete_prompt(prompt_id: str, path: Path | None = None) -> bool:
+    """Permanently remove a prompt by id. Returns True if removed."""
+    data = load_library(path)
+    prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
+    kept = [
+        raw
+        for raw in prompts
+        if not (isinstance(raw, dict) and raw.get("id") == prompt_id)
+    ]
+    if len(kept) == len(prompts):
+        return False
+    data["prompts"] = kept
+    save_library(data, path)
+    return True
+
+
 def record_use(prompt_id: str, path: Path | None = None) -> SavedPrompt | None:
     data = load_library(path)
     prompts: list[dict[str, Any]] = list(data.get("prompts") or [])

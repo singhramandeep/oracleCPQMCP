@@ -363,6 +363,9 @@ def register_saved_prompt_tools(mcp: Any) -> None:
                         "parts",
                         "tasks",
                         "configuration",
+                        "metrics",
+                        "collab",
+                        "admin",
                         "meta",
                     ],
                     "hint": (

@@ -1,12 +1,12 @@
 # Features and security
 
-Product overview for the Oracle CPQ MCP server and related local tooling. For per-tool tables see [`TOOL_CATALOG.md`](TOOL_CATALOG.md). For setup see [`QUICKSTART.md`](QUICKSTART.md).
+Product overview for the Oracle CPQ MCP server (**package 0.2.0**) and related local tooling. For per-tool tables see [`TOOL_CATALOG.md`](TOOL_CATALOG.md). Changelog: [`RELEASE_NOTES.md`](RELEASE_NOTES.md). Setup: [`QUICKSTART.md`](QUICKSTART.md).
 
 ---
 
 ## Detailed features
 
-### MCP tool catalog (87 tools)
+### MCP tool catalog (100 tools)
 
 | Domain | What it covers |
 |--------|----------------|
@@ -14,8 +14,11 @@ Product overview for the Oracle CPQ MCP server and related local tooling. For pe
 | **Groups** | List/get groups, group members, create group (write) |
 | **Data tables** | List/get/rows, deploy, create, export |
 | **BML** | Full code export, scripts search, common functions, library folders, dependent attributes, library export |
-| **Commerce** | Process/line attributes and actions; transaction CRUD and documents |
-| **Performance** | Performance log list/get |
+| **Commerce** | Process/line attributes and actions; transactions; commerce UI settings; saved searches |
+| **Metrics** | Site metrics list with optional time filters and METRICS_* descriptions |
+| **Collab** | Collaborative quote operation queue get/clear |
+| **Admin** | Site certificates list/get; SSO configuration (PEM redacted) |
+| **Performance** | Performance log list/get/export |
 | **Parts** | Parts search and get |
 | **Tasks** | Get task status; download task file (async export follow-up) |
 | **Configuration** | productFamilies / layoutcache composites |
@@ -26,6 +29,10 @@ Regenerate the formal catalog after tool changes:
 ```bash
 python scripts/generate_tool_catalog.py
 ```
+
+### Diagnostics
+
+- **DEBUG_MODE** (profile default true; host `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`) — redacted CPQ request traces in `logs/{profile}-{environment}.log`. See [FAQ](FAQ.md#where-are-debug_mode-api-logs).
 
 ### Output and agent UX
 
@@ -49,6 +56,14 @@ python scripts/generate_tool_catalog.py
 - Policy: `LOCAL_DATA_POLICY=ask|prefer|never` (default `ask`). Auto-persist also from `export_users_excel` / `get_all_bml_code`.
 - **BML zip (`get_all_bml_code` delivery=zip):** saves the archive under `data/.../bml/` **and** extracts the full site tree to `data/.../bml/site/` (zip-slip safe).
 
+### Post-response Excel / Word export
+
+- After tabular chat answers, agents can offer an export (default) via `offer_export_response`.
+- Policy: `POST_RESPONSE_EXPORT=ask|never|always_excel` (default `ask`). Writable via `set_post_response_export` or offer choices `always_excel` / `never`.
+- `export_response_excel` — multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` + MCP File attachment.
+- `export_response_word` — `.docx` under the same folder + local `file://` URI (optional dep: `python-docx`, install with `pip install python-docx` or `pip install -e ".[docs]"`).
+- Agent must pass structured `sheets: [{name, columns?, rows}]` — markdown scraping is not supported.
+
 ### Prompt Studio (local UI)
 
 Lightweight FastAPI + static UI to browse/fill saved prompts. Does **not** call Oracle CPQ. See [Prompt Studio](#prompt-studio-enable-and-run) below and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
@@ -58,6 +73,9 @@ Lightweight FastAPI + static UI to browse/fill saved prompts. Does **not** call 
 - Per-customer `.config/<profile>.env` (gitignored); template `.config/.env.example`.
 - Environments: `dev` / `test` / `prod` credential sets; `DEFAULT_ENVIRONMENT`.
 - Host-only: `CPQ_CUSTOMER_PROFILE`, `CPQ_CONFIG_DIR`, `CPQ_CONFIRMATION_SECRET`, `CPQ_ALLOW_PROD`, schema integrity flags.
+- **`DEBUG_MODE`** (default true) — appends timestamped, redacted CPQ request traces (curl + parameters) to `logs/{profile}-{environment}.log`. Override with `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`. Independent of `CPQ_VERBOSE` (stderr).
+- **Knowledge base** — shared [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md) is always injected into MCP server instructions; optional `CUSTOMER_KNOWLEDGE_FILE` (e.g. `focalpoint.md`) loads [`knowledge/{file}`](../knowledge/). Reload MCP after edits.
+- **Property aliases** — pair `COMMERCE_PROCESS_VAR_NAME` with `COMMERCE_PROCESS_ALIAS` (and `_1` / `_2` …), and `CUSTOM_DATA_TABLE_NAME` with `CUSTOM_DATA_TABLE_ALIAS`. Phrases like “base commerce process” resolve to the mapped var name in agent instructions. Optional `COMMERCE_PROCESS_ENABLED[_N]` (default true) omits disabled slots from defaults/aliases while keeping rows in the env; reload MCP after changes.
 
 ### Live testing status (honest scope)
 

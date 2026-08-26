@@ -16,16 +16,21 @@ from oracle_cpq_mcp.security.rate_limit import reset_rate_limits
 from oracle_cpq_mcp.security.replay import reset_replay_store
 from oracle_cpq_mcp.security.settings import SecuritySettings
 from oracle_cpq_mcp.tools._register import configure_security
+from oracle_cpq_mcp.tools.admin import register_admin_tools
 from oracle_cpq_mcp.tools.bml import register_bml_tools
+from oracle_cpq_mcp.tools.collab import register_collab_tools
 from oracle_cpq_mcp.tools.commerce import register_commerce_tools
 from oracle_cpq_mcp.tools.configuration import register_configuration_tools
 from oracle_cpq_mcp.tools.datatables import register_datatable_tools
 from oracle_cpq_mcp.tools.discovery import register_discovery_tools
 from oracle_cpq_mcp.tools.groups import register_group_tools
 from oracle_cpq_mcp.tools.local_data import register_local_data_tools
+from oracle_cpq_mcp.tools.metrics import register_metrics_tools
 from oracle_cpq_mcp.tools.parts import register_parts_tools
 from oracle_cpq_mcp.tools.performance import register_performance_tools
+from oracle_cpq_mcp.tools.response_export import register_response_export_tools
 from oracle_cpq_mcp.tools.saved_prompts import register_saved_prompt_tools
+from oracle_cpq_mcp.tools.saved_searches import register_saved_search_tools
 from oracle_cpq_mcp.tools.tasks import register_tasks_tools
 from oracle_cpq_mcp.tools.transactions import register_transaction_tools
 from oracle_cpq_mcp.tools.users import register_user_tools
@@ -218,6 +223,15 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
     "list_performance_logs": {"limit": 5, "offset": 0},
     "get_performance_log": {"log_id": "12345"},
     "export_performance_logs": {"dry_run": True},
+    "list_metrics": {"limit": 5, "offset": 0},
+    "get_collab_operation_queue": {"bs_id": 12345},
+    "clear_collab_operation_queue": {"bs_id": 12345, "dry_run": True},
+    "get_commerce_ui_settings": {},
+    "list_saved_searches": {"limit": 5, "offset": 0},
+    "get_saved_search": {"search_id": 38678835},
+    "list_certificates": {},
+    "get_certificate": {"name": "testCertificate"},
+    "get_sso_configuration": {},
     "list_parts": {"limit": 5, "offset": 0},
     "get_part": {"part_id": "FSM1C"},
     "search_parts": {"body": {"criteria": {"partNumber": "FSM1C"}}},
@@ -248,6 +262,38 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
     "load_local_data": {"domain": "users"},
     "offer_use_local_data": {"domain": "users", "choice": "fetch_fresh"},
     "set_local_data_policy": {"policy": "ask"},
+    "offer_export_response": {
+        "title": "Contract export",
+        "sheets": [
+            {
+                "name": "Users",
+                "columns": ["login"],
+                "rows": [{"login": "alice"}],
+            }
+        ],
+    },
+    "export_response_excel": {
+        "title": "Contract export",
+        "sheets": [
+            {
+                "name": "Users",
+                "columns": ["login"],
+                "rows": [{"login": "alice"}],
+            }
+        ],
+    },
+    "export_response_word": {
+        "title": "Contract export",
+        "sheets": [
+            {
+                "name": "Users",
+                "columns": ["login"],
+                "rows": [{"login": "alice"}],
+            }
+        ],
+        "notes": "Contract test",
+    },
+    "set_post_response_export": {"policy": "ask"},
     "sync_users_local": {},
     "sync_groups_local": {},
     "sync_bml_local": {},
@@ -301,6 +347,23 @@ class FakeCPQClient:
             return {"partyNumber": path.rsplit("/", 1)[-1], "login": "contract_user"}
         if path.startswith("/performanceLogs/") and path.count("/") == 2:
             return {"id": int(path.rsplit("/", 1)[-1]), "event": "Logout", "login": "contract_user"}
+        if path.startswith("/collabOperationQueues/") and path.count("/") == 2:
+            return {
+                "operationCount": 0,
+                "queuedOperations": [],
+                "currentlyExecutingOperation": None,
+                "node": "contract-node",
+            }
+        if path == "/commerceUISettings":
+            return {"commerceSettings": {}, "generalSiteSettings": {}}
+        if path == "/metrics":
+            return {
+                "items": [{"name": "QUOTES", "value": 1}],
+                "hasMore": False,
+                "offset": 0,
+                "limit": 100,
+                "count": 1,
+            }
         if "/commerceDocuments" in path and "/actions/" not in path:
             # Single transaction / line resource or collection
             if path.rstrip("/").endswith("Transaction") or path.endswith("/transactionLine"):
@@ -453,9 +516,14 @@ def registered_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     register_transaction_tools(mcp, client)  # type: ignore[arg-type]
     register_parts_tools(mcp, client)  # type: ignore[arg-type]
     register_performance_tools(mcp, client)  # type: ignore[arg-type]
+    register_metrics_tools(mcp, client)  # type: ignore[arg-type]
+    register_collab_tools(mcp, client)  # type: ignore[arg-type]
+    register_saved_search_tools(mcp, client)  # type: ignore[arg-type]
+    register_admin_tools(mcp, client)  # type: ignore[arg-type]
     register_tasks_tools(mcp, client)  # type: ignore[arg-type]
     register_configuration_tools(mcp, client)  # type: ignore[arg-type]
     register_local_data_tools(mcp, client)  # type: ignore[arg-type]
+    register_response_export_tools(mcp, client)  # type: ignore[arg-type]
     register_discovery_tools(mcp)
     register_saved_prompt_tools(mcp)
 

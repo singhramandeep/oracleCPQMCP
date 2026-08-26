@@ -33,7 +33,7 @@ It is an **MCP (Model Context Protocol) server** that exposes Oracle CPQ REST AP
 
 ### What CPQ areas are covered?
 
-Users, groups, data tables, BML, commerce metadata and transactions, performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (87 tools).
+Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (100 tools). Current package: **0.2.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Which IDE should I use?
 
@@ -117,6 +117,27 @@ Used for company-scoped APIs (especially **groups**). Default `_host` targets th
 ### What REST API version should I set?
 
 Set `REST_API_VERSION` in the profile to match your CPQ site (template mentions versions such as `v15`–`v18` depending on release). Wrong version often shows up as 404/unexpected payloads.
+
+### What is the knowledge base?
+
+- Shared rules: [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md) — loaded into MCP instructions for every customer.
+- Customer notes: set `CUSTOMER_KNOWLEDGE_FILE=focalpoint.md` (basename only) to also load [`knowledge/focalpoint.md`](../knowledge/focalpoint.md).
+- Missing customer files log a warning and are skipped (MCP still starts). Reload MCP after editing knowledge or aliases.
+
+### What are property aliases?
+
+Friendly names paired with real CPQ variable names on the profile:
+
+```env
+COMMERCE_PROCESS_VAR_NAME=oraclecpqo
+COMMERCE_PROCESS_ALIAS=base commerce process
+CUSTOM_DATA_TABLE_NAME=ModelMaster
+CUSTOM_DATA_TABLE_ALIAS=model master
+```
+
+If you say “base commerce process” in a prompt, the agent should use `process_var_name=oraclecpqo`. Numbered `_1`, `_2` suffixes pair the same way.
+
+Optional `COMMERCE_PROCESS_ENABLED[_N]` (default **true**): set `false` to keep the name/alias in the profile env but omit that slot from tool defaults and instruction aliases. Reload MCP after changing ENABLED or aliases.
 
 ---
 
@@ -229,6 +250,10 @@ Reload / restart MCP servers (or the IDE). Tool catalogs and descriptions are lo
 
 **No.** Profiles default to `READ_ONLY=true`, which blocks create/update/deploy mutations.
 
+### Where are DEBUG_MODE API logs?
+
+When `DEBUG_MODE=true` (default if omitted; override with host `CPQ_DEBUG_MODE`), every CPQ HTTP call through `CPQClient` appends a timestamped block to **`logs/{profile}-{environment}.log`** (for example `logs/focalpoint-dev.log`). Each block includes a redacted `curl` (password as `***`) and a per-parameter list. Response bodies are not written. Override the directory with `CPQ_DEBUG_LOG_DIR`. The `logs/` folder is gitignored — treat files as sensitive (usernames and business query strings). Reload MCP after changing the flag. This is separate from `CPQ_VERBOSE` (console/stderr curl traces).
+
 ### How do safe writes work when enabled?
 
 1. Call with `dry_run=true` (default) → preflight preview + `confirmation_token`.
@@ -265,11 +290,11 @@ See [.gitignore](../.gitignore) and [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md)
 
 ### How many tools are there?
 
-**87** MCP tools (regenerate the catalog after tool changes with `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
+**100** MCP tools (regenerate the catalog after tool changes with `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
 
 ### How do I find the right tool?
 
-Ask the agent to call `discover_tools` with a domain (`users`, `groups`, `datatables`, `bml`, `commerce`, `performance`, `parts`, `tasks`, `configuration`) and/or `operation` (`read` / `write`), or a free-text query.
+Ask the agent to call `discover_tools` with a domain (`users`, `groups`, `datatables`, `bml`, `commerce`, `performance`, `parts`, `tasks`, `configuration`, `metrics`, `collab`, `admin`) and/or `operation` (`read` / `write`), or a free-text query.
 
 ### Which areas are untested against live CPQ?
 
@@ -338,7 +363,7 @@ Large payloads can exceed MCP / host timeouts even when CPQ itself succeeds. Pre
 
 ### What is `COMMERCE_PROCESS_VAR_NAME`?
 
-Profile default for commerce metadata/transaction tools (for example `oraclecpqo`). Tools accept overrides where the schema allows, but the profile default avoids repeating it every call.
+Profile default for commerce metadata/transaction tools (for example `oraclecpqo`). Tools accept overrides where the schema allows, but the profile default avoids repeating it every call. Pair with `COMMERCE_PROCESS_ALIAS` / numbered `_N` slots; use `COMMERCE_PROCESS_ENABLED[_N]=false` to leave a process in the env without exposing it to defaults or aliases (reload MCP after edits).
 
 ### Can I read transaction lines and layouts?
 
@@ -372,6 +397,17 @@ Tools: `list_local_data`, `get_local_data_status`, `offer_use_local_data`, `load
 ### Does export auto-save to `data/`?
 
 Yes for flows such as `export_users_excel` and `get_all_bml_code` (zip + extract). Explicit `sync_*_local` tools also write full collections.
+
+### Can I export a tabular chat answer to Excel or Word?
+
+Yes. After a tabular answer, with `POST_RESPONSE_EXPORT=ask` (default), the agent calls `offer_export_response` (Excel / Word / both / skip / always_excel / never).
+
+| Tool | Result |
+|------|--------|
+| `export_response_excel` | Multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` + attachment |
+| `export_response_word` | `.docx` in the same folder + local `file://` path (needs `python-docx`) |
+
+Pass structured `sheets` (not scraped markdown). Install Word support with `pip install python-docx` or `pip install -e ".[docs]"`. Set policy with `set_post_response_export` or env `POST_RESPONSE_EXPORT` / `CPQ_POST_RESPONSE_EXPORT`.
 
 ---
 
@@ -464,6 +500,10 @@ python scripts/update_release_notes.py
 ```
 
 Pre-commit checklist: [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md).
+
+### How do I bump the package version for a GitHub release?
+
+Follow [README — Update the package version](../README.md#update-the-package-version): bump `pyproject.toml`, move Unreleased notes under `## [x.y.z] - YYYY-MM-DD` in [RELEASE_NOTES.md](RELEASE_NOTES.md), regenerate catalog/manifest if tools changed, commit, optionally `git tag vX.Y.Z`.
 
 ### Where is the package code?
 

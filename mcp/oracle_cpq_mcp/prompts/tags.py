@@ -18,6 +18,9 @@ ALLOWED_TAGS = frozenset(
         "parts",
         "tasks",
         "configuration",
+        "metrics",
+        "collab",
+        "admin",
         "meta",
         *INTENT_TAGS,
     }
