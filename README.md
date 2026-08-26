@@ -12,6 +12,8 @@ MCP server for **Oracle CPQ** — **100 MCP tools** for Users, Groups, Data Tabl
 
 **[docs/QUICKSTART.md](docs/QUICKSTART.md)** — download repo, create credential profile, smoke test, and connect **Antigravity** (recommended) step by step.
 
+**Already on an older checkout?** Jump to [Update from an older version](#update-from-an-older-version) — pull latest, reinstall, reload MCP (keep your `.env` and local MCP JSON).
+
 **What's new?** See **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** for changelog history (auto-updated from git; refresh with `python scripts/update_release_notes.py`).
 
 **Questions?** See **[docs/FAQ.md](docs/FAQ.md)** — setup, dual environments, security, cache, Prompt Studio, and troubleshooting.
@@ -33,6 +35,57 @@ Edit `.config/mycompany.env`, then:
 oracle-cpq-smoke --profile mycompany --env dev
 python -m oracle_cpq_mcp
 ```
+
+## Update from an older version
+
+Use this if you already cloned the repo and connected MCP earlier. You do **not** need to recreate credentials or re-copy MCP config from scratch.
+
+1. **Pull the latest code** (repo root, your branch / `main` as appropriate):
+
+```bash
+git fetch origin
+git pull
+```
+
+2. **Reinstall the package** into the same venv you use for MCP (so new tools and dependencies load):
+
+```bash
+# activate your venv first if needed
+pip install -e ".[dev]"
+```
+
+Optional extras you already use:
+
+```bash
+pip install -e ".[prompt-studio]"   # Prompt Studio UI
+pip install -e ".[docs]"            # Word export (python-docx)
+```
+
+3. **Refresh profile knobs (keep passwords).** Compare your `.config/<profile>.env` to [`.config/.env.example`](.config/.env.example) and add any new keys you care about (examples that appeared in recent releases):
+
+| Key | Typical default | Purpose |
+|-----|-----------------|--------|
+| `DEBUG_MODE` | `true` | Redacted API traces → `logs/{profile}-{env}.log` |
+| `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
+| `AUTO_SAVE_REFINED_PROMPT` | `false` | Auto-save refined prompts |
+| `LOCAL_DATA_POLICY` | `ask` | Cache vs live CPQ before big lists |
+| `POST_RESPONSE_EXPORT` | `ask` | Offer Excel/Word after tabular answers |
+| `REST_API_VERSION` | site-specific | Prefer `v19` for metrics / collab / admin / saved searches if v18 404s |
+
+Do **not** overwrite your profile with `.env.example` — that would wipe URLs and passwords.
+
+4. **Keep local MCP JSON as-is** (gitignored): `.agents/mcp_config.json`, `.cursor/mcp.json`, or `.vscode/mcp.json`. Paths and `CPQ_CUSTOMER_PROFILE` / `CPQ_CONFIG_DIR` usually stay the same. Only re-check the example files if a release note says launcher paths or required env vars changed.
+
+5. **Reload the Oracle CPQ MCP server** in your IDE (or restart the IDE). New tools (e.g. saved searches, admin/certificates, export helpers) will not appear until the process restarts.
+
+6. **Quick check** in Agent chat:
+
+- *“Discover tools for domain admin”* or *“list saved searches”*
+- Optional: `oracle-cpq-smoke --profile <your-profile> --env dev`
+
+7. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.2.0**). Full first-time path remains [QUICKSTART](docs/QUICKSTART.md).
+
+**Leave alone (local / secrets):** `.config/*.env`, `data/`, `logs/`, `saved_prompts.json`, Prompt Studio sidecar, and your local MCP config — they are gitignored on purpose.
 
 ## Add MCP in Google Antigravity (recommended)
 
@@ -94,6 +147,7 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 | Document | Contents |
 |----------|----------|
 | [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts, Prompt Studio |
+| [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, merge new `.env` keys, reload MCP |
 | [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, troubleshooting |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
 | [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (100 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
