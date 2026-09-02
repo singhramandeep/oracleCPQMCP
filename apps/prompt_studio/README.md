@@ -6,7 +6,7 @@ Lightweight local UI to browse and fill saved refined prompts from `.config/save
 
 - FastAPI + uvicorn (optional extra `prompt-studio`)
 - Static HTML/CSS/JS (no React build)
-- Prompt bodies: existing MCP library (`saved_library`) — read-only from the studio
+- Prompt bodies: MCP library (`saved_library`) — **editable in Studio** (title, template, variables, enable/disable)
 - Studio state: `.config/prompt_studio.json` (favorites, suites, variable history; gitignored)
 
 ## Install
@@ -33,12 +33,15 @@ Running from repo root puts `mcp/` on `sys.path` automatically (no editable inst
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Bound to localhost only; no auth in v1.
 
+After updating Studio, **hard-refresh once** (Ctrl+F5) if buttons look stale; static assets use version cache-busting automatically on later loads.
+
 ### Env overrides
 
 | Variable | Purpose |
 |----------|---------|
 | `CPQ_SAVED_PROMPTS_PATH` | Path to `saved_prompts.json` |
 | `CPQ_PROMPT_STUDIO_PATH` | Path to studio sidecar JSON |
+| `CPQ_CONFIG_DIR` | Config directory (auto-set to `<repo>/.config` on startup if unset) |
 
 ## Features (v1)
 
@@ -49,18 +52,30 @@ Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Bound to localhost only; no
 - Suites (named ordered prompt lists; add from cards)
 - Run / fill: detect `{{snake_case}}` placeholders, recent values, Generate + Copy; `{{output_format}}` uses a dropdown (Text / JSON / Excel download)
 - Run modal shows **expected response format** (Text by default; JSON / Excel download when set)
-- **Refresh** reloads `.config/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, and library last write)
+- **Refresh** reloads `.config/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, disabled count, and library last write)
+- **Auto-reload banner** when the library file changes on disk (poll + window focus)
+- **Show disabled** toggle for prompts with `enabled=false`
+- **Edit prompt** — change title, original/refined text, enable/disable; **Make variable** wraps selected text as `{{snake_case}}`
+- Sorted by **most recent** (`last_run_at` / `created_at`) like MCP `list_saved_prompts`
 - **Download all** downloads the full library JSON (`GET /api/prompts/download`; includes disabled prompts by default)
 - Run modal shows **original user prompt** and refined template
 - **Remove** on cards/list permanently deletes a prompt from the shared library after **two** confirms; also clears favorites/suite references
 
-Studio and MCP share the same `.config/saved_prompts.json` (override with `CPQ_SAVED_PROMPTS_PATH`). Refresh only shows prompts that were **saved via MCP** (`save_refined_prompt` / offer-save); Cursor chat history alone never appears. If the status “library last write” is old, the agent did not call save (set `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP).
+Studio and MCP share the same `.config/saved_prompts.json` (override with `CPQ_SAVED_PROMPTS_PATH`). On startup, Studio pins `CPQ_CONFIG_DIR` and `CPQ_SAVED_PROMPTS_PATH` to `<repo>/.config/` when unset — matching MCP defaults.
+
+**Prompts not appearing?**
+
+1. Hover the status line — confirm the **absolute path** matches where MCP writes.
+2. Check **library last write** — if it never changes, the agent did not call `save_refined_prompt` (set `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP).
+3. Similar tasks **dedupe** by content hash — you may see one updated row instead of a new card.
+4. Toggle **Show disabled** if a prompt was soft-disabled.
+5. Click **Refresh** or use the **Reload** banner when the file changes on disk.
 
 ## Backlog
 
 - Export suite as one markdown / clipboard pack
 - Record “generated at” + bump `record_use` via MCP when tools available
-- Edit / soft-disable prompts from UI (hard Remove is available)
+- Edit / soft-disable prompts from UI (**Edit** on cards + run modal; hard Remove still available)
 - Keyboard shortcuts (`/`, `f` favorite, `g` generate)
 - Deep-link `?prompt_id=` / `?suite=` (partially supported)
 - Dark-mode workspace toggle

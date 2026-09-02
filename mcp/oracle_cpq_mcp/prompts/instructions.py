@@ -9,6 +9,8 @@ BASE_SERVER_INSTRUCTIONS = (
     "(productFamilies). "
     "All calls use the active customer profile from CPQ_CUSTOMER_PROFILE "
     "and environment from CPQ_ENVIRONMENT or the profile default. "
+    "Every tool envelope includes profile, environment, and customer_id — always "
+    "cite which profile/env answered when comparing dual MCP servers. "
     "Use discover_tools to find tools by domain "
     "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/"
     "metrics/collab/admin) or "
@@ -22,6 +24,37 @@ BASE_SERVER_INSTRUCTIONS = (
     "Never execute writes without user approval and a valid confirmation_token. "
     "When profile READ_ONLY=true (default), all create/update/deploy operations are blocked. "
     "On failure, tools return structured errors: {status: 'error', code, message, hint, details}."
+)
+
+CAPABILITY_CARD = (
+    " ## Capability card (do not invent out-of-scope CPQ behavior)\n"
+    "Covered: users, groups, datatables, BML (incl. local search), commerce metadata/"
+    "transactions/saved searches, metrics, collab queues, admin certificates/SSO "
+    "(PEM redacted), performance logs, parts, tasks, configuration productFamilies, "
+    "local data/ cache, refined prompts, post-response export.\n"
+    "Out of scope without dedicated tools: pricing engines, approval workflows, "
+    "Document Designer deep editing, arbitrary integrations/webhooks, inventing "
+    "quote totals or discount logic.\n"
+    "Long jobs: prefer start_bml_site_export → poll get_local_job; for CPQ task "
+    "exports use export_* → get_task → download_task_file. Prefer data/ cache and "
+    "cpq://local resources over dumping huge payloads into chat.\n"
+    "Live honesty: tasks, configuration, some BML/datatable writes, and v19-only "
+    "admin/saved-search APIs may be untested or 404 on REST v18 — see "
+    "docs/LIVE_SMOKE_MATRIX.md. Prefer LOCAL_DATA_POLICY and list_local_data first.\n"
+    "Elicitation: when the host supports MCP elicitation, prefer it for "
+    "offer_use_local_data / offer_export_response / offer_save_refined_prompt / "
+    "write confirmation; otherwise use the chat fallback (needs_user_input + choices) "
+    "and retry the tool with the user's explicit choice.\n"
+)
+
+ASYNC_AGENT_LOOP = (
+    " Async / long-running: never leave the user waiting on one multi-minute tool "
+    "call when avoidable. BML site zip: start_bml_site_export then repeatedly "
+    "get_local_job(job_id) until succeeded|failed, then search_local_bml or "
+    "cpq://local. Oracle async exports: export_datatables or "
+    "export_bml_library_functions (after confirmation) → get_task → "
+    "download_task_file. Raise HTTP_TIMEOUT / host CPQ_HTTP_TIMEOUT if short GETs "
+    "still time out."
 )
 
 REFINED_PROMPT_CORE = (
@@ -176,7 +209,13 @@ def build_server_instructions(
     custom_data_table_aliases: dict[str, str] | None = None,
 ) -> str:
     """Compose MCP instructions; include refined-prompt, local-data, knowledge, aliases."""
-    text = BASE_SERVER_INSTRUCTIONS + PICKER_INSTRUCTIONS + LOCAL_DATA_CORE
+    text = (
+        BASE_SERVER_INSTRUCTIONS
+        + CAPABILITY_CARD
+        + ASYNC_AGENT_LOOP
+        + PICKER_INSTRUCTIONS
+        + LOCAL_DATA_CORE
+    )
     policy = (local_data_policy or "ask").strip().lower()
     if policy == "prefer":
         text += LOCAL_DATA_PREFER

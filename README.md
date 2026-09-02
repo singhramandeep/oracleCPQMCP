@@ -1,8 +1,8 @@
 ﻿# Oracle CPQ MCP Server
 
-MCP server for **Oracle CPQ** — **100 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
+MCP server for **Oracle CPQ** — **103 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
 
-**Current package version:** **`0.2.0`** — see [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md). Contributor version bumps: [Update the package version](#update-the-package-version).
+**Current package version:** **`0.3.0`** — see [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md). Contributor version bumps: [Update the package version](#update-the-package-version).
 
 **Recommended IDE:** [Google Antigravity](https://antigravity.google/) (MCP setup partially tested). Cursor and VS Code configs are included but still need testing.
 
@@ -83,9 +83,11 @@ Do **not** overwrite your profile with `.env.example` — that would wipe URLs a
 - *“Discover tools for domain admin”* or *“list saved searches”*
 - Optional: `oracle-cpq-smoke --profile <your-profile> --env dev`
 
-7. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.2.0**). Full first-time path remains [QUICKSTART](docs/QUICKSTART.md).
+7. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.3.0**). Full first-time path remains [QUICKSTART](docs/QUICKSTART.md).
 
 **Leave alone (local / secrets):** `.config/*.env`, `data/`, `logs/`, `saved_prompts.json`, Prompt Studio sidecar, and your local MCP config — they are gitignored on purpose.
+
+**Dual environments:** copy [`.cursor/mcp.json.dual.example.json`](.cursor/mcp.json.dual.example.json) or [`.agents/mcp_config.dual.example.json`](.agents/mcp_config.dual.example.json) — two MCP server entries (`CPQ_ENVIRONMENT=dev` and `test`). Tool envelopes include `profile` + `environment` so the agent can tell which site answered.
 
 ## Add MCP in Google Antigravity (recommended)
 
@@ -150,10 +152,11 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 | [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, merge new `.env` keys, reload MCP |
 | [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, troubleshooting |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
-| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (100 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
+| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (103 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
+| [docs/LIVE_SMOKE_MATRIX.md](docs/LIVE_SMOKE_MATRIX.md) | Live vs untested honesty matrix for agents |
 | [docs/PRE_COMMIT_REVIEW.md](docs/PRE_COMMIT_REVIEW.md) | Pre-commit secrets / catalog / test checklist |
 | [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
-| [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Changelog — current **0.2.0**; refresh Unreleased commits with `python scripts/update_release_notes.py` |
+| [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Changelog — current **0.3.0**; refresh Unreleased commits with `python scripts/update_release_notes.py` |
 | [docs/SETUP.md](docs/SETUP.md) | Short setup summary |
 | [docs/others/AUDIT_REPORT.md](docs/others/AUDIT_REPORT.md) | Historical technical audit (archived) |
 | [SECURITY.md](SECURITY.md) | Guardrails, confirmation tokens, audit |
@@ -163,11 +166,13 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 
 ## Features
 
-Full product write-up (including **security / human-in-the-loop**): **[`docs/FEATURES.md`](docs/FEATURES.md)**. What’s new in **0.2.0**: [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
+Full product write-up (including **security / human-in-the-loop**): **[`docs/FEATURES.md`](docs/FEATURES.md)**. What’s new in **0.3.0**: [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
 
-- **100 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
+- **103 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
 - **Read-only by default** — `READ_ONLY=true`; writes use dry-run + `confirmation_token`
 - **DEBUG_MODE logging** — redacted CPQ request traces in `logs/{profile}-{environment}.log`
+- **Async BML** — `start_bml_site_export` + `get_local_job`; local search via `search_local_bml` / `cpq://local`
+- **Configurable HTTP timeout** — `HTTP_TIMEOUT` / `CPQ_HTTP_TIMEOUT` (default 60s)
 - **Refined prompts** — reusable footer + library / picker; optional Prompt Studio on port **8765** (Download all)
 - **Local `data/` snapshots** — `LOCAL_DATA_POLICY=ask|prefer|never`; sync tools under `data/{profile}/{env}/`
 - **Post-response export** — Excel/Word under `data/.../exports/` after tabular answers
@@ -175,7 +180,7 @@ Full product write-up (including **security / human-in-the-loop**): **[`docs/FEA
 
 ### Testing status (live CPQ)
 
-Offline unit/contract tests cover the full catalog. Against a live CPQ site, these areas are still **untested** (no complete smoke yet):
+See [`docs/LIVE_SMOKE_MATRIX.md`](docs/LIVE_SMOKE_MATRIX.md). Offline unit/contract tests cover the full catalog. Against a live CPQ site, these areas are still **untested** or fragile:
 
 | Area | Tools | Live status |
 |------|--------|-------------|
@@ -187,16 +192,16 @@ Offline unit/contract tests cover the full catalog. Against a live CPQ site, the
 
 ## MCP tools (summary)
 
-**100 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
+**103 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
 
-Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_token`. Blocked when `READ_ONLY=true`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME`.
+Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_token`. Blocked when `READ_ONLY=true`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME`. Envelopes include **`profile`** + **`environment`**.
 
 | Domain | Example tools | Notes |
 |--------|---------------|--------|
 | **users** | `list_users`, `get_user`, `export_users_excel`, `update_user` | Active-by-default lists; Excel export |
 | **groups** | `list_groups`, `get_group`, `list_group_users`, `create_group` | Company from `COMPANY_LOGIN_NAME` |
 | **datatables** | `list_datatables`, `get_datatable_rows`, `deploy_datatables`, `create_datatable`, `export_datatables` | Create/export **untested** live |
-| **bml** | `get_all_bml_code`, `get_bml_function`, `search_bml_scripts`, … | Zip via `/adminMeta`; some APIs **untested** live |
+| **bml** | `start_bml_site_export`, `search_local_bml`, `get_all_bml_code`, `search_bml_scripts`, … | Prefer async job for large zips; local search over `site/` |
 | **commerce** | `get_commerce_attributes`, `list_transactions`, `list_saved_searches`, `get_commerce_ui_settings`, … | Metadata, transactions, UI settings, saved searches |
 | **metrics** | `list_metrics` | Prefer REST **v19** if v18 404s |
 | **collab** | `get_collab_operation_queue`, `clear_collab_operation_queue` | Clear is destructive (dry-run + confirm) |
@@ -205,9 +210,9 @@ Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_to
 | **parts** | `list_parts`, `get_part`, `search_parts` | |
 | **tasks** | `get_task`, `download_task_file` | Async export follow-up; **untested** live |
 | **configuration** | `list_product_families`, layout/attribute/array-set tools | **Untested** live |
-| **meta** | `discover_tools`, saved-prompt tools, `list_local_data`, `sync_*_local`, export-response tools | Local library / cache / chat exports |
+| **meta** | `discover_tools`, `get_local_job`, saved-prompt tools, `list_local_data`, `sync_*_local`, export-response tools | Local library / cache / jobs / chat exports |
 
-Also: MCP resource `cpq://saved-prompts`, prompt `run_saved_prompt`.
+Also: MCP resources `cpq://saved-prompts`, `cpq://local`, `cpq://local/bml/{path}`; prompt `run_saved_prompt`.
 
 <details>
 <summary><strong>Configuration reference</strong></summary>

@@ -33,7 +33,7 @@ It is an **MCP (Model Context Protocol) server** that exposes Oracle CPQ REST AP
 
 ### What CPQ areas are covered?
 
-Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (100 tools). Current package: **0.2.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
+Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (103 tools). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Which IDE should I use?
 
@@ -290,7 +290,7 @@ See [.gitignore](../.gitignore) and [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md)
 
 ### How many tools are there?
 
-**100** MCP tools (regenerate the catalog after tool changes with `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
+**103** MCP tools (regenerate the catalog after tool changes with `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
 
 ### How do I find the right tool?
 
@@ -359,7 +359,17 @@ Under `data/{profile}/{env}/bml/`:
 
 ### Why did my BML or Excel export time out in the IDE?
 
-Large payloads can exceed MCP / host timeouts even when CPQ itself succeeds. Prefer local persistence under `data/`, ask the agent to work from `site/` or Excel on disk, or run the fetch outside a tight MCP timeout. Restart MCP after tool upgrades related to extract/persist behavior.
+Large payloads can exceed MCP / host timeouts even when CPQ itself succeeds.
+
+**Preferred BML site zip path (async local job):**
+
+1. Call `start_bml_site_export` — returns immediately with `job_id`.
+2. Poll `get_local_job(job_id=...)` until `status` is `succeeded` or `failed`.
+3. Use `search_local_bml` or MCP resource `cpq://local` / `cpq://local/bml/{path}` against `data/{profile}/{env}/bml/site/`.
+
+**Oracle CPQ task exports** (datatables / util library export): `export_*` (confirm) → poll `get_task` → `download_task_file`.
+
+Also raise profile `HTTP_TIMEOUT` or host `CPQ_HTTP_TIMEOUT` (seconds, e.g. `300`) for long single HTTP calls. Prefer working from cached `data/` when a snapshot already exists. See [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md).
 
 ### What is `COMMERCE_PROCESS_VAR_NAME`?
 
@@ -438,6 +448,16 @@ A **local** FastAPI UI to browse/search/favorite saved prompts and fill placehol
 ```
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Details: [FEATURES.md — Prompt Studio](FEATURES.md#prompt-studio-enable-and-run) and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
+
+**Edit prompts:** use **Edit** on a card or in the run modal — change title, original/refined text, enable/disable. Select text and click **Make variable** to wrap it as `{{snake_case}}` (e.g. `OCL , FPL` → `{{token_a}}`).
+
+**Latest prompts missing after Refresh?**
+
+1. Hover the status line — Studio path must match MCP’s `.config/saved_prompts.json` (Studio pins `<repo>/.config` on startup when env vars are unset).
+2. If **library last write** never changes, MCP did not call `save_refined_prompt` — enable `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP.
+3. Similar tasks dedupe by content hash — one row updates instead of a new card.
+4. Toggle **Show disabled** if the prompt was soft-disabled.
+5. Use the **Reload** banner when the file changes on disk (auto-detected every 30s / on window focus).
 
 ---
 

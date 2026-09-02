@@ -27,6 +27,7 @@ from oracle_cpq_mcp.core.local_data import (
     persist_groups_snapshot,
     persist_users_snapshot,
 )
+from oracle_cpq_mcp.core.local_jobs import read_job
 from oracle_cpq_mcp.core.pagination import iterate_collection
 from oracle_cpq_mcp.core.progress import report_tool_progress
 from oracle_cpq_mcp.core.users_filters import UserStatusFilter
@@ -81,6 +82,24 @@ def _set_local_data_policy(policy: str) -> dict[str, Any]:
 
 def register_local_data_tools(mcp: Any, client: CPQClient) -> None:
     """Register local snapshot UX tools and sync_*_local tools."""
+
+    def get_local_job(job_id: str) -> dict[str, Any]:
+        profile = _active_profile_from_client(client)
+        record = read_job(profile, job_id)
+        if record is None:
+            return {
+                "status": "error",
+                "code": "NOT_FOUND",
+                "message": f"No local job found for job_id={job_id!r}",
+                "hint": (
+                    "Use the job_id returned by start_bml_site_export. "
+                    "Jobs live under data/{profile}/{env}/jobs/."
+                ),
+            }
+        return record
+
+    get_local_job.__doc__ = TOOL_CATALOG["get_local_job"].description
+    register_tool(mcp, get_local_job, "get_local_job")
 
     def list_local_data() -> dict[str, Any]:
         profile = _active_profile_from_client(client)
@@ -171,6 +190,7 @@ def register_local_data_tools(mcp: Any, client: CPQClient) -> None:
                 )
             return {
                 "needs_user_input": True,
+                "elicitation_preferred": True,
                 "available": bool(status.get("available")),
                 "domain": domain,
                 "local_data_policy": profile.local_data_policy,
@@ -183,7 +203,8 @@ def register_local_data_tools(mcp: Any, client: CPQClient) -> None:
                     "never — set LOCAL_DATA_POLICY=never (always fresh)",
                 ],
                 "hint": (
-                    "Ask the user, then call offer_use_local_data again with choice=… "
+                    "Prefer host MCP elicitation when available; otherwise ask in chat, "
+                    "then call offer_use_local_data again with choice=… "
                     "Same domain / process_var_name / table_name."
                 ),
                 "pending": {

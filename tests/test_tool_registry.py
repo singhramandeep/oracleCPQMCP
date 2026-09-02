@@ -13,8 +13,11 @@ from oracle_cpq_mcp.registry.tool_registry import (
 
 
 def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
-    assert len(CPQ_API_TOOLS) == 81
+    assert len(CPQ_API_TOOLS) == 83
     assert "discover_tools" in TOOL_CATALOG
+    assert "start_bml_site_export" in TOOL_CATALOG
+    assert "search_local_bml" in TOOL_CATALOG
+    assert "get_local_job" in TOOL_CATALOG
     assert "list_saved_prompts" in TOOL_CATALOG
     assert "start_prompt_picker" in TOOL_CATALOG
     assert "list_local_data" in TOOL_CATALOG
@@ -42,7 +45,7 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "export_response_excel" in TOOL_CATALOG
     assert "export_response_word" in TOOL_CATALOG
     assert "set_post_response_export" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 100
+    assert len(TOOL_CATALOG) == 103
 
 
 def test_filter_users_read_tools() -> None:

@@ -722,7 +722,46 @@ class SyncDatatablesLocalInput(_StrictModel):
 class GetAllBmlCodeInput(_StrictModel):
     delivery: Literal["zip", "json"] = Field(
         default="zip",
-        description="Return a zip attachment (zip) or a JSON summary payload (json).",
+        description=(
+            "Return a zip attachment (zip) or a JSON summary payload (json). "
+            "For large sites prefer start_bml_site_export + get_local_job."
+        ),
+    )
+
+
+class StartBmlSiteExportInput(_StrictModel):
+    """No parameters — starts a background local job for GET /adminMeta."""
+
+
+class SearchLocalBmlInput(_StrictModel):
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Substring to find in local .bml/.bmlt/.json files.",
+    )
+    max_matches: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="Maximum matches to return.",
+    )
+    case_insensitive: bool = Field(
+        default=True,
+        description="When true, match ignoring case.",
+    )
+    include_functions: bool = Field(
+        default=True,
+        description="Also search data/.../bml/functions/ util library extracts.",
+    )
+
+
+class GetLocalJobInput(_StrictModel):
+    job_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=64,
+        description="Job id returned by start_bml_site_export.",
     )
 
 
@@ -2313,6 +2352,9 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "create_datatable": CreateDatatableInput,
     "export_datatables": ExportDatatablesInput,
     "get_all_bml_code": GetAllBmlCodeInput,
+    "start_bml_site_export": StartBmlSiteExportInput,
+    "search_local_bml": SearchLocalBmlInput,
+    "get_local_job": GetLocalJobInput,
     "get_bml_function": GetBmlFunctionInput,
     "search_bml_scripts": SearchBmlScriptsInput,
     "list_bml_common_functions": ListBmlCommonFunctionsInput,

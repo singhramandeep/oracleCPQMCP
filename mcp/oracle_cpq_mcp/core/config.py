@@ -43,6 +43,7 @@ class CPQProfile(BaseModel):
     debug_mode: bool = True
     local_data_policy: LocalDataPolicy = "ask"
     post_response_export: PostResponseExportPolicy = "ask"
+    http_timeout: float = 60.0
     # METRICS_<NAME> → description; keys are NAME suffixes (e.g. QUOTES).
     metric_descriptions: dict[str, str] = Field(default_factory=dict)
 
@@ -157,6 +158,26 @@ def _resolve_debug_mode(raw: dict[str, str | None]) -> bool:
     if os.environ.get("CPQ_DEBUG_MODE") is not None:
         return parse_bool_env(os.environ.get("CPQ_DEBUG_MODE"), default=True)
     return parse_bool_env(raw.get("DEBUG_MODE"), default=True)
+
+
+def _resolve_http_timeout(raw: dict[str, str | None]) -> float:
+    """Host ``CPQ_HTTP_TIMEOUT`` wins over profile ``HTTP_TIMEOUT`` (seconds)."""
+    raw_value = os.environ.get("CPQ_HTTP_TIMEOUT")
+    if raw_value is None or not str(raw_value).strip():
+        raw_value = raw.get("HTTP_TIMEOUT")
+    if raw_value is None or not str(raw_value).strip():
+        return 60.0
+    try:
+        value = float(str(raw_value).strip())
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid HTTP_TIMEOUT/CPQ_HTTP_TIMEOUT={raw_value!r}; use seconds as a number"
+        ) from exc
+    if value < 5.0 or value > 3600.0:
+        raise ValueError(
+            f"HTTP_TIMEOUT/CPQ_HTTP_TIMEOUT={value} out of range; use 5–3600 seconds"
+        )
+    return value
 
 
 def _resolve_local_data_policy(raw: dict[str, str | None]) -> LocalDataPolicy:
@@ -472,5 +493,6 @@ def load_profile(
         debug_mode=_resolve_debug_mode(raw),
         local_data_policy=_resolve_local_data_policy(raw),
         post_response_export=_resolve_post_response_export(raw),
+        http_timeout=_resolve_http_timeout(raw),
         metric_descriptions=_collect_metric_descriptions(raw),
     )

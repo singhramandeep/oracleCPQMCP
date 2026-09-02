@@ -8,7 +8,14 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from apps.prompt_studio.placeholders import extract_placeholders, fill_placeholders
+from apps.prompt_studio.placeholders import (
+    extract_placeholders,
+    fill_placeholders,
+    reconcile_variables,
+    suggest_var_name,
+    validate_var_name,
+    wrap_selection,
+)
 from apps.prompt_studio import store as studio_store
 from oracle_cpq_mcp.prompts import saved_library
 
@@ -22,6 +29,23 @@ def test_fill_placeholders():
     text = "Hi {{name}}, format={{output_format}}"
     assert fill_placeholders(text, {"name": "Ada", "output_format": "json"}) == "Hi Ada, format=json"
     assert fill_placeholders(text, {"name": "Ada"}) == "Hi Ada, format="
+
+
+def test_wrap_selection_and_suggest_var_name():
+    text = "Search for OCL , FPL in all BML"
+    name = suggest_var_name("OCL , FPL", {"output_format"})
+    assert validate_var_name(name) == name
+    updated = wrap_selection(text, 11, 20, name)
+    assert "{{" + name + "}}" in updated
+    assert "OCL , FPL" not in updated
+
+
+def test_reconcile_variables():
+    merged = reconcile_variables(
+        "Hi {{name}} as {{output_format}}",
+        {"name": "Ada", "old_var": "drop me"},
+    )
+    assert merged == {"name": "Ada", "output_format": ""}
 
 
 def test_sidecar_favorites_suites_history(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
@@ -132,6 +156,102 @@ def test_api_library_info(studio_client, tmp_path: Path):
     assert info["path"].endswith("saved_prompts.json")
     assert info["last_modified"] is not None
     assert "T" in info["last_modified"] and info["last_modified"].endswith("Z")
+    assert "disabled_count" in info
+    assert "help" in info
+    assert "config_dir" in info
+
+
+def test_api_sort_recent_first(studio_client, tmp_path: Path):
+    client, entry = studio_client
+    prompts_path = tmp_path / "saved_prompts.json"
+    saved_library.upsert_prompt(
+        title="Older prompt",
+        original_user_prompt="old",
+        refined_prompt="Old {{output_format}}",
+        variables={"output_format": "chat_text"},
+        tags=["meta"],
+        tools=[],
+        path=prompts_path,
+    )
+    listed = client.get("/api/prompts", params={"sort": "recent"}).json()
+    ids = [p["id"] for p in listed["prompts"]]
+    assert ids[0] == entry.id
+
+
+def test_api_include_disabled(studio_client):
+    client, entry = studio_client
+    saved_library.set_enabled(entry.id, False)
+    hidden = client.get("/api/prompts").json()
+    assert entry.id not in {p["id"] for p in hidden["prompts"]}
+    shown = client.get("/api/prompts", params={"include_disabled": True}).json()
+    match = next(p for p in shown["prompts"] if p["id"] == entry.id)
+    assert match["enabled"] is False
+    saved_library.set_enabled(entry.id, True)
+
+
+def test_api_patch_prompt(studio_client):
+    client, entry = studio_client
+    patched = client.patch(
+        f"/api/prompts/{entry.id}",
+        json={
+            "title": "Renamed users prompt",
+            "refined_prompt": "List users for {{customer}} in {{environment}} as {{output_format}}",
+            "variables": {
+                "customer": "focalpoint",
+                "environment": "dev",
+                "output_format": "chat_text",
+            },
+        },
+    )
+    assert patched.status_code == 200
+    body = patched.json()
+    assert body["title"] == "Renamed users prompt"
+    assert "environment" in body["placeholders"]
+
+
+def test_api_make_variable(studio_client):
+    client, entry = studio_client
+    text = "Search OCL , FPL in BML for {{customer}}"
+    start = text.index("OCL")
+    end = text.index("FPL") + 3
+    resp = client.post(
+        f"/api/prompts/{entry.id}/make-variable",
+        json={
+            "field": "refined_prompt",
+            "start": start,
+            "end": end,
+            "var_name": "search_tokens",
+            "text": text,
+            "variables": {"customer": "focalpoint"},
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "{{search_tokens}}" in data["refined_prompt"]
+    assert data["variables"]["search_tokens"] == "OCL , FPL"
+
+
+def test_update_prompt_hash_collision(studio_client, tmp_path: Path):
+    _, entry = studio_client
+    prompts_path = tmp_path / "saved_prompts.json"
+    other, _ = saved_library.upsert_prompt(
+        title="Other",
+        original_user_prompt="other",
+        refined_prompt="Different body {{output_format}}",
+        variables={"output_format": "chat_text"},
+        tags=[],
+        tools=["list_users"],
+        output_format="chat_text",
+        path=prompts_path,
+    )
+    with pytest.raises(saved_library.UpdatePromptError):
+        saved_library.update_prompt(
+            entry.id,
+            refined_prompt=other.refined_prompt,
+            tools=other.tools,
+            output_format=other.output_format,
+            path=prompts_path,
+        )
 
 
 def test_api_delete_prompt(studio_client):
@@ -179,6 +299,12 @@ def test_run_modal_expandable_prompt_blocks(studio_client):
     index_html = client.get("/").text
     assert 'id="toggleOriginal"' in index_html
     assert 'id="toggleTemplate"' in index_html
+    assert 'id="modalTitleDisplay"' in index_html
+    assert 'id="modalEnabledToggle"' in index_html
+    assert 'id="editBtn"' in index_html
+    assert 'id="showDisabledToggle"' in index_html
+    assert "?v=" in index_html
+    assert "/static/app.js?v=" in index_html
     assert 'aria-controls="modalOriginal"' in index_html
     assert 'aria-controls="modalTemplate"' in index_html
     assert "is-collapsed" in index_html
@@ -189,6 +315,12 @@ def test_run_modal_expandable_prompt_blocks(studio_client):
     assert "flex: none" in css
     assert ".field-head" in css
     assert ".field-toggle" in css
+
+    js = client.get("/static/app.js").text
+    assert "data-edit" in js
+    assert "openRunSafe" in js
+    assert "resetRunModalState" in js
+    assert 'closest("[data-run]")' in js
 
 
 def test_sidebar_total_prompts_markup(studio_client):
@@ -217,5 +349,16 @@ def test_sidebar_total_prompts_markup(studio_client):
     assert "secondaryActionsHtml" in js
     assert "cardMetaHtml" in js
     assert "el.title" in js
+    assert "openRunSafe" in js
     assert "LOADED" not in js
     assert "from ${info.path}" not in js
+
+
+def test_index_cache_control(studio_client):
+    client, _ = studio_client
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "no-cache" in (resp.headers.get("cache-control") or "").lower()
+    js_resp = client.get("/static/app.js")
+    assert js_resp.status_code == 200
+    assert "no-cache" in (js_resp.headers.get("cache-control") or "").lower()

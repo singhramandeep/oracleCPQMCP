@@ -15,6 +15,7 @@ from oracle_cpq_mcp.core.knowledge import load_base_knowledge, load_customer_kno
 from oracle_cpq_mcp.security.schema_integrity import verify_schema_integrity
 from oracle_cpq_mcp.security.settings import load_security_settings
 from oracle_cpq_mcp.prompts.instructions import build_server_instructions
+from oracle_cpq_mcp.prompts.local_resources import register_local_data_resources
 from oracle_cpq_mcp.prompts.mcp_surface import register_saved_prompt_resources_and_prompts
 from oracle_cpq_mcp.tools._register import configure_security
 from oracle_cpq_mcp.tools.admin import register_admin_tools
@@ -94,7 +95,7 @@ mcp = FastMCP(
     instructions=SERVER_INSTRUCTIONS,
 )
 
-_client = CPQClient(_profile)
+_client = CPQClient(_profile, timeout=_profile.http_timeout)
 
 
 def _maybe_enable_tool_search() -> None:
@@ -132,6 +133,7 @@ register_response_export_tools(mcp, _client)
 register_discovery_tools(mcp)
 register_saved_prompt_tools(mcp)
 register_saved_prompt_resources_and_prompts(mcp)
+register_local_data_resources(mcp, _profile)
 _maybe_enable_tool_search()
 
 

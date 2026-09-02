@@ -1,21 +1,47 @@
 (() => {
   const LAYOUT_KEY = "promptStudio.layout";
+  const SHOW_DISABLED_KEY = "promptStudio.showDisabled";
+  const LIBRARY_POLL_MS = 30000;
 
   const state = {
     view: "all",
     tag: null,
     q: "",
     layout: localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "cards",
+    showDisabled: localStorage.getItem(SHOW_DISABLED_KEY) === "true",
     prompts: [],
     suites: [],
     libraryTotal: 0,
     libraryPath: null,
+    libraryHelp: "",
+    lastSeenModified: null,
     activePromptId: null,
     suitePickPromptId: null,
     activeSuiteId: null,
+    editMode: false,
+    editDraft: null,
+    modalDetail: null,
   };
 
   const $ = (id) => document.getElementById(id);
+
+  function optional(id) {
+    return document.getElementById(id);
+  }
+
+  function bindClick(id, handler) {
+    const el = optional(id);
+    if (el) el.addEventListener("click", handler);
+  }
+
+  function showError(err) {
+    const message = err && err.message ? err.message : String(err);
+    alert(message);
+  }
+
+  function openRunSafe(promptId, startInEdit = false) {
+    return openRun(promptId, startInEdit).catch(showError);
+  }
 
   async function api(path, options = {}) {
     const res = await fetch(path, {
@@ -112,10 +138,15 @@
         <button type="button" class="action-menu-toggle" data-menu-toggle="${promptId}"
                 aria-haspopup="true" aria-expanded="false" title="More actions">⋯</button>
         <div class="action-menu-panel hidden" role="menu">
+          <button type="button" role="menuitem" data-edit="${promptId}">Edit</button>
           <button type="button" role="menuitem" data-suite-add="${promptId}">Add to suite…</button>
           <button type="button" role="menuitem" class="danger" data-delete="${promptId}">Remove</button>
         </div>
       </div>`;
+  }
+
+  function disabledBadgeHtml(p) {
+    return p.enabled === false ? `<span class="disabled-badge">Disabled</span>` : "";
   }
 
   function closeAllActionMenus() {
@@ -168,6 +199,8 @@
     if (state.q) params.set("q", state.q);
     if (state.tag) params.set("tag", state.tag);
     if (state.view === "favorites") params.set("favorites_only", "true");
+    if (state.showDisabled) params.set("include_disabled", "true");
+    params.set("sort", "recent");
     const data = await api(`/api/prompts?${params}`);
     state.prompts = data.prompts || [];
     renderPrompts();
@@ -214,10 +247,11 @@
     state.prompts.forEach((p) => {
       if (state.layout === "list") {
         const row = document.createElement("article");
-        row.className = "prompt-list-row";
+        row.className = "prompt-list-row" + (p.enabled === false ? " is-disabled" : "");
         row.innerHTML = `
           <div class="list-title-cell">
             <strong>${escapeHtml(p.title)}</strong>
+            ${disabledBadgeHtml(p)}
             <div class="original-preview muted">${escapeHtml(p.original_preview || p.original_user_prompt || "(no original prompt recorded)")}</div>
             <div class="chip-row compact">${chipHtml(p)}</div>
           </div>
@@ -226,6 +260,7 @@
           <span class="muted">${escapeHtml(formatWhen(p.last_run_at))}</span>
           <div class="list-actions">
             <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
+            <button type="button" class="btn-secondary" data-edit="${p.id}">Edit</button>
             <button type="button" class="btn-primary" data-run="${p.id}">Run</button>
             ${secondaryActionsHtml(p.id)}
           </div>`;
@@ -234,16 +269,20 @@
       }
 
       const card = document.createElement("article");
-      card.className = "prompt-card";
+      card.className = "prompt-card" + (p.enabled === false ? " is-disabled" : "");
       card.innerHTML = `
         <div class="card-top">
           <h3 class="card-title">${escapeHtml(p.title)}</h3>
-          <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
+          <div class="card-top-actions">
+            ${disabledBadgeHtml(p)}
+            <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
+          </div>
         </div>
         <p class="original-preview">${escapeHtml(p.original_preview || p.original_user_prompt || "(no original prompt recorded)")}</p>
         <div class="chip-row">${chipHtml(p)}</div>
         ${cardMetaHtml(p)}
         <div class="card-actions">
+          <button type="button" class="btn-secondary" data-edit="${p.id}">Edit</button>
           <button type="button" class="btn-primary" data-run="${p.id}">Run</button>
           ${secondaryActionsHtml(p.id)}
         </div>`;
@@ -264,16 +303,57 @@
   function stampUpdated(info) {
     const el = $("statusLine");
     const t = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    const count =
-      info && typeof info.total_count === "number" ? info.total_count : state.libraryTotal;
-    const label = count === 1 ? "1 prompt" : `${count} prompts`;
+    const enabled =
+      info && typeof info.enabled_count === "number" ? info.enabled_count : state.libraryTotal;
+    const total = info && typeof info.total_count === "number" ? info.total_count : enabled;
+    const disabled = info && typeof info.disabled_count === "number" ? info.disabled_count : 0;
+    let label = total === 1 ? "1 prompt" : `${total} prompts`;
+    if (disabled > 0) {
+      label += ` (${disabled} disabled)`;
+    }
     el.textContent = `Updated ${t} · ${label}`;
     const path = (info && info.path) || state.libraryPath;
     const mtime = info && info.last_modified;
-    if (path) {
-      el.title = mtime ? `${path}\nLast write: ${mtime}` : path;
-    } else {
-      el.removeAttribute("title");
+    const help = (info && info.help) || state.libraryHelp;
+    const lines = [];
+    if (path) lines.push(path);
+    if (mtime) lines.push(`Last write: ${mtime}`);
+    if (help) lines.push(help);
+    if (!info || info.exists === false) {
+      lines.push("Library file missing — save a prompt via MCP first.");
+    }
+    el.title = lines.join("\n");
+    if (info && info.path) state.libraryPath = info.path;
+    if (info && info.help) state.libraryHelp = info.help;
+    if (mtime) {
+      if (state.lastSeenModified && mtime > state.lastSeenModified && !state.editMode) {
+        showLibraryBanner();
+      }
+      state.lastSeenModified = mtime;
+    }
+  }
+
+  function showLibraryBanner() {
+    const banner = $("libraryBanner");
+    if (!banner) return;
+    banner.classList.remove("hidden");
+    $("libraryBannerText").textContent =
+      "Library updated on disk — reload to see new prompts from MCP.";
+  }
+
+  function hideLibraryBanner() {
+    $("libraryBanner")?.classList.add("hidden");
+  }
+
+  async function pollLibraryInfo() {
+    if (state.editMode) return;
+    try {
+      const info = await api("/api/library_info");
+      if (info.last_modified && state.lastSeenModified && info.last_modified > state.lastSeenModified) {
+        showLibraryBanner();
+      }
+    } catch {
+      /* ignore background poll errors */
     }
   }
 
@@ -294,6 +374,7 @@
     ]);
     updateSidebarTotal(info);
     stampUpdated(info);
+    hideLibraryBanner();
   }
 
   async function refreshSuites() {
@@ -311,23 +392,146 @@
   }
 
   function syncBlockToggle(preId, btnId) {
-    const pre = $(preId);
-    const btn = $(btnId);
+    const pre = optional(preId);
+    const btn = optional(btnId);
+    if (!pre || !btn) return;
     setBlockExpanded(pre, btn, false);
     btn.classList.toggle("hidden", pre.scrollHeight <= pre.clientHeight);
   }
 
-  async function openRun(promptId) {
-    const detail = await api(`/api/prompts/${promptId}`);
-    state.activePromptId = promptId;
-    $("modalTitle").textContent = detail.title;
-    $("modalOriginal").textContent =
+  function renderVarFields(detail, editable) {
+    const fields = $("varFields");
+    fields.innerHTML = "";
+    const placeholders = extractPlaceholdersFromDetail(detail);
+    placeholders.forEach((name) => {
+      const wrap = document.createElement("div");
+      wrap.className = "var-field";
+
+      if (name === "output_format") {
+        const selected = normalizeOutputFormat(
+          (detail.variables && detail.variables.output_format) || detail.output_format
+        );
+        wrap.innerHTML = `<label for="var_output_format">{{output_format}}</label>`;
+        const select = document.createElement("select");
+        select.id = "var_output_format";
+        select.name = "output_format";
+        select.disabled = editable;
+        OUTPUT_FORMAT_OPTIONS.forEach(({ value, label }) => {
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = label;
+          opt.selected = value === selected;
+          select.appendChild(opt);
+        });
+        if (!editable) {
+          select.addEventListener("change", () => {
+            $("modalFormatLabel").textContent = formatLabel(select.value);
+          });
+        }
+        wrap.appendChild(select);
+        fields.appendChild(wrap);
+        return;
+      }
+
+      const hint = detail.variables && detail.variables[name] != null ? String(detail.variables[name]) : "";
+      const recent = (detail.recent_values && detail.recent_values[name]) || [];
+      wrap.innerHTML = `<label for="var_${name}">{{${name}}}</label>
+        <input id="var_${name}" name="${name}" value="${escapeAttr(hint)}" list="dl_${name}" ${editable ? "readonly" : ""} />
+        <datalist id="dl_${name}">${recent.map((v) => `<option value="${escapeAttr(v)}"></option>`).join("")}</datalist>`;
+      if (recent.length && !editable) {
+        const hints = document.createElement("div");
+        hints.className = "recent-hints";
+        recent.slice(0, 5).forEach((v) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.textContent = v.length > 40 ? v.slice(0, 40) + "…" : v;
+          b.title = v;
+          b.addEventListener("click", () => {
+            wrap.querySelector("input").value = v;
+          });
+          hints.appendChild(b);
+        });
+        wrap.appendChild(hints);
+      }
+      fields.appendChild(wrap);
+    });
+  }
+
+  function extractPlaceholdersFromDetail(detail) {
+    if (detail.placeholders && detail.placeholders.length) {
+      return detail.placeholders;
+    }
+    const text = detail.refined_prompt || "";
+    const seen = new Set();
+    const ordered = [];
+    const re = /\{\{([a-z][a-z0-9_]*)\}\}/g;
+    let match;
+    while ((match = re.exec(text)) !== null) {
+      if (!seen.has(match[1])) {
+        seen.add(match[1]);
+        ordered.push(match[1]);
+      }
+    }
+    return ordered;
+  }
+
+  function setEditMode(enabled) {
+    state.editMode = enabled;
+    optional("modalTitleDisplay")?.classList.toggle("hidden", enabled);
+    optional("modalTitleInput")?.classList.toggle("hidden", !enabled);
+    optional("modalOriginal")?.classList.toggle("hidden", enabled);
+    optional("modalOriginalEdit")?.classList.toggle("hidden", !enabled);
+    optional("modalTemplate")?.classList.toggle("hidden", enabled);
+    optional("modalTemplateEdit")?.classList.toggle("hidden", !enabled);
+    optional("toggleOriginal")?.classList.toggle("hidden", enabled);
+    optional("toggleTemplate")?.classList.toggle("hidden", enabled);
+    optional("makeVarOriginalBtn")?.classList.toggle("hidden", !enabled);
+    optional("makeVarTemplateBtn")?.classList.toggle("hidden", !enabled);
+    optional("enabledToggleWrap")?.classList.toggle("hidden", !enabled);
+    document.querySelectorAll(".run-only-block").forEach((el) => {
+      el.classList.toggle("hidden", enabled);
+    });
+    document.querySelectorAll(".edit-only-block").forEach((el) => {
+      el.classList.toggle("hidden", !enabled);
+    });
+    if (enabled && state.editDraft) {
+      const titleInput = optional("modalTitleInput");
+      const originalEdit = optional("modalOriginalEdit");
+      const templateEdit = optional("modalTemplateEdit");
+      const enabledToggle = optional("modalEnabledToggle");
+      if (titleInput) titleInput.value = state.editDraft.title || "";
+      if (originalEdit) originalEdit.value = state.editDraft.original_user_prompt || "";
+      if (templateEdit) templateEdit.value = state.editDraft.refined_prompt || "";
+      if (enabledToggle) enabledToggle.checked = state.editDraft.enabled !== false;
+      renderVarFields(state.editDraft, true);
+    }
+  }
+
+  function populateRunModal(detail) {
+    state.modalDetail = detail;
+    const titleDisplay = optional("modalTitleDisplay");
+    const titleInput = optional("modalTitleInput");
+    const originalPre = optional("modalOriginal");
+    const originalEdit = optional("modalOriginalEdit");
+    const templatePre = optional("modalTemplate");
+    const templateEdit = optional("modalTemplateEdit");
+    const generatedOut = optional("generatedOut");
+    const formatLabelEl = optional("modalFormatLabel");
+    const enabledToggle = optional("modalEnabledToggle");
+
+    if (titleDisplay) titleDisplay.textContent = detail.title;
+    if (titleInput) titleInput.value = detail.title || "";
+    const originalText =
       detail.original_user_prompt && String(detail.original_user_prompt).trim()
         ? detail.original_user_prompt
         : "(not recorded)";
-    $("modalTemplate").textContent = detail.refined_prompt;
-    $("generatedOut").value = "";
-    $("modalFormatLabel").textContent = formatLabel(detail.output_format);
+    if (originalPre) originalPre.textContent = originalText;
+    if (originalEdit) originalEdit.value = detail.original_user_prompt || "";
+    if (templatePre) templatePre.textContent = detail.refined_prompt;
+    if (templateEdit) templateEdit.value = detail.refined_prompt || "";
+    if (generatedOut) generatedOut.value = "";
+    if (formatLabelEl) formatLabelEl.textContent = formatLabel(detail.output_format);
+    if (enabledToggle) enabledToggle.checked = detail.enabled !== false;
 
     const meta = $("modalMeta");
     meta.innerHTML = "";
@@ -348,62 +552,131 @@
       <span><strong>Runs:</strong> ${detail.run_count || 0}</span>
       <span><strong>Last run:</strong> ${escapeHtml(formatWhen(detail.last_run_at))}</span>
       <span><strong>Created:</strong> ${escapeHtml(formatWhen(detail.created_at))}</span>
-      <span><strong>Placeholders:</strong> ${(detail.placeholders || []).length}</span>`;
+      <span><strong>Placeholders:</strong> ${extractPlaceholdersFromDetail(detail).length}</span>`;
 
-    const fields = $("varFields");
-    fields.innerHTML = "";
-    (detail.placeholders || []).forEach((name) => {
-      const wrap = document.createElement("div");
-      wrap.className = "var-field";
+    renderVarFields(detail, false);
+  }
 
-      if (name === "output_format") {
-        const selected = normalizeOutputFormat(
-          (detail.variables && detail.variables.output_format) || detail.output_format
-        );
-        wrap.innerHTML = `<label for="var_output_format">{{output_format}}</label>`;
-        const select = document.createElement("select");
-        select.id = "var_output_format";
-        select.name = "output_format";
-        OUTPUT_FORMAT_OPTIONS.forEach(({ value, label }) => {
-          const opt = document.createElement("option");
-          opt.value = value;
-          opt.textContent = label;
-          opt.selected = value === selected;
-          select.appendChild(opt);
-        });
-        select.addEventListener("change", () => {
-          $("modalFormatLabel").textContent = formatLabel(select.value);
-        });
-        wrap.appendChild(select);
-        fields.appendChild(wrap);
-        return;
-      }
+  async function openRun(promptId, startInEdit = false) {
+    const detail = await api(`/api/prompts/${promptId}?include_disabled=true`);
+    state.activePromptId = promptId;
+    state.editDraft = {
+      title: detail.title,
+      original_user_prompt: detail.original_user_prompt || "",
+      refined_prompt: detail.refined_prompt || "",
+      variables: { ...(detail.variables || {}) },
+      enabled: detail.enabled !== false,
+      output_format: detail.output_format,
+      placeholders: detail.placeholders || [],
+      recent_values: detail.recent_values || {},
+      tags: detail.tags || [],
+      tools: detail.tools || [],
+    };
+    populateRunModal(detail);
+    setEditMode(startInEdit);
+    optional("runModal")?.showModal();
+    if (!startInEdit) {
+      syncBlockToggle("modalOriginal", "toggleOriginal");
+      syncBlockToggle("modalTemplate", "toggleTemplate");
+    }
+  }
 
-      const hint = detail.variables && detail.variables[name] != null ? String(detail.variables[name]) : "";
-      const recent = (detail.recent_values && detail.recent_values[name]) || [];
-      wrap.innerHTML = `<label for="var_${name}">{{${name}}}</label>
-        <input id="var_${name}" name="${name}" value="${escapeAttr(hint)}" list="dl_${name}" />
-        <datalist id="dl_${name}">${recent.map((v) => `<option value="${escapeAttr(v)}"></option>`).join("")}</datalist>`;
-      if (recent.length) {
-        const hints = document.createElement("div");
-        hints.className = "recent-hints";
-        recent.slice(0, 5).forEach((v) => {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.textContent = v.length > 40 ? v.slice(0, 40) + "…" : v;
-          b.title = v;
-          b.addEventListener("click", () => {
-            wrap.querySelector("input").value = v;
-          });
-          hints.appendChild(b);
-        });
-        wrap.appendChild(hints);
-      }
-      fields.appendChild(wrap);
+  function resetRunModalState() {
+    if (state.editMode) {
+      cancelEdit();
+    } else {
+      setEditMode(false);
+    }
+  }
+
+  async function saveEdit() {
+    if (!state.activePromptId || !state.editDraft) return;
+    const variables = { ...(state.editDraft.variables || {}) };
+    optional("varFields")?.querySelectorAll("input[name]").forEach((field) => {
+      variables[field.name] = field.value;
     });
-    $("runModal").showModal();
-    syncBlockToggle("modalOriginal", "toggleOriginal");
-    syncBlockToggle("modalTemplate", "toggleTemplate");
+    const titleInput = optional("modalTitleInput");
+    const originalEdit = optional("modalOriginalEdit");
+    const templateEdit = optional("modalTemplateEdit");
+    const enabledToggle = optional("modalEnabledToggle");
+    const payload = {
+      title: titleInput ? titleInput.value.trim() : state.editDraft.title,
+      original_user_prompt: originalEdit
+        ? originalEdit.value
+        : state.editDraft.original_user_prompt,
+      refined_prompt: templateEdit ? templateEdit.value : state.editDraft.refined_prompt,
+      variables,
+      enabled: enabledToggle ? enabledToggle.checked : state.editDraft.enabled !== false,
+    };
+    const updated = await api(`/api/prompts/${state.activePromptId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    state.editDraft = {
+      title: updated.title,
+      original_user_prompt: updated.original_user_prompt || "",
+      refined_prompt: updated.refined_prompt || "",
+      variables: { ...(updated.variables || {}) },
+      enabled: updated.enabled !== false,
+      output_format: updated.output_format,
+      placeholders: updated.placeholders || [],
+      recent_values: updated.recent_values || {},
+      tags: updated.tags || [],
+      tools: updated.tools || [],
+    };
+    populateRunModal(updated);
+    setEditMode(false);
+    await refreshLibrary();
+  }
+
+  function cancelEdit() {
+    if (state.modalDetail) {
+      populateRunModal(state.modalDetail);
+    }
+    setEditMode(false);
+  }
+
+  async function makeVariableFromField(field) {
+    if (!state.activePromptId || !state.editDraft) return;
+    const textarea =
+      field === "original_user_prompt" ? optional("modalOriginalEdit") : optional("modalTemplateEdit");
+    if (!textarea) {
+      showError(new Error("Edit field not available — hard-refresh the page (Ctrl+F5)."));
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    if (end <= start) {
+      alert("Select text in the prompt first.");
+      return;
+    }
+    const selected = textarea.value.slice(start, end);
+    const suggested = selected.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "") || "token_a";
+    const varName = prompt("Variable name (snake_case):", suggested);
+    if (!varName || !varName.trim()) return;
+
+    const result = await api(`/api/prompts/${state.activePromptId}/make-variable`, {
+      method: "POST",
+      body: JSON.stringify({
+        field,
+        start,
+        end,
+        var_name: varName.trim(),
+        text: textarea.value,
+        variables: state.editDraft.variables || {},
+      }),
+    });
+
+    if (field === "original_user_prompt") {
+      if (optional("modalOriginalEdit")) optional("modalOriginalEdit").value = result.original_user_prompt;
+      state.editDraft.original_user_prompt = result.original_user_prompt;
+    } else {
+      if (optional("modalTemplateEdit")) optional("modalTemplateEdit").value = result.refined_prompt;
+      state.editDraft.refined_prompt = result.refined_prompt;
+    }
+    state.editDraft.variables = result.variables || {};
+    state.editDraft.placeholders = result.placeholders || [];
+    renderVarFields(state.editDraft, true);
   }
 
   async function generate() {
@@ -564,7 +837,16 @@
         }
         return;
       }
-      if (t.dataset.run) openRun(t.dataset.run);
+      const runBtn = t.closest("[data-run]");
+      const editBtn = t.closest("[data-edit]");
+      if (runBtn instanceof HTMLElement && runBtn.dataset.run) {
+        openRunSafe(runBtn.dataset.run);
+        return;
+      }
+      if (editBtn instanceof HTMLElement && editBtn.dataset.edit) {
+        openRunSafe(editBtn.dataset.edit, true);
+        return;
+      }
       if (t.dataset.fav) toggleFavorite(t.dataset.fav);
       if (t.dataset.suiteAdd) {
         closeAllActionMenus();
@@ -587,8 +869,18 @@
     $("downloadAllBtn").addEventListener("click", () => {
       window.location.href = "/api/prompts/download";
     });
-    $("refreshBtn").addEventListener("click", () => refreshLibrary().catch(alert));
-    $("refreshSuitesBtn").addEventListener("click", () => refreshSuites().catch(alert));
+    $("refreshBtn").addEventListener("click", () => refreshLibrary().catch(showError));
+    bindClick("libraryBannerReload", () => refreshLibrary().catch(showError));
+    $("refreshSuitesBtn").addEventListener("click", () => refreshSuites().catch(showError));
+    const showDisabledToggle = optional("showDisabledToggle");
+    if (showDisabledToggle) {
+      showDisabledToggle.checked = state.showDisabled;
+      showDisabledToggle.addEventListener("change", () => {
+        state.showDisabled = showDisabledToggle.checked;
+        localStorage.setItem(SHOW_DISABLED_KEY, state.showDisabled ? "true" : "false");
+        loadPrompts().catch(showError);
+      });
+    }
 
     $("suiteList").addEventListener("click", async (e) => {
       const t = e.target;
@@ -605,7 +897,11 @@
 
     $("suiteDetail").addEventListener("click", (e) => {
       const t = e.target;
-      if (t instanceof HTMLElement && t.dataset.run) openRun(t.dataset.run);
+      if (!(t instanceof HTMLElement)) return;
+      const runBtn = t.closest("[data-run]");
+      if (runBtn instanceof HTMLElement && runBtn.dataset.run) {
+        openRunSafe(runBtn.dataset.run);
+      }
     });
 
     $("newSuiteBtn").addEventListener("click", async () => {
@@ -614,7 +910,25 @@
       await createSuite(name.trim());
     });
 
-    $("closeModal").addEventListener("click", () => $("runModal").close());
+    bindClick("closeModal", () => {
+      resetRunModalState();
+      optional("runModal")?.close();
+    });
+    const runModal = optional("runModal");
+    if (runModal) {
+      runModal.addEventListener("close", () => {
+        resetRunModalState();
+      });
+    }
+    bindClick("editBtn", () => setEditMode(true));
+    bindClick("cancelEditBtn", () => cancelEdit());
+    bindClick("saveEditBtn", () => saveEdit().catch(showError));
+    bindClick("makeVarOriginalBtn", () =>
+      makeVariableFromField("original_user_prompt").catch(showError)
+    );
+    bindClick("makeVarTemplateBtn", () =>
+      makeVariableFromField("refined_prompt").catch(showError)
+    );
     $("toggleOriginal").addEventListener("click", () => {
       const pre = $("modalOriginal");
       const btn = $("toggleOriginal");
@@ -625,8 +939,8 @@
       const btn = $("toggleTemplate");
       setBlockExpanded(pre, btn, pre.classList.contains("is-collapsed"));
     });
-    $("generateBtn").addEventListener("click", () => generate().catch(alert));
-    $("copyBtn").addEventListener("click", () => copyGenerated().catch(alert));
+    bindClick("generateBtn", () => generate().catch(showError));
+    bindClick("copyBtn", () => copyGenerated().catch(showError));
     $("closeSuitePick").addEventListener("click", () => $("suitePickModal").close());
     $("createAndAddBtn").addEventListener("click", async () => {
       const name = $("newSuiteName").value.trim();
@@ -642,7 +956,7 @@
     const params = new URLSearchParams(location.search);
     const deepPrompt = params.get("prompt_id");
     const deepSuite = params.get("suite");
-    if (deepPrompt) openRun(deepPrompt).catch(() => {});
+    if (deepPrompt) openRunSafe(deepPrompt);
     if (deepSuite) {
       state.view = "suites";
       syncNav();
@@ -655,6 +969,8 @@
     syncNav();
     syncLayoutButtons();
     await refreshLibrary();
+    window.addEventListener("focus", () => pollLibraryInfo());
+    setInterval(() => pollLibraryInfo(), LIBRARY_POLL_MS);
   }
 
   init().catch((err) => {

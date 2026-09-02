@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "oracle-cpq-dev": {
+      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\scripts\\mcp-server.cmd",
+      "args": [],
+      "cwd": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP",
+      "env": {
+        "MCP_MODE": "stdio",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_ENVIRONMENT": "dev",
+        "CPQ_CONFIG_DIR": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\.config",
+        "CPQ_SCHEMA_INTEGRITY": "1",
+        "CPQ_HTTP_TIMEOUT": "300"
+      }
+    },
+    "oracle-cpq-test": {
+      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\scripts\\mcp-server.cmd",
+      "args": [],
+      "cwd": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP",
+      "env": {
+        "MCP_MODE": "stdio",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_ENVIRONMENT": "test",
+        "CPQ_CONFIG_DIR": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\.config",
+        "CPQ_SCHEMA_INTEGRITY": "1",
+        "CPQ_HTTP_TIMEOUT": "300"
+      }
+    }
+  }
+}

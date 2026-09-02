@@ -7,7 +7,7 @@
 > python scripts/generate_tool_catalog.py
 > ```
 
-**Total tools:** 100
+**Total tools:** 103
 
 This document is the formal per-tool reference for the GitHub repository. Each row is one MCP tool function with **Parameters** and **Filters** (from Pydantic validation models), output contract, tags, and API metadata from `TOOL_CATALOG`.
 
@@ -101,30 +101,34 @@ _10 tool(s)_
 
 ## bml
 
-_9 tool(s)_
+_11 tool(s)_
 
 | Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |
 |------|---------|----|------|------|------------|------------|---------|--------|
 | `export_bml_library_functions` | `1.0.0` | `write` | `HIGH_RISK_WRITE` | `bml`, `confirmation`, `dry_run`, `export`, `write` | POST /bml/library/functions/actions/export | `body` (dict[str, Any] \| None, default None); `dry_run` (bool, default True); `confirmation_token` (str \| None, default None) | - | write envelope `{status, tool, data}` |
-| `get_all_bml_code` | `1.3.0` | `read` | `PRIVILEGED` | `admin`, `bml`, `export`, `local_data`, `read` | GET /adminMeta | `delivery` (Literal['zip', 'json'], default 'zip') | - | attachment/list (no root object schema) |
+| `get_all_bml_code` | `1.4.0` | `read` | `PRIVILEGED` | `admin`, `bml`, `export`, `local_data`, `read` | GET /adminMeta | `delivery` (Literal['zip', 'json'], default 'zip') | - | attachment/list (no root object schema) |
 | `get_bml_common_function` | `1.0.0` | `read` | `READ_ONLY` | `bml`, `read` | GET /bml/common/functions/{name} | `name` (str, required) | - | read envelope `{status, tool, data}` |
 | `get_bml_dependent_attributes` | `1.0.0` | `read` | `READ_ONLY` | `bml`, `read` | POST /bml/library/functions/actions/dependentAttributes | `body` (dict[str, Any] \| None, default None) | - | read envelope `{status, tool, data}` |
 | `get_bml_function` | `1.0.0` | `read` | `READ_ONLY` | `bml`, `read` | GET /bml/library/functions/{namespace.variableName} | `function_id` (str, required) | - | read envelope `{status, tool, data}` |
 | `list_bml_common_functions` | `1.0.0` | `read` | `READ_ONLY` | `bml`, `read` | GET /bml/common/functions | `limit` (int, default 100); `offset` (int, default 0) | - | read envelope `{status, tool, data}` |
 | `list_bml_library_folders` | `1.0.0` | `read` | `READ_ONLY` | `bml`, `read` | GET /bml/library/folders | `limit` (int, default 100); `offset` (int, default 0) | - | read envelope `{status, tool, data}` |
 | `search_bml_scripts` | `1.0.0` | `read` | `READ_ONLY` | `bml`, `paginated`, `read`, `search` | GET /bml/scripts | `limit` (int, default 100); `offset` (int, default 0); `orderby` (str \| None, default None); `fields` (list[str] \| None, default None) | `q_expr` (str \| None, default None) | read envelope `{status, tool, data}` |
+| `search_local_bml` | `1.0.0` | `read` | `READ_ONLY` | `bml`, `local_data`, `read`, `search` | — | `max_matches` (int, default 50); `case_insensitive` (bool, default True); `include_functions` (bool, default True) | `query` (str, required) | read envelope `{status, tool, data}` |
+| `start_bml_site_export` | `1.0.0` | `read` | `READ_ONLY` | `async`, `bml`, `export`, `local_data`, `read` | GET /adminMeta | - | - | read envelope `{status, tool, data}` |
 | `sync_bml_local` | `1.1.0` | `read` | `PRIVILEGED` | `bml`, `export`, `local_data`, `read` | GET /bml/library/functions | - | - | read envelope `{status, tool, data}` |
 
 ### Descriptions
 
 - **`export_bml_library_functions`** — Export util library functions via POST .../actions/export. Returns taskId; use get_task and download_task_file. Safe execution: defaults to dry_run=true (preflight only — validates inputs, checks existence via read-only…
-- **`get_all_bml_code`** — Download or retrieve BML source code from the CPQ site. delivery='zip' (default) exports all Commerce BML and BMLT files via GET /adminMeta — equivalent to cpq-toolkit pull; saves the zip under data/{profile}/{env}/bml/…
+- **`get_all_bml_code`** — Download or retrieve BML source code from the CPQ site (synchronous — blocks the MCP tool call until done). delivery='zip' (default) exports all Commerce BML and BMLT files via GET /adminMeta — equivalent to cpq-toolkit…
 - **`get_bml_common_function`** — Get one BML common function by name via GET /bml/common/functions/{name}.
 - **`get_bml_dependent_attributes`** — Return attributes referenced by util library functions via POST /bml/library/functions/actions/dependentAttributes. Read-like; allowed under READ_ONLY.
 - **`get_bml_function`** — Get one util library BML function by function_id (namespace.variableName). Does not export full site zip.
 - **`list_bml_common_functions`** — List built-in BML common functions (atoi, len, etc.) via GET /bml/common/functions.
 - **`list_bml_library_folders`** — List util library folders via GET /bml/library/folders.
 - **`search_bml_scripts`** — Search BML scripts containing a string via GET /bml/scripts. Supports q_expr, limit, offset, orderby, fields.
+- **`search_local_bml`** — Search text across extracted local BML files under data/{profile}/{env}/bml/site/ (and util library .bml under bml/functions/). Does not call Oracle CPQ. Use after get_all_bml_code or start_bml_site_export has populated…
+- **`start_bml_site_export`** — Start a background MCP-local job that downloads the full Commerce BML/BMLT site zip (GET /adminMeta), persists under data/{profile}/{env}/bml/, and extracts to bml/site/. Returns immediately with job_id. Poll with get_l…
 - **`sync_bml_local`** — Fetch all util library BML functions with scriptText and write data/{profile}/{env}/bml/ (library.json + functions/**/*.bml + **/*.json).
 
 ## commerce
@@ -269,7 +273,7 @@ _16 tool(s)_
 
 ## meta
 
-_19 tool(s)_
+_20 tool(s)_
 
 | Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |
 |------|---------|----|------|------|------------|------------|---------|--------|
@@ -277,6 +281,7 @@ _19 tool(s)_
 | `export_response_excel` | `1.0.0` | `read` | `READ_ONLY` | `excel`, `export`, `meta`, `read` | — | `title` (str, required); `sheets` (list[ExportResponseSheetInput], required); `notes` (str \| None, default None) | - | attachment/list (no root object schema) |
 | `export_response_word` | `1.0.0` | `read` | `READ_ONLY` | `export`, `meta`, `read` | — | `title` (str, required); `sheets` (list[ExportResponseSheetInput], required); `notes` (str \| None, default None) | - | attachment/list (no root object schema) |
 | `get_local_data_status` | `1.0.0` | `read` | `READ_ONLY` | `local_data`, `meta`, `read` | — | `process_var_name` (str \| None, default None); `table_name` (str \| None, default None) | `domain` (Literal['users', 'groups', 'bml', 'commerce', 'datatables'], required) | read envelope `{status, tool, data}` |
+| `get_local_job` | `1.0.0` | `read` | `READ_ONLY` | `async`, `local_data`, `meta`, `read` | — | `job_id` (str, required) | - | read envelope `{status, tool, data}` |
 | `get_saved_prompt` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `prompt_id` (str, required) | - | read envelope `{status, tool, data}` |
 | `list_local_data` | `1.1.0` | `read` | `READ_ONLY` | `discovery`, `local_data`, `meta`, `read` | — | - | - | read envelope `{status, tool, data}` |
 | `list_saved_prompts` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `limit` (int, default 50) | - | read envelope `{status, tool, data}` |
@@ -299,6 +304,7 @@ _19 tool(s)_
 - **`export_response_excel`** — Build a multi-sheet Excel (.xlsx) from structured sheets [{name, columns?, rows}] and write under data/{profile}/{env}/exports/. Returns an attachment lead envelope plus File bytes. Caps: 20 sheets, 10k rows total. Does…
 - **`export_response_word`** — Build a Word (.docx) from structured sheets (optional notes) and write under data/{profile}/{env}/exports/. Returns attachment lead with path + file:// URI plus File bytes. Requires optional dependency python-docx (pip…
 - **`get_local_data_status`** — Check whether a local snapshot exists for a domain (users/groups/bml/commerce/datatables). For commerce pass process_var_name; for datatables pass table_name. Does not call Oracle CPQ.
+- **`get_local_job`** — Poll an MCP-local background job started by start_bml_site_export (or future local job starters). Returns status queued\|running\|succeeded\|failed plus result paths or error. Does not call Oracle CPQ. For Oracle CPQ async…
 - **`get_saved_prompt`** — Load one saved refined prompt by id, including refined_prompt text and variables. Does not call Oracle CPQ.
 - **`list_local_data`** — List local data/{profile}/{env} snapshots (manifests) for the active profile. Does not call Oracle CPQ. Use before live list/export tools when LOCAL_DATA_POLICY is ask or prefer.
 - **`list_saved_prompts`** — List locally saved refined prompts (title, tags, tools, last_run). Does not call Oracle CPQ. Library file defaults to .config/saved_prompts.json.

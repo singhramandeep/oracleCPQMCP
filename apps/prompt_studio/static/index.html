@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prompt Studio</title>
-  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/styles.css?v=0.2.0" />
 </head>
 <body>
   <div class="app-shell">
@@ -37,6 +37,10 @@
 
     <main class="shell-content">
       <section id="libraryView" class="view">
+        <div id="libraryBanner" class="library-banner hidden" role="status">
+          <span id="libraryBannerText">Library updated on disk.</span>
+          <button type="button" class="btn-secondary btn-sm" id="libraryBannerReload">Reload</button>
+        </div>
         <div class="toolbar">
           <h1 id="viewTitle">All prompts</h1>
           <span id="resultCount" class="muted"></span>
@@ -46,6 +50,10 @@
             <button type="button" class="layout-btn" id="layoutList" data-layout="list">List</button>
           </div>
           <button type="button" class="btn-secondary" id="downloadAllBtn" title="Download full saved_prompts.json">Download all</button>
+          <label class="toggle-label" title="Include disabled prompts from the library">
+            <input type="checkbox" id="showDisabledToggle" />
+            Show disabled
+          </label>
           <button type="button" class="btn-secondary" id="refreshBtn" title="Reload from saved_prompts.json">Refresh</button>
         </div>
         <div id="promptGrid" class="prompt-grid"></div>
@@ -68,7 +76,10 @@
   <dialog id="runModal" class="modal">
     <form method="dialog" id="runForm" class="modal-panel">
       <header class="modal-header">
-        <h2 id="modalTitle">Run prompt</h2>
+        <div class="modal-title-wrap">
+          <h2 id="modalTitleDisplay">Run prompt</h2>
+          <input type="text" id="modalTitleInput" class="modal-title-input hidden" maxlength="120" />
+        </div>
         <button type="button" class="btn-ghost" id="closeModal" aria-label="Close">×</button>
       </header>
       <div class="modal-body">
@@ -79,23 +90,38 @@
         <div class="stats-row" id="modalStats"></div>
         <div class="field-head">
           <label class="field-label">Original user prompt</label>
-          <button type="button" class="field-toggle" id="toggleOriginal"
-                  aria-controls="modalOriginal" aria-expanded="false">Show more</button>
+          <div class="field-head-actions">
+            <button type="button" class="btn-secondary btn-sm hidden" id="makeVarOriginalBtn">Make variable</button>
+            <button type="button" class="field-toggle" id="toggleOriginal"
+                    aria-controls="modalOriginal" aria-expanded="false">Show more</button>
+          </div>
         </div>
         <pre id="modalOriginal" class="code-block code-block-original is-collapsed"></pre>
+        <textarea id="modalOriginalEdit" class="code-edit hidden" rows="4"></textarea>
         <div class="field-head">
           <label class="field-label">Refined template</label>
-          <button type="button" class="field-toggle" id="toggleTemplate"
-                  aria-controls="modalTemplate" aria-expanded="false">Show more</button>
+          <div class="field-head-actions">
+            <button type="button" class="btn-secondary btn-sm hidden" id="makeVarTemplateBtn">Make variable</button>
+            <button type="button" class="field-toggle" id="toggleTemplate"
+                    aria-controls="modalTemplate" aria-expanded="false">Show more</button>
+          </div>
         </div>
         <pre id="modalTemplate" class="code-block is-collapsed"></pre>
+        <textarea id="modalTemplateEdit" class="code-edit hidden" rows="8"></textarea>
+        <label class="toggle-label hidden" id="enabledToggleWrap">
+          <input type="checkbox" id="modalEnabledToggle" checked />
+          Enabled in library
+        </label>
         <div id="varFields" class="var-fields"></div>
-        <label class="field-label">Generated</label>
-        <textarea id="generatedOut" class="generated" readonly rows="10"></textarea>
+        <label class="field-label run-only-label">Generated</label>
+        <textarea id="generatedOut" class="generated run-only-block" readonly rows="10"></textarea>
       </div>
       <footer class="modal-footer">
-        <button type="button" class="btn-secondary" id="copyBtn">Copy</button>
-        <button type="button" class="btn-primary" id="generateBtn">Generate</button>
+        <button type="button" class="btn-secondary run-only-block" id="editBtn">Edit</button>
+        <button type="button" class="btn-secondary run-only-block" id="copyBtn">Copy</button>
+        <button type="button" class="btn-primary run-only-block" id="generateBtn">Generate</button>
+        <button type="button" class="btn-secondary edit-only-block hidden" id="cancelEditBtn">Cancel</button>
+        <button type="button" class="btn-primary edit-only-block hidden" id="saveEditBtn">Save</button>
       </footer>
     </form>
   </dialog>
@@ -116,6 +142,6 @@
     </form>
   </dialog>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=0.2.0"></script>
 </body>
 </html>

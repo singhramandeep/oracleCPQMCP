@@ -191,6 +191,7 @@ def register_saved_prompt_tools(mcp: Any) -> None:
         if save is None:
             return {
                 "needs_user_input": True,
+                "elicitation_preferred": True,
                 "question": (
                     f"Save refined prompt {title!r}? "
                     "You can also enable auto-save for all future refined prompts "
@@ -202,7 +203,8 @@ def register_saved_prompt_tools(mcp: Any) -> None:
                     "skip — do not save",
                 ],
                 "hint": (
-                    "Ask the user, then call offer_save_refined_prompt again with "
+                    "Prefer host MCP elicitation when available; otherwise ask in chat, "
+                    "then call offer_save_refined_prompt again with "
                     "save=true|false and optionally always=true (same other args)."
                 ),
                 "pending": {

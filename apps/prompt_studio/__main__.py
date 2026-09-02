@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -15,8 +16,18 @@ def _ensure_import_paths() -> Path:
     return repo_root
 
 
+def _pin_library_env(repo_root: Path) -> None:
+    """Align Studio with MCP defaults so both read the same saved_prompts.json."""
+    config = repo_root / ".config"
+    if not os.environ.get("CPQ_CONFIG_DIR"):
+        os.environ["CPQ_CONFIG_DIR"] = str(config.resolve())
+    if not os.environ.get("CPQ_SAVED_PROMPTS_PATH"):
+        os.environ["CPQ_SAVED_PROMPTS_PATH"] = str((config / "saved_prompts.json").resolve())
+
+
 def main() -> None:
-    _ensure_import_paths()
+    repo_root = _ensure_import_paths()
+    _pin_library_env(repo_root)
 
     try:
         import uvicorn

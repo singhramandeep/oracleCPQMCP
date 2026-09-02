@@ -460,6 +460,8 @@ Example `.cursor/mcp.json` (Windows — uses `mcp-server.cmd`):
 
 **macOS/Linux** — use `mcp-server.sh` in `command` (see `[.cursor/mcp.json.unix.example](../.cursor/mcp.json.unix.example)`).
 
+**Dual environments (dev + test in one session):** copy [`.cursor/mcp.json.dual.example.json`](../.cursor/mcp.json.dual.example.json) (or Antigravity [`.agents/mcp_config.dual.example.json`](../.agents/mcp_config.dual.example.json)). Two MCP entries share the profile but set `CPQ_ENVIRONMENT` differently; tool envelopes stamp `profile` + `environment` so the agent can cite which site answered. Optional: raise `CPQ_HTTP_TIMEOUT` (e.g. `300`) for long BML downloads.
+
 **Steps:**
 
 1. Open the `oracleCPQMCP` folder in Cursor (File → Open Folder).
@@ -616,11 +618,19 @@ Expected: the agent runs a preflight/dry-run, explains the proposed change, and 
 
 ### 6.8 BML export (optional, admin)
 
-Requires admin permissions on the CPQ site. The agent downloads the full Commerce BML/BMLT site export as a zip file.
+Requires admin permissions on the CPQ site. Large sites often exceed IDE/MCP HTTP timeouts (~60s) if you block on one call.
 
-> Download all Commerce BML and BMLT source code from CPQ as a zip file I can save locally.
+**Preferred agent loop (0.3.0+):**
 
+1. `start_bml_site_export` → immediate `job_id`
+2. Poll `get_local_job(job_id=...)` until `succeeded` or `failed`
+3. Search/read via `search_local_bml` or MCP resources `cpq://local` / `cpq://local/bml/{path}`
 
+Raise profile `HTTP_TIMEOUT` or host `CPQ_HTTP_TIMEOUT` (e.g. `300`) if individual GETs still time out. See [FAQ — BML timeout](FAQ.md) and [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md).
+
+> Start a background BML site export, poll until it finishes, then search local BML for ModelMaster.
+
+Sync alternative (may time out on large sites): `get_all_bml_code`.
 
 ### 6.9 Commerce metadata (optional)
 

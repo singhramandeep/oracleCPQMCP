@@ -374,7 +374,8 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="bml",
         operation="read",
         description=(
-            "Download or retrieve BML source code from the CPQ site. "
+            "Download or retrieve BML source code from the CPQ site (synchronous — "
+            "blocks the MCP tool call until done). "
             "delivery='zip' (default) exports all Commerce BML and BMLT files via "
             "GET /adminMeta — equivalent to cpq-toolkit pull; saves the zip under "
             "data/{profile}/{env}/bml/ and extracts the full folder tree to "
@@ -382,13 +383,48 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "delivery='json' returns util library functions with scriptText inline "
             "(paginated fetch of /bml/library/functions plus per-function detail) and "
             "writes library.json plus per-function .bml/.json under data/.../bml/. "
+            "For large sites that exceed MCP/host timeouts, prefer "
+            "start_bml_site_export + get_local_job instead of delivery=zip. "
+            "Raise HTTP_TIMEOUT / CPQ_HTTP_TIMEOUT (seconds) if needed. "
             "Admin permissions required."
         ),
         tags={"export", "admin", "bml", "local_data"},
         read_only=True,
         http_method="GET",
         api_path="/adminMeta",
-        version="1.3.0",
+        version="1.4.0",
+    ),
+    "start_bml_site_export": _spec(
+        "start_bml_site_export",
+        domain="bml",
+        operation="read",
+        description=(
+            "Start a background MCP-local job that downloads the full Commerce BML/BMLT "
+            "site zip (GET /adminMeta), persists under data/{profile}/{env}/bml/, and "
+            "extracts to bml/site/. Returns immediately with job_id. Poll with "
+            "get_local_job until status is succeeded or failed. Prefer this over "
+            "get_all_bml_code(delivery=zip) when the sync call times out. "
+            "Does not use Oracle taskId (that path is export_bml_library_functions)."
+        ),
+        tags={"export", "bml", "local_data", "async"},
+        read_only=True,
+        http_method="GET",
+        api_path="/adminMeta",
+        version="1.0.0",
+    ),
+    "search_local_bml": _spec(
+        "search_local_bml",
+        domain="bml",
+        operation="read",
+        description=(
+            "Search text across extracted local BML files under "
+            "data/{profile}/{env}/bml/site/ (and util library .bml under bml/functions/). "
+            "Does not call Oracle CPQ. Use after get_all_bml_code or start_bml_site_export "
+            "has populated the cache. Prefer this when live search_bml_scripts 404s."
+        ),
+        tags={"bml", "search", "local_data"},
+        read_only=True,
+        version="1.0.0",
     ),
     "get_bml_function": _spec(
         "get_bml_function",
@@ -1298,6 +1334,21 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "from list/search/picker. Local library file only; does not call Oracle CPQ."
         ),
         tags={"saved_prompts"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "get_local_job": _spec(
+        "get_local_job",
+        domain="meta",
+        operation="read",
+        description=(
+            "Poll an MCP-local background job started by start_bml_site_export "
+            "(or future local job starters). Returns status queued|running|succeeded|failed "
+            "plus result paths or error. Does not call Oracle CPQ. "
+            "For Oracle CPQ async exports (export_datatables / export_bml_library_functions) "
+            "use get_task + download_task_file with the CPQ taskId instead."
+        ),
+        tags={"local_data", "async"},
         read_only=True,
         version="1.0.0",
     ),

@@ -1,19 +1,19 @@
 # Features and security
 
-Product overview for the Oracle CPQ MCP server (**package 0.2.0**) and related local tooling. For per-tool tables see [`TOOL_CATALOG.md`](TOOL_CATALOG.md). Changelog: [`RELEASE_NOTES.md`](RELEASE_NOTES.md). Setup: [`QUICKSTART.md`](QUICKSTART.md).
+Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related local tooling. For per-tool tables see [`TOOL_CATALOG.md`](TOOL_CATALOG.md). Changelog: [`RELEASE_NOTES.md`](RELEASE_NOTES.md). Setup: [`QUICKSTART.md`](QUICKSTART.md). Live honesty: [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md).
 
 ---
 
 ## Detailed features
 
-### MCP tool catalog (100 tools)
+### MCP tool catalog (103 tools)
 
 | Domain | What it covers |
 |--------|----------------|
 | **Users** | List/get/export users, user groups, patch update (write) |
 | **Groups** | List/get groups, group members, create group (write) |
 | **Data tables** | List/get/rows, deploy, create, export |
-| **BML** | Full code export, scripts search, common functions, library folders, dependent attributes, library export |
+| **BML** | Full code export (sync + **async local job**), local text search, scripts search, common functions, library folders, dependent attributes, library export |
 | **Commerce** | Process/line attributes and actions; transactions; commerce UI settings; saved searches |
 | **Metrics** | Site metrics list with optional time filters and METRICS_* descriptions |
 | **Collab** | Collaborative quote operation queue get/clear |
@@ -22,7 +22,7 @@ Product overview for the Oracle CPQ MCP server (**package 0.2.0**) and related l
 | **Parts** | Parts search and get |
 | **Tasks** | Get task status; download task file (async export follow-up) |
 | **Configuration** | productFamilies / layoutcache composites |
-| **Meta** | `discover_tools`, saved refined-prompt tools, local `data/` sync and policy |
+| **Meta** | `discover_tools`, `get_local_job`, saved refined-prompt tools, local `data/` sync and policy, post-response export |
 
 Regenerate the formal catalog after tool changes:
 
@@ -36,9 +36,15 @@ python scripts/generate_tool_catalog.py
 
 ### Output and agent UX
 
-- **Structured envelopes** — reads/writes return `{status, tool, data}` (or attachment + envelope for Excel/zip).
+- **Structured envelopes** — reads/writes return `{status, tool, data}` (or attachment + envelope for Excel/zip); stamped with **`profile`** + **`environment`**.
 - **Structured errors** — `{status: error, code, message, hint, details}`; credentials stripped.
 - **Pagination hints** — `hasMore` / `nextOffset` / suggested next call on list tools.
+- **Async BML** — `start_bml_site_export` → `get_local_job`; local grep via `search_local_bml`.
+- **MCP resources** — `cpq://local`, `cpq://local/bml/{path}` for cache grounding without huge tool payloads.
+- **HTTP timeout** — profile `HTTP_TIMEOUT` / host `CPQ_HTTP_TIMEOUT` (default 60s, range 5–3600).
+- **Dual env** — example dual MCP configs under `.cursor/` and `.agents/`; cite profile/env when comparing.
+- **Capability / smoke honesty** — server instructions include a capability card; live status in [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md).
+- **Elicitation** — prefer host MCP elicitation for offer_* tools when available; chat `needs_user_input` fallback otherwise.
 - **Progress** — long fetches (exports, BML) report progress where supported.
 
 ### Refined prompts (token-efficient reuse)
@@ -79,7 +85,7 @@ Lightweight FastAPI + static UI to browse/fill saved prompts. Does **not** call 
 
 ### Live testing status (honest scope)
 
-Offline unit/contract tests cover the catalog. Some **scope C** areas remain **untested live** (tasks, configuration productFamilies, newer datatable create/export, some BML extensions) — see the table in [`README.md`](../README.md).
+Offline unit/contract tests cover the catalog. Authoritative live honesty matrix: [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md). Some areas remain **untested live** (tasks, configuration productFamilies, newer datatable create/export, some BML extensions) — see also the table in [`README.md`](../README.md).
 
 ---
 

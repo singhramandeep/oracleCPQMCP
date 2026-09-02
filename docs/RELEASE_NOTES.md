@@ -1,9 +1,9 @@
 # Release notes
 
 Changelog for the **Oracle CPQ MCP** server. Format inspired by [Keep a Changelog](https://keepachangelog.com/).  
-Package version today: **`0.2.0`** (see [`pyproject.toml`](../pyproject.toml)).
+Package version today: **`0.3.0`** (see [`pyproject.toml`](../pyproject.toml)).
 
-Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [QUICKSTART.md](QUICKSTART.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
+Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md) · [QUICKSTART.md](QUICKSTART.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
 
 ## How to refresh
 
@@ -31,12 +31,42 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 
 ### Highlights
 
-_(Nothing yet — add bullets here as you land work after 0.2.0.)_
+_(Nothing yet — add bullets here as you land work after 0.3.0.)_
 
 ### Git commits (auto-generated)
 
 <!-- git-commits -->
 <!-- /git-commits -->
+
+---
+
+## [0.3.0] - 2026-09-01
+
+### Highlights
+
+Agent-UX release: **async BML jobs**, **local cache resources**, **dual-env examples**, **capability/smoke honesty**, configurable HTTP timeouts. Catalog **103** tools.
+
+| Area | What you get |
+|------|----------------|
+| Async BML | `start_bml_site_export` → poll `get_local_job` (avoids multi-minute MCP blocks) |
+| Local search | `search_local_bml` over `data/.../bml/site/` |
+| Resources | `cpq://local`, `cpq://local/bml/{path}` |
+| Timeouts | Profile `HTTP_TIMEOUT` / host `CPQ_HTTP_TIMEOUT` (default 60s) |
+| Dual env | `.cursor/mcp.json.dual.example.json` + Antigravity dual example; envelopes stamp `profile` |
+| Honesty | [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md) + capability card in server instructions |
+
+### Added
+
+- `start_bml_site_export`, `get_local_job`, `search_local_bml`
+- MCP resources for local data index and BML file reads
+- Dual-MCP config examples; FAQ async agent loop for BML/exports
+- Configurable HTTP timeout (5–3600s)
+
+### Changed
+
+- Tool envelopes include `profile` (alias of `customer_id`) plus `environment`
+- `get_all_bml_code` docs point agents at async job path for large sites
+- Package version **0.3.0**
 
 ---
 

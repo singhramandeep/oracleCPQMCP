@@ -45,7 +45,7 @@ def _utc_now_iso() -> str:
 
 
 def stamp_response_context(payload: Any, context: Any) -> Any:
-    """Stamp environment, customer_id, and retrieved_at onto LLM-facing envelopes."""
+    """Stamp profile, environment, customer_id, and retrieved_at onto envelopes."""
     if context is None:
         return payload
 
@@ -59,6 +59,8 @@ def stamp_response_context(payload: Any, context: Any) -> Any:
             stamped["environment"] = environment
         if customer_id is not None:
             stamped["customer_id"] = customer_id
+            # Alias for agents comparing dual MCP servers (profile nickname).
+            stamped["profile"] = customer_id
         stamped["retrieved_at"] = retrieved_at
         return stamped
 

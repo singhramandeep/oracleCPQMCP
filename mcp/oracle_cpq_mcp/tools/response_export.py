@@ -118,6 +118,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
         if choice is None:
             return {
                 "needs_user_input": True,
+                "elicitation_preferred": True,
                 "question": (
                     f"Export tabular data from {title!r}? "
                     "Excel (.xlsx), Word (.docx under data/.../exports with a local file link), "
@@ -132,7 +133,8 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
                     "never — skip and set POST_RESPONSE_EXPORT=never",
                 ],
                 "hint": (
-                    "Ask the user, then call offer_export_response again with choice=… "
+                    "Prefer host MCP elicitation when available; otherwise ask in chat, "
+                    "then call offer_export_response again with choice=… "
                     "For excel/word/both/always_excel, also call export_response_excel "
                     "and/or export_response_word with the same title/sheets/notes."
                 ),

@@ -76,6 +76,10 @@ class SavedPrompt:
         )
 
 
+class UpdatePromptError(ValueError):
+    """Raised when update_prompt validation fails."""
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -277,6 +281,120 @@ def set_enabled(
         save_library(data, path)
         return entry
     return None
+
+
+def _placeholder_names(text: str) -> list[str]:
+    """Extract {{snake_case}} names in first-seen order."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for match in re.finditer(r"\{\{([a-z][a-z0-9_]*)\}\}", text or ""):
+        name = match.group(1)
+        if name not in seen:
+            seen.add(name)
+            ordered.append(name)
+    return ordered
+
+
+def _reconcile_variables(
+    refined_prompt: str,
+    variables: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Keep hints for placeholders still present; add empty hints for new ones."""
+    existing = dict(variables or {})
+    return {name: existing.get(name, "") for name in _placeholder_names(refined_prompt)}
+
+
+def update_prompt(
+    prompt_id: str,
+    *,
+    title: str | None = None,
+    original_user_prompt: str | None = None,
+    refined_prompt: str | None = None,
+    variables: dict[str, Any] | None = None,
+    tags: list[str] | None = None,
+    tools: list[str] | None = None,
+    output_format: str | None = None,
+    enabled: bool | None = None,
+    path: Path | None = None,
+) -> SavedPrompt:
+    """Update a saved prompt by id (not content-hash dedupe).
+
+    Raises UpdatePromptError if the new content hash collides with another id.
+    """
+    data = load_library(path)
+    prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
+    target_idx: int | None = None
+    entry: SavedPrompt | None = None
+    for idx, raw in enumerate(prompts):
+        if not isinstance(raw, dict):
+            continue
+        if raw.get("id") == prompt_id:
+            target_idx = idx
+            entry = SavedPrompt.from_dict(raw)
+            break
+    if entry is None or target_idx is None:
+        raise UpdatePromptError(f"Prompt not found: {prompt_id}")
+
+    if title is not None:
+        entry.title = title.strip()[:120] or entry.title
+    if original_user_prompt is not None:
+        entry.original_user_prompt = original_user_prompt
+    if refined_prompt is not None:
+        entry.refined_prompt = refined_prompt
+    if tags is not None:
+        entry.tags = sorted(set(tags))
+    if tools is not None:
+        entry.tools = list(tools)
+    if output_format is not None:
+        entry.output_format = normalize_output_format(output_format)
+    if enabled is not None:
+        entry.enabled = bool(enabled)
+
+    if variables is not None:
+        entry.variables = sanitize_variables(variables)
+    elif refined_prompt is not None:
+        entry.variables = sanitize_variables(
+            _reconcile_variables(entry.refined_prompt, entry.variables)
+        )
+
+    new_hash = content_hash_for(entry.refined_prompt, entry.tools, entry.output_format)
+    for raw in prompts:
+        if not isinstance(raw, dict):
+            continue
+        other_id = str(raw.get("id") or "")
+        if other_id == prompt_id:
+            continue
+        other = SavedPrompt.from_dict(raw)
+        other_hash = other.content_hash or content_hash_for(
+            other.refined_prompt,
+            other.tools,
+            other.output_format,
+        )
+        if other_hash == new_hash:
+            raise UpdatePromptError(
+                "Updated content matches another saved prompt (content hash collision). "
+                "Change the refined template or save as a duplicate instead."
+            )
+    entry.content_hash = new_hash
+    prompts[target_idx] = entry.to_dict()
+    data["prompts"] = prompts
+    save_library(data, path)
+    return entry
+
+
+def sort_entries(
+    entries: list[SavedPrompt],
+    *,
+    sort: str = "recent",
+) -> list[SavedPrompt]:
+    """Sort prompt entries for display (recent = last_run_at/created_at desc)."""
+    if sort == "title":
+        return sorted(entries, key=lambda e: e.title.lower())
+    return sorted(
+        entries,
+        key=lambda e: e.last_run_at or e.created_at or "",
+        reverse=True,
+    )
 
 
 def delete_prompt(prompt_id: str, path: Path | None = None) -> bool:

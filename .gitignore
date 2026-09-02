@@ -48,6 +48,7 @@ docs/*.md
 !docs/FEATURES.md
 !docs/PRE_COMMIT_REVIEW.md
 !docs/FAQ.md
+!docs/LIVE_SMOKE_MATRIX.md
 
 # Local Focalpoint/scratch dumps (never commit)
 tmp_*

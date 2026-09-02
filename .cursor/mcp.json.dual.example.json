@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "oracle-cpq-dev": {
+      "command": "${workspaceFolder}/scripts/mcp-server.cmd",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_ENVIRONMENT": "dev",
+        "CPQ_CONFIG_DIR": "${workspaceFolder}/.config",
+        "CPQ_HTTP_TIMEOUT": "300"
+      }
+    },
+    "oracle-cpq-test": {
+      "command": "${workspaceFolder}/scripts/mcp-server.cmd",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "CPQ_CUSTOMER_PROFILE": "mycompany",
+        "CPQ_ENVIRONMENT": "test",
+        "CPQ_CONFIG_DIR": "${workspaceFolder}/.config",
+        "CPQ_HTTP_TIMEOUT": "300"
+      }
+    }
+  }
+}
