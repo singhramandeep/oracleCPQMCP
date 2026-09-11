@@ -1,0 +1,46 @@
+# Example LEGACY catalog sidecar (safe to commit).
+# Prefer a unified .config/<customer_id>.yaml (see .profile.yaml.example).
+# This file is still loaded when only a .env profile exists (no full .yaml).
+# Secrets stay in .env — never put passwords here.
+
+version: 1
+
+commerce_processes:
+  - var_name: oraclecpqo_bmClone_2
+    alias: base commerce process
+    enabled: true
+  # - var_name: other_process
+  #   alias: secondary process
+  #   enabled: false
+
+data_tables:
+  - name: PricingMatrix
+    alias: pricing matrix
+    enabled: true
+  - name: DiscountMatrix
+    alias: discount matrix
+    enabled: true
+  # - name: LegacyTable
+  #   alias: legacy table
+  #   enabled: false
+
+metrics:
+  QUOTES: Total number of quotes
+  INTERNALUSERS: Total number of internal users
+  DISKSPACE: Disk space used
+
+product_families:
+  - var_name: dummy
+    name: Dummy
+    alias: This is just dummy model
+    enabled: true
+    lines:
+      - var_name: pneumaticCylinders
+        name: Something
+        alias: Something
+        enabled: true
+        models:
+          - var_name: nFPA
+            name: NFPA
+            alias: NFPA
+            enabled: true

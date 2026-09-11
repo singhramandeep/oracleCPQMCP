@@ -1,0 +1,79 @@
+# Example unified customer profile (safe to commit).
+# Copy to .config/<customer_id>.yaml and edit. Gitignored when named *.yaml
+# (except this example). Prefer this over legacy .env + .catalog.yaml.
+#
+# Host overrides still win: CPQ_ENVIRONMENT, CPQ_READ_ONLY, CPQ_HTTP_TIMEOUT, etc.
+# Migrate an existing .env with:
+#   python scripts/migrate_profile_yaml.py <customer_id>
+
+version: 1
+customer_name: Acme Corporation
+default_environment: dev
+rest_api_version: v18
+company_login_name: _host
+read_only: true
+debug_mode: true
+refined_prompt: true
+auto_save_refined_prompt: false
+local_data_policy: ask
+post_response_export: ask
+# http_timeout: 60
+customer_knowledge_file: acme.md
+
+environments:
+  dev:
+    url: https://acme-dev.bigmachines.com
+    enabled: true
+    credentials:
+      - username: integration_user
+        password: DevSecretPassword123!
+  test:
+    url: https://acme-test.bigmachines.com
+    enabled: true
+    credentials:
+      - username: integration_user
+        password: TestSecretPassword123!
+  prod:
+    url: https://acme.bigmachines.com
+    # Keep credentials in the file but block selection:
+    enabled: false
+    credentials:
+      - username: read_only_admin
+        password: ProdSecretPassword123!
+
+commerce_processes:
+  - var_name: oraclecpqo_bmClone_2
+    alias: base commerce process
+    enabled: true
+
+data_tables:
+  - name: PricingMatrix
+    alias: pricing matrix
+    enabled: true
+  - name: DiscountMatrix
+    alias: discount matrix
+    enabled: true
+  # - name: LegacyTable
+  #   alias: legacy table
+  #   enabled: false
+
+metrics:
+  QUOTES: Total number of quotes
+  INTERNALUSERS: Total number of internal users
+  DISKSPACE: Disk space used
+
+product_families:
+  - var_name: dummy
+    name: Dummy
+    alias: This is just dummy model
+    enabled: true
+    lines:
+      - var_name: pneumaticCylinders
+        name: Something
+        alias: Something
+        enabled: true
+        models:
+          - var_name: nFPA
+            name: NFPA
+            alias: NFPA
+            enabled: true
