@@ -162,3 +162,105 @@ def test_get_document_layout_path(configured: CPQProfile) -> None:
     result = mcp.tools["get_document_layout"]()
     assert result["status"] == "ok"
     client.get.assert_called_once_with("/commerceProcesses/oraclecpqo/layouts/transaction")
+
+
+def test_create_transaction_dry_run_does_not_post(configured: CPQProfile) -> None:
+    client = MagicMock()
+    client.profile = configured
+    mcp = FakeMcp()
+    register_transaction_tools(mcp, client)
+    result = mcp.tools["create_transaction"](
+        body={"documents": {"transaction": {"_customer_t": "Acme"}}},
+        dry_run=True,
+    )
+    assert result["status"] == "preflight_ok"
+    data = result.get("data") or result
+    assert data["would_execute"]["method"] == "POST"
+    assert data["would_execute"]["path"] == "/commerceDocumentsOraclecpqoTransaction"
+    client.post.assert_not_called()
+
+
+def test_save_transaction_dry_run(configured: CPQProfile) -> None:
+    client = MagicMock()
+    client.profile = configured
+    client.get.return_value = {"id": 99}
+    mcp = FakeMcp()
+    register_transaction_tools(mcp, client)
+    result = mcp.tools["save_transaction"](transaction_id="99", dry_run=True)
+    assert result["status"] == "preflight_ok"
+    data = result.get("data") or result
+    assert (
+        data["would_execute"]["path"]
+        == "/commerceDocumentsOraclecpqoTransaction/99/actions/cleanSave_t"
+    )
+    client.post.assert_not_called()
+
+
+def test_delete_transaction_line_dry_run(configured: CPQProfile) -> None:
+    client = MagicMock()
+    client.profile = configured
+    client.get.return_value = {"id": 99}
+    mcp = FakeMcp()
+    register_transaction_tools(mcp, client)
+    result = mcp.tools["delete_transaction_line"](
+        transaction_id="99",
+        document_number="2",
+        dry_run=True,
+    )
+    assert result["status"] == "preflight_ok"
+    data = result.get("data") or result
+    assert data["action"] == "delete"
+    assert data["would_execute"]["method"] == "DELETE"
+    assert (
+        data["would_execute"]["path"]
+        == "/commerceDocumentsOraclecpqoTransaction/99/transactionLine/2"
+    )
+    assert client.get.call_count == 2
+    client.delete.assert_not_called()
+
+
+def test_interact_transaction_line_dry_run(configured: CPQProfile) -> None:
+    client = MagicMock()
+    client.profile = configured
+    client.get.return_value = {"id": 99}
+    mcp = FakeMcp()
+    register_transaction_tools(mcp, client)
+    result = mcp.tools["interact_transaction_line"](
+        transaction_id="99",
+        document_number="3",
+        dry_run=True,
+    )
+    assert result["status"] == "preflight_ok"
+    data = result.get("data") or result
+    assert data["action"] == "update"
+    assert (
+        data["would_execute"]["path"]
+        == "/commerceDocumentsOraclecpqoTransaction/99/transactionLine/3/actions/_interact"
+    )
+    assert client.get.call_count == 2
+    client.post.assert_not_called()
+
+
+def test_delete_transaction_line_preflight_fails_when_line_missing(
+    configured: CPQProfile,
+) -> None:
+    from oracle_cpq_mcp.core.errors import CPQAPIError
+
+    client = MagicMock()
+    client.profile = configured
+
+    def _get(path: str, **_kwargs: object) -> dict[str, object]:
+        if path.endswith("/transactionLine/2"):
+            raise CPQAPIError("not found", status_code=404, path=path)
+        return {"id": 99}
+
+    client.get.side_effect = _get
+    mcp = FakeMcp()
+    register_transaction_tools(mcp, client)
+    result = mcp.tools["delete_transaction_line"](
+        transaction_id="99",
+        document_number="2",
+        dry_run=True,
+    )
+    assert result["status"] == "preflight_failed"
+    client.delete.assert_not_called()

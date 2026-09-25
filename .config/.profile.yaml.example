@@ -14,7 +14,7 @@ company_login_name: _host
 read_only: true
 debug_mode: true
 refined_prompt: true
-auto_save_refined_prompt: false
+auto_save_refined_prompt: true
 local_data_policy: ask
 post_response_export: ask
 # http_timeout: 60

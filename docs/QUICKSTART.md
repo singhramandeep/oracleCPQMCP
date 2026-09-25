@@ -12,6 +12,7 @@ Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials,
 | Requirement       | Details                                                                                                                                                                                                                                                                                       |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Python            | 3.11 or newer                                                                                                                                                                                                                                                                                 |
+| Node.js / npm     | Optional but **recommended** — needed for Mermaid diagrams in Word exports (`mmdc`). See [Step 2.1](#21-optional--mermaid-cli-for-word-diagrams).                                                                                                                                              |
 | Oracle CPQ access | REST API enabled; integration user with Basic Auth                                                                                                                                                                                                                                            |
 | Network           | CPQ site should be publically accessible                                                                                                                                                                                                                                                      |
 | IDE               | **Google Antigravity IDE(recommended)**; Cursor or VS Code Copilot Agent also supported The quickstart guide is tested for Antigravity IDE. The tool should work for other supported IDE's too but the quick start guide might not be up to date and instructions might need minor tweaking |
@@ -101,8 +102,9 @@ This folder is your **project root** — all commands in later steps run from he
 ```
 oracleCPQMCP/                  ← project root (open this folder in your IDE)
 ├── pyproject.toml             ← Python project file (confirms you are in the right folder)
-├── .config/                   ← CPQ credentials (YOU create *.env here)
-│   └── .env.example           ← Template (safe to commit)
+├── .config/                   ← CPQ credentials (YOU create *.yaml or *.env here)
+│   ├── .profile.yaml.example  ← Preferred unified template (safe to commit)
+│   └── .env.example           ← Legacy flat template (safe to commit)
 ├── .cursor/
 │   ├── mcp.json.example       ← Copy → mcp.json (Windows)
 │   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
@@ -193,60 +195,107 @@ python -m pip install --upgrade pip
 python -m pip install --prefer-binary -e ".[dev]"
 ```
 
+### 2.1 Optional — Mermaid CLI for Word diagrams
+
+Analytical Word exports (`export_response_word` with `diagrams`) rasterize Mermaid **locally** via `mmdc` (`@mermaid-js/mermaid-cli`). Without it, the `.docx` still builds but diagrams appear as raw Mermaid text under *Diagram not rendered: mmdc not on PATH*. Public Kroki / mermaid.ink are not used.
+
+**Prerequisites:** [Node.js LTS](https://nodejs.org/) (includes `npm`). Verify:
+
+```powershell
+node --version
+npm --version
+```
+
+**Install (global, recommended):**
+
+```powershell
+npm i -g @mermaid-js/mermaid-cli
+```
+
+**Verify** (expect a version such as `10.x` or `12.x`):
+
+```powershell
+mmdc --version
+# Windows also resolves as:
+where.exe mmdc
+```
+
+If `mmdc` is not found after install, close and reopen the IDE terminal (so PATH picks up the npm global bin, typically `%AppData%\npm` on Windows). Then retry `mmdc --version`.
+
+**Alternative:** pass a pre-rendered PNG under `tmp/{profile}/{env}/` via `image_path` on each diagram (no `mmdc` required).
+
 ---
 
 
 
 ## Step 3 — Create your CPQ credential profile
 
-Credentials live in **one file per customer**, never in MCP JSON.
+Credentials live in **one file per customer**, never in MCP JSON. Prefer a unified `.yaml` profile.
 
 ### 3.1 Copy the template
 
 **IDE terminal** (project root):
 
 
-| Shell                    | Command                                           |
-| ------------------------ | ------------------------------------------------- |
-| Windows PowerShell / CMD | `copy .config\.env.example .config\mycompany.env` |
-| macOS / Linux / Git Bash | `cp .config/.env.example .config/mycompany.env`   |
+| Shell                    | Command                                                               |
+| ------------------------ | --------------------------------------------------------------------- |
+| Windows PowerShell / CMD | `copy .config\.profile.yaml.example .config\mycompany.yaml`           |
+| macOS / Linux / Git Bash | `cp .config/.profile.yaml.example .config/mycompany.yaml`             |
+| Legacy flat `.env`       | `copy .config\.env.example .config\mycompany.env` (or `cp` on Unix) |
 
 
-Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.env` becomes `CPQ_CUSTOMER_PROFILE`.
+Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.yaml` / `.env` becomes `CPQ_CUSTOMER_PROFILE`.
 
-### 3.2 Edit `.config/mycompany.env`
+### 3.1b Migrate an existing `.env` to `.yaml`
 
-Open the file in the IDE editor and set at minimum:
+If you already have `.config/<id>.env` (for example `mycompany.env` or `acme.env`):
 
-```env
-CUSTOMER_NAME=My Company
-DEV_URL=https://your-site-dev.bigmachines.com
-TEST_URL=https://your-site-test.bigmachines.com
-# PROD_URL=https://your-site.bigmachines.com
+```bash
+# Preview (does not write a file; output may include passwords — keep it local)
+python scripts/migrate_profile_yaml.py mycompany --dry-run
 
-DEV_USERNAME=your_integration_user
-DEV_PASSWORD=your_dev_password
+# Write .config/mycompany.yaml
+python scripts/migrate_profile_yaml.py mycompany
 
-TEST_USERNAME=your_integration_user
-TEST_PASSWORD=your_test_password
+# Overwrite if the YAML already exists
+python scripts/migrate_profile_yaml.py mycompany --force
+```
 
-DEFAULT_ENVIRONMENT=dev
-REST_API_VERSION=v18
-READ_ONLY=true
-COMPANY_LOGIN_NAME=_host
+Then smoke-test and reload MCP. While both `.yaml` and `.env` exist, **YAML wins**. After you confirm, remove the legacy `.env` (and any `.catalog.yaml` sidecar).
 
-CUSTOM_DATA_TABLE_NAME=YourDefaultTable
+Full steps, field mapping, and troubleshooting: [FAQ — How do I migrate from a legacy `.env` to `.yaml`?](FAQ.md#how-do-i-migrate-from-a-legacy-env-to-yaml).
+
+### 3.2 Edit `.config/mycompany.yaml`
+
+Open the file in the IDE editor and set at minimum `environments.dev` (url + credentials), `default_environment`, and optional commerce/table defaults. Legacy `.env` editing still works when no `.yaml` exists — see [`.config/.env.example`](../.config/.env.example).
+
+Example YAML fragment:
+
+```yaml
+customer_name: My Company
+default_environment: dev
+rest_api_version: v18
+read_only: true
+environments:
+  dev:
+    url: https://your-site-dev.bigmachines.com
+    credentials:
+      - username: your_integration_user
+        password: your_dev_password
+commerce_processes:
+  - var_name: your_process
+    alias: base commerce process
+    enabled: true
 ```
 
 
-| Field                           | What to put                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------------ |
-| `DEV_URL`                       | CPQ dev base URL — **no trailing slash**                                       |
-| `DEV_USERNAME` / `DEV_PASSWORD` | Integration user for dev                                                       |
-| `REST_API_VERSION`              | Match your CPQ release (`v15`, `v18`, …)                                       |
-| `READ_ONLY`                     | Keep `true` until you intentionally enable writes                              |
-| `CUSTOM_DATA_TABLE_NAME`        | A table that exists in dev (for smoke test)                                    |
-| `COMMERCE_PROCESS_VAR_NAME`     | Commerce process on your site (for commerce metadata tools; e.g. `oraclecpqo`) |
+| Field | What to put |
+| ----- | ----------- |
+| `environments.dev.url` | CPQ base URL — **no trailing slash** |
+| `environments.dev.credentials` | Integration user username/password |
+| `rest_api_version` | Match your CPQ release (`v15`, `v18`, …) |
+| `read_only` | Keep `true` until you intentionally enable writes |
+| `commerce_processes` / `data_tables` | Optional defaults and aliases for tools |
 
 
 **Do not commit this file.** It is gitignored.
@@ -255,8 +304,8 @@ CUSTOM_DATA_TABLE_NAME=YourDefaultTable
 
 Create separate files, for example:
 
-- `.config/mycompany.env`
-- `.config/acme.env`
+- `.config/mycompany.yaml`
+- `.config/acme.yaml`
 
 Switch at runtime with `CPQ_CUSTOMER_PROFILE=mycompany` in MCP config.
 
@@ -282,15 +331,15 @@ Make sure you replace mycompany witha actual profile you have created
   - List users
   - List groups
   - List data tables
-  - Get table (your `CUSTOM_DATA_TABLE_NAME`)
+  - Get table (each enabled `data_tables` name, or legacy `CUSTOM_DATA_TABLE_NAME*`)
 
 **If smoke test fails:**
 
 
 | Symptom                     | Fix                                                    |
 | --------------------------- | ------------------------------------------------------ |
-| `401 UNAUTHORIZED`          | Check `DEV_USERNAME` / `DEV_PASSWORD`                  |
-| `FileNotFoundError` profile | Wrong `--profile` name or missing `.config/<name>.env` |
+| `401 UNAUTHORIZED`          | Check credentials under `environments.<env>` (or legacy `DEV_USERNAME` / `DEV_PASSWORD`) |
+| `FileNotFoundError` profile | Wrong `--profile` name or missing `.config/<name>.yaml` / `.env` |
 | Network error               | VPN, URL typo, or CPQ site down                        |
 | Table check fails           | Fix `CUSTOM_DATA_TABLE_NAME` spelling                  |
 
@@ -332,6 +381,8 @@ Set these env vars in MCP config (all clients):
 ## Google Antigravity IDE (recommended)
 
 Use [Google Antigravity](https://antigravity.google/) as the primary client for Oracle CPQ MCP.
+
+**Agent instructions across IDEs:** Runtime agent policy (refined prompts, turn metrics, document templates, local-data, export) is delivered by **MCP server instructions**, not by [`.cursor/rules/`](../.cursor/rules/). Antigravity does **not** load Cursor rules. See root [`AGENTS.md`](../AGENTS.md). After instruction changes, reload/restart the Oracle CPQ MCP server.
 
 **Testing note:** These Antigravity instructions are **partially tested**. Cursor and VS Code instructions in the sections after this one **need testing**.
 
@@ -535,12 +586,12 @@ Edit `.vscode/mcp.json` if needed (profile name, env vars). Example shape:
 
 ## Step 6 — Sample checks in Agent chat
 
-After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you. When profile `REFINED_PROMPT` is not `false` (default **true**), every CPQ-related answer (live tools and/or local `data/` cache) should end with **`### Refined prompt (Better token usage)`**: **Title**, **Tags**, **Output format** (chat text / json / excel download; default chat text), **Cached data** (yes/no/mixed), a generic prose prompt with `{{placeholders}}` (including `{{output_format}}`), a **Variables** legend, then a **Tools (for the agent)** list (or `none (local file read only)`).
+After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you. When profile `REFINED_PROMPT` is not `false` (default **true**), answers from **real site/cache data work** (live CPQ tools and/or `data/{profile}/{env}/`) should end with **`### Refined prompt (Better token usage)`**: **Title**, **Tags**, **Output format** (chat text / json / excel download; default chat text), **Cached data** (yes/no/mixed), a generic prose prompt with `{{placeholders}}` (including `{{output_format}}`), a **Variables** legend, a **Tools (for the agent)** list (or `none (local file read only)` when site/cache data came from local files), then **Turn metrics** (**Elapsed** best-effort wall-clock, and **Tokens** only if the platform surfaces usage — otherwise `not available`; do not invent counts). **Coding, reviews, plans, and other work on this repo skip the footer** — it is not for every chat command.
 
 **Saving refined prompts (MCP tools — do not invent scripts):**
-- `AUTO_SAVE_REFINED_PROMPT=false` (default): agent calls `offer_save_refined_prompt` — choose **save once**, **save and always**, or **skip**. “Save and always” writes `AUTO_SAVE_REFINED_PROMPT=true` into the active `.config/<profile>.env` via `set_auto_save_refined_prompt`.
-- `AUTO_SAVE_REFINED_PROMPT=true`: agent calls `save_refined_prompt` after every footer (no ask; dedupes by hash).
-- Library file: `.config/saved_prompts.json` (gitignored). Override path with `CPQ_SAVED_PROMPTS_PATH`.
+- Example profile sets `AUTO_SAVE_REFINED_PROMPT=true` (auto-save after each YES-gate footer; dedupes by hash).
+- If your profile has `AUTO_SAVE_REFINED_PROMPT=false`: agent calls `offer_save_refined_prompt` — choose **save once**, **save and always**, or **skip**. “Save and always” writes `AUTO_SAVE_REFINED_PROMPT=true` into the active profile via `set_auto_save_refined_prompt`.
+- Library file: `.prompts/saved_prompts.json` (gitignored). Override path with `CPQ_SAVED_PROMPTS_PATH`.
 
 **Picking a saved prompt instead of typing:** type **`/OracleCPQ_SavedPrompts`** in Agent chat (or say **use a saved prompt**). The agent calls `start_prompt_picker`: **all titles** / **search** / **by tag** / **by tool**. Disabled prompts are hidden; toggle with `set_saved_prompt_enabled`. Or use the MCP prompt `run_saved_prompt` if your host shows MCP Prompts. **Reload the Oracle CPQ MCP server** after pulling these tools so they appear in the tool list.
 
@@ -550,7 +601,7 @@ Set `REFINED_PROMPT=false` to disable the footer.
 
 ### Prompt Studio (local UI for saved prompts)
 
-Browse, favorite, suite, and fill `{{placeholders}}` from `.config/saved_prompts.json` without calling CPQ.
+Browse, favorite, suite, and fill `{{placeholders}}` from `.prompts/saved_prompts.json` without calling CPQ. After YES-gate site/cache work, the agent calls **`ensure_prompt_studio`** (auto-starts if down and cites the URL). Manual start:
 
 1. Install optional deps (project venv):
 
@@ -567,6 +618,35 @@ Browse, favorite, suite, and fill `{{placeholders}}` from `.config/saved_prompts
 3. Open [http://127.0.0.1:8765](http://127.0.0.1:8765) (localhost only; no auth in v1).
 
 4. After the agent saves a refined prompt in Cursor, click **Refresh** in Prompt Studio.
+
+#### Restart Prompt Studio (one command)
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.prompt_studio restart
+```
+
+Or from the repo root:
+
+```powershell
+.\scripts\restart-prompt-studio.cmd
+```
+
+```bash
+# macOS / Linux
+./scripts/restart-prompt-studio.sh
+# or
+./.venv/bin/python -m apps.prompt_studio restart
+```
+
+This stops whatever is listening on port **8765** (or `CPQ_PROMPT_STUDIO_PORT`), then starts Studio in the foreground. Open [http://127.0.0.1:8765](http://127.0.0.1:8765) and hard-refresh once (**Ctrl+F5**) if the UI looks stale.
+
+Stop only (no restart):
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.prompt_studio stop
+```
+
+Note: MCP `ensure_prompt_studio` **starts** Studio when it is down; it does **not** restart a live process — use the `restart` command above for that.
 
 Full detail: [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) and [`docs/FEATURES.md`](FEATURES.md#prompt-studio-enable-and-run).
 
@@ -699,7 +779,7 @@ If you fork or contribute changes, confirm these rules **before** `git add`. For
 | ------------------------------------------------ | -------------------------------- | ------------------------------------- |
 | `.config/.env.example`                           | Yes                              | Template only — placeholder passwords |
 | `.config/mycompany.env` (or any `*.env` profile) | **Never**                        | Contains real CPQ passwords           |
-| `.config/saved_prompts.json`                     | **Never**                        | Local refined-prompt library          |
+| `.prompts/saved_prompts.json`                     | **Never**                        | Local refined-prompt library          |
 | `.config/prompt_studio.json`                     | **Never**                        | Prompt Studio favorites/suites        |
 | `data/`, `dat/`                                  | **Never**                        | Local CPQ snapshots                   |
 | `.cursor/mcp.json`                               | **Never** (copy from `.example`) | Local MCP config — profile name only  |
@@ -714,7 +794,7 @@ If you fork or contribute changes, confirm these rules **before** `git add`. For
 **IDE terminal** (project root) — verify ignore rules:
 
 ```bash
-git check-ignore -v .config/mycompany.env .config/saved_prompts.json data/focalpoint
+git check-ignore -v .config/mycompany.env .prompts/saved_prompts.json data/focalpoint
 # Expected: matched by .gitignore
 
 git status

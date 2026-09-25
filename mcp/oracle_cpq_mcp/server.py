@@ -32,6 +32,7 @@ from oracle_cpq_mcp.tools.parts import register_parts_tools
 from oracle_cpq_mcp.tools.performance import register_performance_tools
 from oracle_cpq_mcp.tools.response_export import register_response_export_tools
 from oracle_cpq_mcp.tools.saved_prompts import register_saved_prompt_tools
+from oracle_cpq_mcp.tools.prompt_studio import register_prompt_studio_tools
 from oracle_cpq_mcp.tools.saved_searches import register_saved_search_tools
 from oracle_cpq_mcp.tools.tasks import register_tasks_tools
 from oracle_cpq_mcp.tools.transactions import register_transaction_tools
@@ -54,7 +55,8 @@ def _load_startup_profile() -> CPQProfile:
         "Loaded profile %s (%s) env=%s rest=%s credentials=%d active_index=%d "
         "user=%s read_only=%s refined_prompt=%s auto_save_refined_prompt=%s "
         "local_data_policy=%s post_response_export=%s knowledge_file=%s "
-        "commerce_aliases=%d table_aliases=%d",
+        "commerce_aliases=%d table_aliases=%d catalog_source=%s "
+        "profile_file=%s product_family_aliases=%d",
         profile.customer_id,
         profile.customer_name,
         profile.environment,
@@ -70,6 +72,9 @@ def _load_startup_profile() -> CPQProfile:
         profile.customer_knowledge_file,
         len(profile.commerce_process_aliases),
         len(profile.custom_data_table_aliases),
+        profile.catalog_source,
+        profile.profile_file_kind,
+        len(profile.product_family_aliases),
     )
     logging.getLogger(__name__).info(connection_mode_message(profile.read_only))
     return profile
@@ -87,6 +92,9 @@ SERVER_INSTRUCTIONS = build_server_instructions(
     customer_knowledge=_customer_knowledge,
     commerce_process_aliases=_profile.commerce_process_aliases,
     custom_data_table_aliases=_profile.custom_data_table_aliases,
+    product_family_aliases=_profile.product_family_aliases,
+    product_line_aliases=_profile.product_line_aliases,
+    product_model_aliases=_profile.product_model_aliases,
 )
 
 mcp = FastMCP(
@@ -132,6 +140,7 @@ register_local_data_tools(mcp, _client)
 register_response_export_tools(mcp, _client)
 register_discovery_tools(mcp)
 register_saved_prompt_tools(mcp)
+register_prompt_studio_tools(mcp)
 register_saved_prompt_resources_and_prompts(mcp)
 register_local_data_resources(mcp, _profile)
 _maybe_enable_tool_search()

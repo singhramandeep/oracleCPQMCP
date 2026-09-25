@@ -178,6 +178,16 @@ def register_commerce_tools(mcp: Any, client: CPQClient) -> None:
     list_commerce_processes.__doc__ = TOOL_CATALOG["list_commerce_processes"].description
     register_tool(mcp, list_commerce_processes, "list_commerce_processes")
 
+    def list_commerce_processes_table(page_size: int = 100) -> dict[str, Any]:
+        from oracle_cpq_mcp.core.hierarchy_tables import build_commerce_processes_table
+
+        return build_commerce_processes_table(client, page_size=page_size)
+
+    list_commerce_processes_table.__doc__ = TOOL_CATALOG[
+        "list_commerce_processes_table"
+    ].description
+    register_tool(mcp, list_commerce_processes_table, "list_commerce_processes_table")
+
     def get_commerce_ui_settings() -> dict[str, Any]:
         return client.get("/commerceUISettings")
 

@@ -7,6 +7,11 @@ from typing import Any
 
 from openpyxl import Workbook
 
+from oracle_cpq_mcp.exporters.branded_documents import (
+    apply_header_style,
+    open_excel_workbook,
+)
+
 
 def _display_value(value: Any) -> str:
     if value is None:
@@ -39,6 +44,27 @@ def resolve_columns(
     return seen
 
 
+def _write_sheet_rows(
+    sheet: Any,
+    *,
+    records: list[dict[str, Any]],
+    columns: list[str] | None,
+    workbook: Workbook,
+) -> None:
+    cols = resolve_columns(records, columns)
+    for col_index, col_name in enumerate(cols, start=1):
+        sheet.cell(1, col_index, col_name)
+    apply_header_style(sheet, row=1, columns=len(cols), workbook=workbook)
+    for row_offset, record in enumerate(records):
+        row_index = row_offset + 2
+        if not isinstance(record, dict):
+            for col_index in range(1, len(cols) + 1):
+                sheet.cell(row_index, col_index, "")
+            continue
+        for col_index, col_name in enumerate(cols, start=1):
+            sheet.cell(row_index, col_index, _display_value(record.get(col_name)))
+
+
 def _append_records_sheet(
     workbook: Workbook,
     *,
@@ -53,13 +79,7 @@ def _append_records_sheet(
         sheet.title = title
     else:
         sheet = workbook.create_sheet(title=title)
-    cols = resolve_columns(records, columns)
-    sheet.append(cols)
-    for record in records:
-        if not isinstance(record, dict):
-            sheet.append([""] * len(cols))
-            continue
-        sheet.append([_display_value(record.get(col)) for col in cols])
+    _write_sheet_rows(sheet, records=records, columns=columns, workbook=workbook)
 
 
 def build_records_workbook(
@@ -70,21 +90,15 @@ def build_records_workbook(
 ) -> bytes:
     """Create an in-memory .xlsx from homogeneous dict records.
 
+    Uses ``.config/template/Excel Template.xlsx`` when valid.
     When *columns* is omitted, uses the union of keys across records (stable order
     from first occurrence).
     """
-    workbook = Workbook()
-    # Replace the default empty sheet.
+    workbook = open_excel_workbook()
     default = workbook.active
     assert default is not None
     default.title = (sheet_title or "Data")[:31] or "Data"
-    cols = resolve_columns(records, columns)
-    default.append(cols)
-    for record in records:
-        if not isinstance(record, dict):
-            default.append([""] * len(cols))
-            continue
-        default.append([_display_value(record.get(col)) for col in cols])
+    _write_sheet_rows(default, records=records, columns=columns, workbook=workbook)
     buffer = io.BytesIO()
     workbook.save(buffer)
     return buffer.getvalue()
@@ -103,8 +117,7 @@ def build_multi_sheet_workbook(
     if not sheets:
         raise ValueError("sheets must be non-empty")
 
-    workbook = Workbook()
-    # Remove the blank default sheet after the first real sheet is written.
+    workbook = open_excel_workbook()
     first = True
     for index, spec in enumerate(sheets):
         if not isinstance(spec, dict):
@@ -124,13 +137,7 @@ def build_multi_sheet_workbook(
             sheet = workbook.active
             assert sheet is not None
             sheet.title = title[:31] or f"Sheet{index + 1}"
-            cols = resolve_columns(records, columns)
-            sheet.append(cols)
-            for record in records:
-                if not isinstance(record, dict):
-                    sheet.append([""] * len(cols))
-                    continue
-                sheet.append([_display_value(record.get(col)) for col in cols])
+            _write_sheet_rows(sheet, records=records, columns=columns, workbook=workbook)
             first = False
         else:
             _append_records_sheet(

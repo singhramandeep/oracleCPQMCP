@@ -1,3 +1,5 @@
 # Oracle CPQ MCP
 
-Standards live in `docs/STANDARDS.md` and `.cursor/rules/`. Prefer those over this file.
+Standards live in `docs/STANDARDS.md` and root `AGENTS.md`.
+Runtime agent policy for **all IDEs** comes from MCP `build_server_instructions` (not `.cursor/rules` alone).
+`.cursor/rules/` is a Cursor convenience mirror — prefer those over this file only inside Cursor.

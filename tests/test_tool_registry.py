@@ -13,8 +13,11 @@ from oracle_cpq_mcp.registry.tool_registry import (
 
 
 def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
-    assert len(CPQ_API_TOOLS) == 83
+    assert len(CPQ_API_TOOLS) == 101
     assert "discover_tools" in TOOL_CATALOG
+    assert "create_transaction" in TOOL_CATALOG
+    assert "submit_transaction" in TOOL_CATALOG
+    assert "delete_transaction_line" in TOOL_CATALOG
     assert "start_bml_site_export" in TOOL_CATALOG
     assert "search_local_bml" in TOOL_CATALOG
     assert "get_local_job" in TOOL_CATALOG
@@ -45,7 +48,7 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "export_response_excel" in TOOL_CATALOG
     assert "export_response_word" in TOOL_CATALOG
     assert "set_post_response_export" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 103
+    assert len(TOOL_CATALOG) == 122
 
 
 def test_filter_users_read_tools() -> None:
@@ -62,17 +65,33 @@ def test_filter_users_read_tools() -> None:
 def test_filter_write_tools() -> None:
     names = {spec.name for spec in filter_tools(operation="write")}
     assert names == {
+        "add_from_favorites",
+        "add_transaction_lines",
         "clear_collab_operation_queue",
         "copy_transaction",
         "copy_transaction_lines",
         "create_datatable",
         "create_group",
+        "create_transaction",
+        "create_transaction_version",
+        "delete_transaction_line",
         "deploy_datatables",
+        "display_transaction_history",
         "export_attachment",
         "export_bml_library_functions",
         "export_datatables",
         "export_performance_logs",
         "generate_proposal",
+        "interact_transaction_line",
+        "new_transaction",
+        "reconfigure_transaction",
+        "reconfigure_transaction_line",
+        "reconfigure_transaction_line_inbound",
+        "remove_transaction_lines",
+        "save_transaction",
+        "save_transaction_version",
+        "submit_transaction",
+        "update_transaction_lines",
         "update_user",
     }
 
@@ -112,6 +131,7 @@ def test_filter_commerce_read_tools() -> None:
         "get_transaction",
         "get_transaction_line",
         "list_commerce_processes",
+        "list_commerce_processes_table",
         "list_saved_searches",
         "list_transaction_lines",
         "list_transactions",
@@ -178,6 +198,12 @@ def test_write_tool_descriptions_mention_dry_run() -> None:
         "export_performance_logs",
         "copy_transaction",
         "copy_transaction_lines",
+        "create_transaction",
+        "new_transaction",
+        "save_transaction",
+        "submit_transaction",
+        "delete_transaction_line",
+        "interact_transaction_line",
     ):
         assert "dry_run" in TOOL_CATALOG[name].description.lower()
         assert "confirmation_token" in TOOL_CATALOG[name].description.lower()
@@ -196,6 +222,9 @@ def test_write_tool_tags_include_dry_run_and_confirmation() -> None:
         "export_performance_logs",
         "copy_transaction",
         "copy_transaction_lines",
+        "create_transaction",
+        "save_transaction",
+        "delete_transaction_line",
     ):
         assert "dry_run" in TOOL_CATALOG[name].tags
         assert "confirmation" in TOOL_CATALOG[name].tags

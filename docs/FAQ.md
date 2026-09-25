@@ -33,7 +33,7 @@ It is an **MCP (Model Context Protocol) server** that exposes Oracle CPQ REST AP
 
 ### What CPQ areas are covered?
 
-Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (103 tools). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
+Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync, `ensure_prompt_studio`). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (106 tools). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Which IDE should I use?
 
@@ -98,17 +98,107 @@ For IDE use, the MCP host launches it via `scripts/mcp-server.cmd` (Windows) or 
 
 ### Where do credentials live?
 
-In **gitignored** profile files: `.config/<customer_id>.env` (for example `.config/mycompany.env`). Start from [`.config/.env.example`](../.config/.env.example).
+**Preferred:** one gitignored file `.config/<customer_id>.yaml` (secrets, flags, commerce processes, data tables, metrics, and product families). Start from [`.config/.profile.yaml.example`](../.config/.profile.yaml.example) or migrate:
+
+```bash
+python scripts/migrate_profile_yaml.py mycompany
+```
+
+**Legacy (still supported):** `.config/<customer_id>.env` for secrets/flags, optionally plus `.config/<customer_id>.catalog.yaml` for catalog sections. If both `.yaml` and `.env` exist for the same id, **the unified `.yaml` wins**.
+
+### How do I migrate from a legacy `.env` to `.yaml`?
+
+Use the migrate script so secrets, flags, commerce processes, data tables, metrics, and product-family trees land in one file. The script **does not delete** your `.env`.
+
+#### Prerequisites
+
+1. Repo root open in the IDE, venv activated (same as QUICKSTART).
+2. An existing profile file: `.config/<customer_id>.env` (for example `.config/mycompany.env` → id `mycompany`).
+3. PyYAML installed (comes with the package deps: `pip install -e ".[dev]"` or `pip install "PyYAML>=6.0.0"`).
+
+#### Step-by-step
+
+1. **Confirm the profile id**  
+   It is the filename stem only: `.config/focalpoint.env` → `focalpoint`. MCP still uses `CPQ_CUSTOMER_PROFILE=focalpoint` after migration (no extension).
+
+2. **Preview the YAML (no write)**  
+   From the project root:
+
+   ```bash
+   python scripts/migrate_profile_yaml.py focalpoint --dry-run
+   ```
+
+   Check the printed summary (`envs`, `commerce`, `tables`, `metrics`, `families`) and skim the YAML. Passwords appear in the preview — do not paste that output into chat, tickets, or commits.
+
+3. **Write `.config/<id>.yaml`**  
+
+   ```bash
+   python scripts/migrate_profile_yaml.py focalpoint
+   ```
+
+   Creates `.config/focalpoint.yaml`. If that file already exists:
+
+   ```bash
+   python scripts/migrate_profile_yaml.py focalpoint --force
+   ```
+
+4. **What gets mapped**
+
+   | Legacy `.env` | Unified `.yaml` |
+   | ------------- | --------------- |
+   | `CUSTOMER_NAME`, flags (`READ_ONLY`, `LOCAL_DATA_POLICY`, …) | Top-level keys (`customer_name`, `read_only`, …) |
+   | `DEV_URL` / `DEV_USERNAME` / `DEV_PASSWORD` (+ `_1`, …) | `environments.dev.url` + `credentials` (same for `test` / `prod`) |
+   | `DEFAULT_ENVIRONMENT`, `REST_API_VERSION`, `COMPANY_LOGIN_NAME` | `default_environment`, `rest_api_version`, `company_login_name` |
+   | `COMMERCE_PROCESS_VAR_NAME[_N]` + `ALIAS` + `ENABLED` | `commerce_processes:` list |
+   | `CUSTOM_DATA_TABLE_NAME[_N]` + `ALIAS` | `data_tables:` list |
+   | `METRICS_*` | `metrics:` map |
+   | `PRODUCT_FAMILY_*` / `PRODUCT_LINE_*` / `MODEL_*` | Nested `product_families:` |
+
+5. **Review the new file**  
+   Open `.config/<id>.yaml` and confirm URLs, users, `default_environment`, and catalog lists. Optionally set `environments.<name>.enabled: false` or `data_tables[].enabled: false` for entries you want to keep but not use.
+
+6. **Verify connectivity**  
+
+   ```bash
+   oracle-cpq-smoke --profile focalpoint --env dev
+   ```
+
+   Expect `Profile loaded` and PASS rows. Then **reload / restart** the Oracle CPQ MCP server in Cursor (same `CPQ_CUSTOMER_PROFILE`).
+
+7. **Precedence while both files exist**  
+   If `.config/focalpoint.yaml` and `.config/focalpoint.env` both exist, **only the YAML is loaded**. The `.env` is ignored until you remove the YAML (or rename it).
+
+8. **Clean up after a successful smoke + MCP reload**  
+   - Rename or delete `.config/<id>.env` (keep a backup outside the repo if you want).  
+   - Delete `.config/<id>.catalog.yaml` if you ever created a catalog-only sidecar (`migrate_profile_catalog.py` is deprecated).  
+   - Confirm `.gitignore` still ignores `.config/*.yaml` and `.config/*.env` (except examples).  
+   - Never commit real profile YAML/ENV files.
+
+#### Troubleshooting
+
+| Symptom | Fix |
+| ------- | --- |
+| `Legacy profile .env not found` | Wrong id or file not under `.config/`; check `CPQ_CONFIG_DIR` if set |
+| `Profile YAML already exists` | Use `--force`, or rename the existing `.yaml` first |
+| Smoke still reads old values | A `.yaml` already existed and wasn’t overwritten — use `--force` or delete it |
+| `environment '…' is disabled` | Set `environments.<name>.enabled: true` or pick another env |
+| Import / PyYAML errors | `pip install -e .` from repo root (includes `PyYAML`) |
+
+#### Related
+
+- Template for new profiles: [`.config/.profile.yaml.example`](../.config/.profile.yaml.example)
+- Script: [`scripts/migrate_profile_yaml.py`](../scripts/migrate_profile_yaml.py)
+- Deprecated catalog-only migrate: `scripts/migrate_profile_catalog.py` (prefer the full YAML migrate above)
 
 **Never** put CPQ passwords in MCP JSON, chat, commits, or screenshots.
 
 ### What is `CPQ_CUSTOMER_PROFILE`?
 
-It is the profile **file stem** (without `.env`). If the file is `.config/acme.env`, set `CPQ_CUSTOMER_PROFILE=acme` in the MCP host env.
+It is the profile **file stem** (without `.yaml` / `.env`). If the file is `.config/acme.yaml` (or legacy `acme.env`), set `CPQ_CUSTOMER_PROFILE=acme` in the MCP host env.
 
 ### Can I have multiple customers?
 
-Yes. Create one `.env` per customer (for example `acme.env`, `focalpoint.env`) and point MCP config at the profile you want — or register **separate MCP server entries** per customer. See QUICKSTART “Optional: multiple customers”.
+Yes. Create one profile file per customer (for example `acme.yaml`, `focalpoint.yaml`, or legacy `acme.env`) and point MCP config at the profile you want — or register **separate MCP server entries** per customer. See QUICKSTART “Optional: multiple customers”.
 
 ### What is `COMPANY_LOGIN_NAME`?
 
@@ -126,18 +216,42 @@ Set `REST_API_VERSION` in the profile to match your CPQ site (template mentions 
 
 ### What are property aliases?
 
-Friendly names paired with real CPQ variable names on the profile:
+Friendly names paired with real CPQ variable names on the profile (unified `.yaml` or legacy `.env` / `.catalog.yaml`):
+
+```yaml
+commerce_processes:
+  - var_name: oraclecpqo
+    alias: base commerce process
+    enabled: true
+data_tables:
+  - name: ModelMaster
+    alias: model master
+    enabled: true
+  - name: DiscountMatrix
+    alias: discount matrix
+    enabled: true
+product_families:
+  - var_name: laptop
+    alias: Laptop family
+    enabled: true
+```
+
+You can list **multiple** `data_tables` entries. The **first enabled** table is the default for tools that take a single `table_name`; aliases, smoke checks, and `sync_datatables_local` use the full enabled list.
+
+Legacy flat `.env` form still works when no unified `.yaml` is present:
 
 ```env
 COMMERCE_PROCESS_VAR_NAME=oraclecpqo
 COMMERCE_PROCESS_ALIAS=base commerce process
 CUSTOM_DATA_TABLE_NAME=ModelMaster
 CUSTOM_DATA_TABLE_ALIAS=model master
+CUSTOM_DATA_TABLE_NAME_1=DiscountMatrix
+CUSTOM_DATA_TABLE_ALIAS_1=discount matrix
 ```
 
-If you say “base commerce process” in a prompt, the agent should use `process_var_name=oraclecpqo`. Numbered `_1`, `_2` suffixes pair the same way.
+If you say “base commerce process” in a prompt, the agent should use `process_var_name=oraclecpqo`. Product family / line / model aliases are injected into MCP instructions the same way.
 
-Optional `COMMERCE_PROCESS_ENABLED[_N]` (default **true**): set `false` to keep the name/alias in the profile env but omit that slot from tool defaults and instruction aliases. Reload MCP after changing ENABLED or aliases.
+Optional `enabled: false` on commerce processes, data tables, or YAML `environments.<name>` (or legacy `COMMERCE_PROCESS_ENABLED[_N]=false`): omit that entry from tool defaults / aliases, or block selecting that environment. Reload MCP after changing ENABLED or aliases.
 
 ---
 
@@ -145,7 +259,11 @@ Optional `COMMERCE_PROCESS_ENABLED[_N]` (default **true**): set `false` to keep 
 
 ### How do environments work in a profile?
 
-One profile file holds **all three** credential sets (`DEV_*`, `TEST_*`, `PROD_*`) plus URLs. `DEFAULT_ENVIRONMENT` picks which set is used when MCP starts (unless overridden by host env `CPQ_ENVIRONMENT`).
+**Unified YAML** (`.config/<id>.yaml`): one file holds `environments.dev` / `test` / `prod` (url + credentials). `default_environment` picks which set is used when MCP starts (unless overridden by host env `CPQ_ENVIRONMENT`).
+
+Set `environments.<name>.enabled: false` to keep credentials in the file but **block** selecting that environment (load fails with a clear error). Default is `enabled: true` when omitted.
+
+**Legacy `.env`**: one file holds all three credential sets (`DEV_*`, `TEST_*`, `PROD_*`) plus URLs. Omit an environment’s URL/creds to leave it unused (there is no separate disable key).
 
 ### Can the LLM connect with two environments at the same time?
 
@@ -219,6 +337,10 @@ Yes. Snapshots are stored under `data/{profile}/{env}/…` (for example `data/my
 
 Details: [QUICKSTART — Antigravity](QUICKSTART.md#google-antigravity-ide-recommended) and the root [README](../README.md#add-mcp-in-google-antigravity-recommended).
 
+### Do Antigravity (or VS Code) users need `.cursor/rules`?
+
+**No.** `.cursor/rules/` is Cursor-only. Antigravity, VS Code Copilot, and other MCP clients get agent policy from **MCP server instructions** when Oracle CPQ MCP is connected. Use root [`AGENTS.md`](../AGENTS.md) as the portable entry point. Reload/restart MCP after instruction changes so refined prompts, turn metrics, and document templates apply.
+
 ### How do I connect Cursor or VS Code?
 
 Copy the matching example to a **local gitignored** config:
@@ -276,9 +398,9 @@ Credentials and other sensitive fields are stripped/sanitized so they are not ec
 
 ### What should never be committed?
 
-- `.config/*.env` (except `.env.example`)
+- `.config/*.yaml` / `.config/*.env` (except `.profile.yaml.example`, `.env.example`, `.catalog.yaml.example`)
 - `.agents/mcp_config.json`, `.cursor/mcp.json`, `.vscode/mcp.json` (local)
-- `.config/saved_prompts.json`, `.config/prompt_studio.json`
+- `.prompts/saved_prompts.json`, `.config/prompt_studio.json`
 - `data/`, `exports/`
 - Any real passwords or confirmation secrets
 
@@ -290,7 +412,7 @@ See [.gitignore](../.gitignore) and [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md)
 
 ### How many tools are there?
 
-**103** MCP tools (regenerate the catalog after tool changes with `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
+**106** MCP tools (regenerate the catalog after tool changes with `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
 
 ### How do I find the right tool?
 
@@ -415,9 +537,53 @@ Yes. After a tabular answer, with `POST_RESPONSE_EXPORT=ask` (default), the agen
 | Tool | Result |
 |------|--------|
 | `export_response_excel` | Multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` + attachment |
-| `export_response_word` | `.docx` in the same folder + local `file://` path (needs `python-docx`) |
+| `export_response_word` | `.docx` in the same folder + local `file://` path (needs `python-docx`); `diagrams` with Mermaid/`image_path` PNG (expected for analytical exports) |
 
 Pass structured `sheets` (not scraped markdown). Install Word support with `pip install python-docx` or `pip install -e ".[docs]"`. Set policy with `set_post_response_export` or env `POST_RESPONSE_EXPORT` / `CPQ_POST_RESPONSE_EXPORT`.
+
+### Should Word exports include Mermaid?
+
+**Yes for analytical or structured answers** (audits, pass/fail summaries, flows, comparisons, relationship reviews). When calling `export_response_word` (or Word as part of `both`), agents must pass **1–3** items in `diagrams: [{title, mermaid?, image_path?, caption?}]` (max 8) **without waiting for the user to ask**. Prefer `flowchart` / `graph`. Skip diagrams for trivial short lists or pure errors. Embedded diagram images and captions are **center-aligned**.
+
+Structure Word `notes` with newlines, `##` / `###` headings, and `-` / `*` bullets — not one dense paragraph (lightweight markers only; not full Markdown).
+
+Mermaid is rasterized **locally** with `mmdc` (`npm i -g @mermaid-js/mermaid-cli`). Do not use public Kroki/mermaid.ink. If `mmdc` is missing, the export still succeeds: Mermaid source is kept as prose and listed in `diagrams_skipped`. Alternatively pass a pre-rendered PNG under `tmp/{profile}/{env}/` via `image_path`.
+
+### How do I install Mermaid for Word diagrams?
+
+1. Install [Node.js LTS](https://nodejs.org/) (includes `npm`).
+2. From any shell: `npm i -g @mermaid-js/mermaid-cli`
+3. Verify: `mmdc --version` (reopen the IDE terminal if `mmdc` is not found — PATH must include the npm global bin).
+
+Full steps: [QUICKSTART — Step 2.1](QUICKSTART.md#21-optional--mermaid-cli-for-word-diagrams).
+
+### Why don’t Word exports match my branding?
+
+Exports clone a valid Word package. Resolution order:
+
+1. `CPQ_WORD_TEMPLATE` (full path to a `.docx`)
+2. `.config/template/Word Template.docx` (exact filename; folder is agent-read-only)
+3. `data/templates/Word Template.docx` (writable working copy; override dir with `CPQ_TEMPLATE_WORK_DIR`)
+
+Excel/PowerPoint use the same pattern (`CPQ_EXCEL_TEMPLATE` / `CPQ_PPTX_TEMPLATE`, then config, then working dir). If none are valid Office ZIPs, the exporter falls back to a blank document and reports `template.applied=false` (with `template.source` when a candidate was used).
+
+To use a renamed branding file without editing `.config/template/`, copy it once:
+
+```text
+data/templates/Word Template.docx
+```
+
+### Why are Word tables hard to read?
+
+Wide `sheets` no longer get equal-width portrait columns. Auto layout:
+
+| Columns | Behavior |
+|---------|----------|
+| ≤ 4 (and widths fit) | Portrait table, weighted column widths, 8 pt body font, repeating header |
+| ≤ 7 | Landscape section with floored minimum column widths when needed |
+| > 7 (or still too narrow) | Per-row label/value blocks (2-column tables) so long BMQL/paths stay readable |
+
+Diagram images scale to the active section content width.
 
 ---
 
@@ -425,22 +591,26 @@ Pass structured `sheets` (not scraped markdown). Install Word support with `pip 
 
 ### What is the “Refined prompt” footer?
 
-After CPQ-related work (live tools and/or local cache), agents append a reusable block:
+After **real site/cache data work** (live CPQ MCP tools that read/write CPQ or load/sync `data/{profile}/{env}/`, or answers built from that cache), agents append a reusable block:
 
 `### Refined prompt (Better token usage)`
 
-with title, tags, output format, cached-data flag, prose with `{{placeholders}}`, variables, and tools. Disable with profile `REFINED_PROMPT=false`.
+with title, tags, output format, cached-data flag, prose with `{{placeholders}}`, variables, and tools.
+
+**Not every chat in this repo.** Coding, reviews, plans, docs, and “how does the server work” turns should **skip** the footer (and skip `offer_save_refined_prompt` / `save_refined_prompt`). Disable globally with profile `REFINED_PROMPT=false`.
 
 ### How do I save and reuse prompts?
 
 - Offer/save: `offer_save_refined_prompt` / `save_refined_prompt`
 - Auto-save: `AUTO_SAVE_REFINED_PROMPT=true` (or choose “save and always”)
 - Pick later: `/OracleCPQ_SavedPrompts` or “use a saved prompt” → `start_prompt_picker`
-- Library file: `.config/saved_prompts.json` (gitignored)
+- Library file: `.prompts/saved_prompts.json` (gitignored)
 
 ### What is Prompt Studio?
 
 A **local** FastAPI UI to browse/search/favorite saved prompts and fill placeholders. It does **not** call Oracle CPQ.
+
+After YES-gate site/cache CPQ work, agents call MCP tool **`ensure_prompt_studio`**, which probes `http://127.0.0.1:8765/api/health` and **auto-starts** Studio in the background if needed (then cites the URL). You can still start it manually:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install '.[prompt-studio]'
@@ -449,15 +619,29 @@ A **local** FastAPI UI to browse/search/favorite saved prompts and fill placehol
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Details: [FEATURES.md — Prompt Studio](FEATURES.md#prompt-studio-enable-and-run) and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
 
+**New / Import / Export:** use toolbar **New**, **Import** (JSON + import name/tag + select rows), **Export all** / **Export selected**. The header shows the library file path. See the in-app **Help** view for start/restart commands.
+
+### How do I restart Prompt Studio?
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.prompt_studio restart
+```
+
+Or: `.\scripts\restart-prompt-studio.cmd` (Windows) / `./scripts/restart-prompt-studio.sh` (macOS/Linux).
+
+That stops whatever is on port **8765** and starts Studio again. Hard-refresh the browser (**Ctrl+F5**). MCP `ensure_prompt_studio` only auto-starts when Studio is down — it does not restart a live process. See [QUICKSTART — Restart Prompt Studio](QUICKSTART.md#restart-prompt-studio-one-command).
+
 **Edit prompts:** use **Edit** on a card or in the run modal — change title, original/refined text, enable/disable. Select text and click **Make variable** to wrap it as `{{snake_case}}` (e.g. `OCL , FPL` → `{{token_a}}`).
 
 **Latest prompts missing after Refresh?**
 
-1. Hover the status line — Studio path must match MCP’s `.config/saved_prompts.json` (Studio pins `<repo>/.config` on startup when env vars are unset).
-2. If **library last write** never changes, MCP did not call `save_refined_prompt` — enable `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP.
-3. Similar tasks dedupe by content hash — one row updates instead of a new card.
-4. Toggle **Show disabled** if the prompt was soft-disabled.
-5. Use the **Reload** banner when the file changes on disk (auto-detected every 30s / on window focus).
+1. Hover the status line — Studio path must match MCP’s `.prompts/saved_prompts.json` (Studio pins `CPQ_CONFIG_DIR` to `<repo>/.config` and `CPQ_SAVED_PROMPTS_PATH` to `<repo>/.prompts/saved_prompts.json` when unset).
+2. If the status path shows **`.config/saved_prompts.json`**, you are on the legacy split library. Stop Studio, run `pip install -e ".[prompt-studio]"` from the repo root, restart `python -m apps.prompt_studio`, and confirm `/api/library_info` points at `.prompts/`. Merge any leftover rows from `.config/saved_prompts.json` into `.prompts/` if needed.
+3. If **library last write** never changes, MCP did not call `save_refined_prompt` — enable `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP.
+4. Similar tasks dedupe by content hash **and profile** — one row updates instead of a new card (same content under a different profile creates a separate row).
+5. Toggle **Show disabled** if the prompt was soft-disabled.
+6. Use the **Reload** banner when the file changes on disk (auto-detected every 30s / on window focus).
+7. Use the **Profile** filter (All / Unscoped / named profiles). MCP saves stamp the active customer profile; older prompts without a stamp appear under **Unscoped**.
 
 ---
 

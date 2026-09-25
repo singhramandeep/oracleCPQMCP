@@ -329,7 +329,7 @@ body {
 .prompt-list-head,
 .prompt-list-row {
   display: grid;
-  grid-template-columns: minmax(180px, 2fr) 110px 64px minmax(120px, 1fr) auto;
+  grid-template-columns: 28px minmax(180px, 2fr) 110px 64px minmax(120px, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 12px 16px;
@@ -400,6 +400,38 @@ body {
   padding: 2px 8px;
   font-size: 0.7rem;
   font-weight: 700;
+}
+
+.profile-badge {
+  display: inline-block;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--on-surface-muted);
+  font-weight: 600;
+}
+
+.filter-label select {
+  font: inherit;
+  font-weight: 500;
+  color: var(--on-surface);
+  border: 1px solid var(--border, #d4d4d8);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: #fff;
+  max-width: 11rem;
 }
 
 .format-banner {
@@ -1062,3 +1094,149 @@ body {
   align-items: center;
   gap: 6px;
 }
+
+.header-meta-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  max-width: 42%;
+}
+
+.library-path {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.7rem;
+  font-family: var(--mono);
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0;
+  text-align: right;
+}
+
+.library-path:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.select-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+.card-top .select-box {
+  margin-top: 4px;
+}
+
+.card-top .card-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.modal-wide {
+  width: min(720px, 96vw);
+}
+
+.import-hint {
+  margin: 4px 0 12px;
+  font-size: 0.85rem;
+}
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.import-candidate-list {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-md);
+  background: var(--surface-elevated);
+}
+
+.import-candidate {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--outline);
+  cursor: pointer;
+}
+
+.import-candidate:last-child {
+  border-bottom: none;
+}
+
+.import-candidate-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.import-flags {
+  font-size: 0.75rem;
+  color: var(--primary-strong);
+}
+
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 720px;
+}
+
+.help-card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+}
+
+.help-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.help-pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--on-surface);
+}
+
+#newPromptForm .field-label,
+#importForm .field-label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+#newPromptForm input,
+#newPromptForm textarea,
+#newPromptForm select,
+#importForm input[type="text"] {
+  width: 100%;
+  border: 1px solid var(--outline-strong);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+#newPromptForm textarea {
+  resize: vertical;
+}
+

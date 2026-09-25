@@ -1,16 +1,20 @@
 (() => {
   const LAYOUT_KEY = "promptStudio.layout";
   const SHOW_DISABLED_KEY = "promptStudio.showDisabled";
+  const PROFILE_FILTER_KEY = "promptStudio.profileFilter";
   const LIBRARY_POLL_MS = 30000;
+  const UNSCOPED_PROFILE = "__unscoped__";
 
   const state = {
     view: "all",
     tag: null,
     q: "",
+    profile: localStorage.getItem(PROFILE_FILTER_KEY) || "",
     layout: localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "cards",
     showDisabled: localStorage.getItem(SHOW_DISABLED_KEY) === "true",
     prompts: [],
     suites: [],
+    selectedIds: new Set(),
     libraryTotal: 0,
     libraryPath: null,
     libraryHelp: "",
@@ -21,6 +25,8 @@
     editMode: false,
     editDraft: null,
     modalDetail: null,
+    importPrompts: [],
+    importCandidates: [],
   };
 
   const $ = (id) => document.getElementById(id);
@@ -120,11 +126,20 @@
     return html;
   }
 
+  function profileBadgeHtml(p) {
+    if (!p.profile) return "";
+    return `<span class="profile-badge" title="CPQ profile">${escapeHtml(p.profile)}</span>`;
+  }
+
   function cardMetaHtml(p) {
     const fmt = formatLabel(p.output_format);
     const runs = p.run_count || 0;
+    const profileBit = p.profile
+      ? `<span class="profile-badge">${escapeHtml(p.profile)}</span>`
+      : "";
     return `
       <div class="card-meta-line">
+        ${profileBit}
         <span class="format-badge">${escapeHtml(fmt)}</span>
         <span>${runs} run${runs === 1 ? "" : "s"}</span>
         <span class="meta-sep">·</span>
@@ -198,18 +213,64 @@
     const params = new URLSearchParams();
     if (state.q) params.set("q", state.q);
     if (state.tag) params.set("tag", state.tag);
+    if (state.profile) params.set("profile", state.profile);
     if (state.view === "favorites") params.set("favorites_only", "true");
     if (state.showDisabled) params.set("include_disabled", "true");
     params.set("sort", "recent");
     const data = await api(`/api/prompts?${params}`);
     state.prompts = data.prompts || [];
+    const keep = new Set(state.prompts.map((p) => p.id));
+    state.selectedIds = new Set(
+      [...state.selectedIds].filter((id) => keep.has(id))
+    );
     renderPrompts();
+  }
+
+  async function loadProfiles() {
+    const select = optional("profileFilter");
+    if (!select) return;
+    const data = await api("/api/profiles").catch(() => ({
+      profiles: [],
+      unscoped_count: 0,
+    }));
+    const profiles = data.profiles || [];
+    const unscoped = data.unscoped_count || 0;
+    const current = state.profile || "";
+    select.innerHTML = "";
+    const allOpt = document.createElement("option");
+    allOpt.value = "";
+    allOpt.textContent = "All profiles";
+    select.appendChild(allOpt);
+    const unscopedOpt = document.createElement("option");
+    unscopedOpt.value = UNSCOPED_PROFILE;
+    unscopedOpt.textContent =
+      unscoped > 0 ? `Unscoped (${unscoped})` : "Unscoped";
+    select.appendChild(unscopedOpt);
+    profiles.forEach((name) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      select.appendChild(opt);
+    });
+    if (
+      current &&
+      current !== UNSCOPED_PROFILE &&
+      !profiles.includes(current)
+    ) {
+      const orphan = document.createElement("option");
+      orphan.value = current;
+      orphan.textContent = `${current} (none)`;
+      select.appendChild(orphan);
+    }
+    select.value = current;
   }
 
   function updateResultCount() {
     const el = $("resultCount");
     const n = state.prompts.length;
-    const filtered = Boolean(state.q || state.tag || state.view === "favorites");
+    const filtered = Boolean(
+      state.q || state.tag || state.profile || state.view === "favorites"
+    );
     if (!filtered) {
       el.textContent = "";
       el.classList.add("hidden");
@@ -217,6 +278,20 @@
     }
     el.classList.remove("hidden");
     el.textContent = `${n} matching`;
+  }
+
+  function syncExportSelectedBtn() {
+    const btn = optional("exportSelectedBtn");
+    if (!btn) return;
+    const n = state.selectedIds.size;
+    btn.disabled = n === 0;
+    btn.textContent = n ? `Export selected (${n})` : "Export selected";
+  }
+
+  function toggleSelected(id, checked) {
+    if (checked) state.selectedIds.add(id);
+    else state.selectedIds.delete(id);
+    syncExportSelectedBtn();
   }
 
   function renderPrompts() {
@@ -228,6 +303,7 @@
     grid.innerHTML = "";
     if (!state.prompts.length) {
       empty.classList.remove("hidden");
+      syncExportSelectedBtn();
       return;
     }
     empty.classList.add("hidden");
@@ -236,6 +312,7 @@
       const head = document.createElement("div");
       head.className = "prompt-list-head";
       head.innerHTML = `
+        <span></span>
         <span>Title</span>
         <span>Format</span>
         <span>Runs</span>
@@ -245,13 +322,17 @@
     }
 
     state.prompts.forEach((p) => {
+      const checked = state.selectedIds.has(p.id) ? "checked" : "";
+      const selectHtml = `<label class="select-box" title="Select for export"><input type="checkbox" data-select="${p.id}" ${checked} /></label>`;
       if (state.layout === "list") {
         const row = document.createElement("article");
         row.className = "prompt-list-row" + (p.enabled === false ? " is-disabled" : "");
         row.innerHTML = `
+          ${selectHtml}
           <div class="list-title-cell">
             <strong>${escapeHtml(p.title)}</strong>
             ${disabledBadgeHtml(p)}
+            ${profileBadgeHtml(p)}
             <div class="original-preview muted">${escapeHtml(p.original_preview || p.original_user_prompt || "(no original prompt recorded)")}</div>
             <div class="chip-row compact">${chipHtml(p)}</div>
           </div>
@@ -272,6 +353,7 @@
       card.className = "prompt-card" + (p.enabled === false ? " is-disabled" : "");
       card.innerHTML = `
         <div class="card-top">
+          ${selectHtml}
           <h3 class="card-title">${escapeHtml(p.title)}</h3>
           <div class="card-top-actions">
             ${disabledBadgeHtml(p)}
@@ -288,16 +370,40 @@
         </div>`;
       grid.appendChild(card);
     });
+    syncExportSelectedBtn();
   }
 
   function syncNav() {
     document.querySelectorAll(".nav-item").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.view === state.view);
     });
-    const titles = { all: "All prompts", favorites: "Favorites", suites: "Suites" };
-    $("viewTitle").textContent = state.tag ? `Tag: ${state.tag}` : titles[state.view] || "All prompts";
-    $("libraryView").classList.toggle("hidden", state.view === "suites");
+    const titles = {
+      all: "All prompts",
+      favorites: "Favorites",
+      suites: "Suites",
+      help: "Help",
+    };
+    const viewTitle = optional("viewTitle");
+    if (viewTitle) {
+      viewTitle.textContent = state.tag ? `Tag: ${state.tag}` : titles[state.view] || "All prompts";
+    }
+    const isLibrary = state.view === "all" || state.view === "favorites";
+    $("libraryView").classList.toggle("hidden", !isLibrary);
     $("suitesView").classList.toggle("hidden", state.view !== "suites");
+    optional("helpView")?.classList.toggle("hidden", state.view !== "help");
+  }
+
+  function updateLibraryPathDisplay(path) {
+    const text = optional("libraryPathText");
+    const btn = optional("libraryPathBtn");
+    if (!text || !btn) return;
+    if (!path) {
+      text.textContent = "Library path unknown";
+      btn.title = "";
+      return;
+    }
+    text.textContent = path;
+    btn.title = "Click to copy: " + path;
   }
 
   function stampUpdated(info) {
@@ -320,11 +426,12 @@
     if (mtime) lines.push(`Last write: ${mtime}`);
     if (help) lines.push(help);
     if (!info || info.exists === false) {
-      lines.push("Library file missing — save a prompt via MCP first.");
+      lines.push("Library file missing — save a prompt via MCP or New / Import.");
     }
     el.title = lines.join("\n");
     if (info && info.path) state.libraryPath = info.path;
     if (info && info.help) state.libraryHelp = info.help;
+    updateLibraryPathDisplay(path);
     if (mtime) {
       if (state.lastSeenModified && mtime > state.lastSeenModified && !state.editMode) {
         showLibraryBanner();
@@ -367,8 +474,9 @@
   }
 
   async function refreshLibrary() {
-    const [, , info] = await Promise.all([
+    const [, , , info] = await Promise.all([
       loadTags(),
+      loadProfiles(),
       loadPrompts(),
       api("/api/library_info").catch(() => null),
     ]);
@@ -805,6 +913,8 @@
         if (state.view === "suites") {
           await loadSuites();
           $("suiteDetail").classList.add("hidden");
+        } else if (state.view === "help") {
+          await loadHelp().catch(showError);
         } else {
           await loadPrompts();
           await loadTags();
@@ -816,14 +926,23 @@
       "input",
       debounce(() => {
         state.q = $("searchInput").value.trim();
-        if (state.view === "suites") return;
+        if (state.view === "suites" || state.view === "help") return;
         loadPrompts();
       }, 200)
     );
 
+    $("promptGrid").addEventListener("change", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || !t.dataset.select) return;
+      toggleSelected(t.dataset.select, t.checked);
+    });
+
     $("promptGrid").addEventListener("click", (e) => {
       const t = e.target;
       if (!(t instanceof HTMLElement)) return;
+      if (t.closest("[data-select]") || (t instanceof HTMLInputElement && t.dataset.select)) {
+        return;
+      }
       const menuToggle = t.closest("[data-menu-toggle]");
       if (menuToggle instanceof HTMLElement && menuToggle.dataset.menuToggle) {
         e.stopPropagation();
@@ -864,14 +983,27 @@
       closeAllActionMenus();
     });
 
-    $("layoutCards").addEventListener("click", () => setLayout("cards"));
-    $("layoutList").addEventListener("click", () => setLayout("list"));
-    $("downloadAllBtn").addEventListener("click", () => {
+    bindClick("layoutCards", () => setLayout("cards"));
+    bindClick("layoutList", () => setLayout("list"));
+    bindClick("downloadAllBtn", () => {
       window.location.href = "/api/prompts/download";
     });
-    $("refreshBtn").addEventListener("click", () => refreshLibrary().catch(showError));
+    bindClick("exportSelectedBtn", () => exportSelected().catch(showError));
+    bindClick("newPromptBtn", () => openNewPromptModal());
+    bindClick("importBtn", () => openImportModal());
+    bindClick("libraryPathBtn", () => copyLibraryPath().catch(showError));
+    bindClick("refreshBtn", () => refreshLibrary().catch(showError));
     bindClick("libraryBannerReload", () => refreshLibrary().catch(showError));
-    $("refreshSuitesBtn").addEventListener("click", () => refreshSuites().catch(showError));
+    bindClick("refreshSuitesBtn", () => refreshSuites().catch(showError));
+    const profileFilter = optional("profileFilter");
+    if (profileFilter) {
+      profileFilter.value = state.profile || "";
+      profileFilter.addEventListener("change", () => {
+        state.profile = profileFilter.value || "";
+        localStorage.setItem(PROFILE_FILTER_KEY, state.profile);
+        loadPrompts().catch(showError);
+      });
+    }
     const showDisabledToggle = optional("showDisabledToggle");
     if (showDisabledToggle) {
       showDisabledToggle.checked = state.showDisabled;
@@ -953,6 +1085,20 @@
       $("suitePickModal").close();
     });
 
+    bindClick("closeNewPrompt", () => optional("newPromptModal")?.close());
+    bindClick("cancelNewPrompt", () => optional("newPromptModal")?.close());
+    bindClick("saveNewPrompt", () => saveNewPrompt().catch(showError));
+
+    bindClick("closeImport", () => optional("importModal")?.close());
+    bindClick("cancelImport", () => optional("importModal")?.close());
+    bindClick("applyImport", () => applyImport().catch(showError));
+    bindClick("importSelectAll", () => setImportSelection(true));
+    bindClick("importSelectNone", () => setImportSelection(false));
+    const importFile = optional("importFile");
+    if (importFile) {
+      importFile.addEventListener("change", () => previewImportFile().catch(showError));
+    }
+
     const params = new URLSearchParams(location.search);
     const deepPrompt = params.get("prompt_id");
     const deepSuite = params.get("suite");
@@ -964,10 +1110,208 @@
     }
   }
 
+  async function copyLibraryPath() {
+    const path = state.libraryPath;
+    if (!path) throw new Error("Library path unknown");
+    await navigator.clipboard.writeText(path);
+    const el = $("statusLine");
+    const prev = el.textContent;
+    el.textContent = "Library path copied";
+    setTimeout(() => {
+      el.textContent = prev;
+    }, 1500);
+  }
+
+  async function loadHelp() {
+    const data = await api("/api/help");
+    const root = $("helpContent");
+    if (!root) return;
+    if (data.library_path) {
+      state.libraryPath = data.library_path;
+      updateLibraryPathDisplay(data.library_path);
+    }
+    const sections = data.sections || [];
+    root.innerHTML = sections
+      .map(
+        (s) => `
+      <article class="help-card">
+        <h2>${escapeHtml(s.title || "")}</h2>
+        <pre class="help-pre">${escapeHtml(s.body || "")}</pre>
+      </article>`
+      )
+      .join("");
+  }
+
+  function openNewPromptModal() {
+    optional("newTitle").value = "";
+    optional("newOriginal").value = "";
+    optional("newRefined").value = "";
+    optional("newTags").value = "";
+    optional("newProfile").value = "";
+    optional("newFormat").value = "chat_text";
+    optional("newPromptModal")?.showModal();
+  }
+
+  async function saveNewPrompt() {
+    const title = ($("newTitle").value || "").trim();
+    const refined = ($("newRefined").value || "").trim();
+    if (!title) throw new Error("Title is required");
+    if (!refined) throw new Error("Refined template is required");
+    const tags = ($("newTags").value || "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const profile = (optional("newProfile")?.value || "").trim();
+    await api("/api/prompts", {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        original_user_prompt: $("newOriginal").value || "",
+        refined_prompt: refined,
+        tags,
+        output_format: $("newFormat").value || "chat_text",
+        profile: profile || null,
+      }),
+    });
+    optional("newPromptModal")?.close();
+    await refreshLibrary();
+  }
+
+  function openImportModal() {
+    state.importPrompts = [];
+    state.importCandidates = [];
+    const file = optional("importFile");
+    if (file) file.value = "";
+    optional("importLabel").value = "";
+    optional("importCandidateList").innerHTML = "";
+    optional("importPreviewCount").textContent = "";
+    optional("applyImport").disabled = true;
+    optional("importModal")?.showModal();
+  }
+
+  async function previewImportFile() {
+    const fileInput = optional("importFile");
+    const file = fileInput && fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const data = await api("/api/prompts/import/preview", {
+      method: "POST",
+      body: JSON.stringify({ raw_text: text }),
+    });
+    state.importPrompts = data.prompts || [];
+    state.importCandidates = data.candidates || [];
+    if (!optional("importLabel").value.trim() && file.name) {
+      optional("importLabel").value = file.name.replace(/\.json$/i, "");
+    }
+    renderImportCandidates();
+  }
+
+  function renderImportCandidates() {
+    const list = optional("importCandidateList");
+    const countEl = optional("importPreviewCount");
+    if (!list) return;
+    list.innerHTML = "";
+    const candidates = state.importCandidates;
+    if (countEl) {
+      countEl.textContent = candidates.length
+        ? `${candidates.length} prompt(s) in file`
+        : "No prompts found";
+    }
+    candidates.forEach((c) => {
+      const row = document.createElement("label");
+      row.className = "import-candidate";
+      const disabled = c.empty_refined ? "disabled" : "";
+      const checked = c.empty_refined ? "" : "checked";
+      const flags = [];
+      if (c.already_in_library) flags.push("already in library");
+      if (c.empty_refined) flags.push("empty refined — skipped");
+      row.innerHTML = `
+        <input type="checkbox" data-import-index="${c.index}" ${checked} ${disabled} />
+        <span class="import-candidate-body">
+          <strong>${escapeHtml(c.title)}</strong>
+          <span class="muted">${escapeHtml(c.refined_preview || "")}</span>
+          ${flags.length ? `<span class="import-flags">${escapeHtml(flags.join(" · "))}</span>` : ""}
+        </span>`;
+      list.appendChild(row);
+    });
+    syncApplyImportBtn();
+  }
+
+  function setImportSelection(all) {
+    document.querySelectorAll("[data-import-index]").forEach((el) => {
+      if (!(el instanceof HTMLInputElement) || el.disabled) return;
+      el.checked = all;
+    });
+    syncApplyImportBtn();
+  }
+
+  function syncApplyImportBtn() {
+    const btn = optional("applyImport");
+    if (!btn) return;
+    const selected = [...document.querySelectorAll("[data-import-index]:checked")].length;
+    const labelOk = Boolean((optional("importLabel")?.value || "").trim());
+    btn.disabled = !(selected > 0 && labelOk && state.importPrompts.length);
+  }
+
+  async function applyImport() {
+    const label = (optional("importLabel")?.value || "").trim();
+    if (!label) throw new Error("Import name / tag is required");
+    const indices = [...document.querySelectorAll("[data-import-index]:checked")]
+      .map((el) => Number(el.dataset.importIndex))
+      .filter((n) => Number.isInteger(n));
+    if (!indices.length) throw new Error("Select at least one prompt");
+    const result = await api("/api/prompts/import", {
+      method: "POST",
+      body: JSON.stringify({
+        import_label: label,
+        indices,
+        prompts: state.importPrompts,
+      }),
+    });
+    optional("importModal")?.close();
+    alert(
+      `Import “${result.import_label}”: ${result.imported} new, ${result.updated} updated` +
+        (result.skipped_empty ? `, ${result.skipped_empty} empty skipped` : "") +
+        (result.errors && result.errors.length ? `\nErrors: ${result.errors.join("; ")}` : "") +
+        `\nTags: ${(result.import_tags || []).join(", ")}`
+    );
+    state.tag = (result.import_tags || []).find((t) => String(t).startsWith("import:")) || null;
+    state.view = "all";
+    syncNav();
+    await refreshLibrary();
+  }
+
+  async function exportSelected() {
+    const ids = [...state.selectedIds];
+    if (!ids.length) throw new Error("Select at least one prompt");
+    const res = await fetch("/api/prompts/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || res.statusText);
+    }
+    const blob = await res.blob();
+    const disp = res.headers.get("Content-Disposition") || "";
+    const match = /filename="?([^"]+)"?/.exec(disp);
+    const filename = match ? match[1] : "saved_prompts_selected.json";
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function init() {
     bindEvents();
+    optional("importLabel")?.addEventListener("input", () => syncApplyImportBtn());
+    optional("importCandidateList")?.addEventListener("change", () => syncApplyImportBtn());
     syncNav();
     syncLayoutButtons();
+    syncExportSelectedBtn();
     await refreshLibrary();
     window.addEventListener("focus", () => pollLibraryInfo());
     setInterval(() => pollLibraryInfo(), LIBRARY_POLL_MS);

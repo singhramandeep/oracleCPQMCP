@@ -1,10 +1,12 @@
 ﻿# Oracle CPQ MCP Server
 
-MCP server for **Oracle CPQ** — **103 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
+MCP server for **Oracle CPQ** — **106 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
 
 **Current package version:** **`0.3.0`** — see [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md). Contributor version bumps: [Update the package version](#update-the-package-version).
 
 **Recommended IDE:** [Google Antigravity](https://antigravity.google/) (MCP setup partially tested). Cursor and VS Code configs are included but still need testing.
+
+**Agent policy (all IDEs):** Root [`AGENTS.md`](AGENTS.md) — when Oracle CPQ MCP is connected, **MCP server instructions** are the single source of truth (refined prompts, turn metrics, document templates, local data, exports). [`.cursor/rules/`](.cursor/rules/) is a **Cursor-only** mirror; Antigravity does not load it.
 
 ## Get started
 
@@ -16,7 +18,9 @@ MCP server for **Oracle CPQ** — **103 MCP tools** for Users, Groups, Data Tabl
 
 **What's new?** See **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** for changelog history (auto-updated from git; refresh with `python scripts/update_release_notes.py`).
 
-**Questions?** See **[docs/FAQ.md](docs/FAQ.md)** — setup, dual environments, security, cache, Prompt Studio, and troubleshooting.
+**Questions?** See **[docs/FAQ.md](docs/FAQ.md)** — setup, dual environments, security, cache, Prompt Studio, cross-IDE instructions, and troubleshooting.
+
+**Cross-IDE agents?** See **[AGENTS.md](AGENTS.md)** — Antigravity / Cursor / VS Code all follow MCP instructions after you connect and reload the server.
 
 Quick smoke test after install — run in the **IDE integrated terminal** (`` Ctrl+` ``, project root):
 
@@ -67,7 +71,7 @@ pip install -e ".[docs]"            # Word export (python-docx)
 |-----|-----------------|--------|
 | `DEBUG_MODE` | `true` | Redacted API traces → `logs/{profile}-{env}.log` |
 | `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
-| `AUTO_SAVE_REFINED_PROMPT` | `false` | Auto-save refined prompts |
+| `AUTO_SAVE_REFINED_PROMPT` | `true` in example profile | Auto-save refined prompts (each customer YAML may override) |
 | `LOCAL_DATA_POLICY` | `ask` | Cache vs live CPQ before big lists |
 | `POST_RESPONSE_EXPORT` | `ask` | Offer Excel/Word after tabular answers |
 | `REST_API_VERSION` | site-specific | Prefer `v19` for metrics / collab / admin / saved searches if v18 404s |
@@ -76,7 +80,7 @@ Do **not** overwrite your profile with `.env.example` — that would wipe URLs a
 
 4. **Keep local MCP JSON as-is** (gitignored): `.agents/mcp_config.json`, `.cursor/mcp.json`, or `.vscode/mcp.json`. Paths and `CPQ_CUSTOMER_PROFILE` / `CPQ_CONFIG_DIR` usually stay the same. Only re-check the example files if a release note says launcher paths or required env vars changed.
 
-5. **Reload the Oracle CPQ MCP server** in your IDE (or restart the IDE). New tools (e.g. saved searches, admin/certificates, export helpers) will not appear until the process restarts.
+5. **Reload the Oracle CPQ MCP server** in your IDE (or restart the IDE). New tools and updated **MCP server instructions** (refined-prompt turn metrics, document templates, etc.) will not apply until the process restarts.
 
 6. **Quick check** in Agent chat:
 
@@ -85,7 +89,7 @@ Do **not** overwrite your profile with `.env.example` — that would wipe URLs a
 
 7. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.3.0**). Full first-time path remains [QUICKSTART](docs/QUICKSTART.md).
 
-**Leave alone (local / secrets):** `.config/*.env`, `data/`, `logs/`, `saved_prompts.json`, Prompt Studio sidecar, and your local MCP config — they are gitignored on purpose.
+**Leave alone (local / secrets):** `.config/*.env`, `data/`, `logs/`, `.prompts/saved_prompts.json`, Prompt Studio sidecar, and your local MCP config — they are gitignored on purpose.
 
 **Dual environments:** copy [`.cursor/mcp.json.dual.example.json`](.cursor/mcp.json.dual.example.json) or [`.agents/mcp_config.dual.example.json`](.agents/mcp_config.dual.example.json) — two MCP server entries (`CPQ_ENVIRONMENT=dev` and `test`). Tool envelopes include `profile` + `environment` so the agent can tell which site answered.
 
@@ -127,7 +131,7 @@ Antigravity is the **recommended** client for this server. Instructions are **pa
 Replace the path with your real project folder. Set `CPQ_CUSTOMER_PROFILE` to your `.config/<name>.env` profile id. On macOS/Linux use `scripts/mcp-server.sh` and `chmod +x scripts/mcp-server.sh`.
 
 5. In Antigravity: Agent panel → **…** → **MCP Servers** → **Manage MCP Servers** (or edit `.agents/mcp_config.json` directly).
-6. Restart Antigravity or reload MCP servers.
+6. Restart Antigravity or reload MCP servers. Agent behavior (refined prompts, turn metrics, branded Word/Excel) comes from **MCP instructions**, not from `.cursor/rules` — see [`AGENTS.md`](AGENTS.md).
 7. In Agent chat: *"Discover CPQ tools and list 5 users."*
 
 **Required Antigravity env vars:** `MCP_MODE=stdio`, `DISABLE_CONSOLE_OUTPUT=true`, plus `CPQ_CUSTOMER_PROFILE` and `CPQ_CONFIG_DIR`. **Never put CPQ passwords in MCP JSON.**
@@ -144,15 +148,28 @@ Example file: [`.agents/mcp_config.example.json`](.agents/mcp_config.example.jso
 These paths still need end-to-end testing on this project. Prefer Antigravity. See [docs/QUICKSTART.md](docs/QUICKSTART.md#other-ides-need-testing).
 
 All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (Windows) / [`scripts/mcp-server.sh`](scripts/mcp-server.sh) (macOS/Linux).
+
+## Agent instructions (Antigravity, Cursor, VS Code)
+
+| Layer | What it is | Who loads it |
+|-------|------------|--------------|
+| **MCP server instructions** | Refined-prompt gate, turn metrics, document templates, local-data, export, Prompt Studio, knowledge/aliases | **All** MCP clients after connect |
+| [`AGENTS.md`](AGENTS.md) | Short portable pointer to the above | Any agent that reads repo docs |
+| [`.cursor/rules/`](.cursor/rules/) | Convenience **mirrors** + tool-edit checklists | **Cursor only** |
+| [`.github/copilot-instructions.md`](.github/copilot-instructions.md) | Points at `AGENTS.md` + MCP | VS Code Copilot |
+
+Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the server after pulls that change `mcp/oracle_cpq_mcp/prompts/instructions.py`. FAQ: [Do Antigravity users need Cursor rules?](docs/FAQ.md#do-antigravity-or-vs-code-users-need-cursorrules).
+
 ## Documentation
 
 | Document | Contents |
 |----------|----------|
+| [AGENTS.md](AGENTS.md) | **All IDEs** — MCP instructions are SSOT; Cursor rules are mirrors only |
 | [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts, Prompt Studio |
 | [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, merge new `.env` keys, reload MCP |
-| [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, troubleshooting |
+| [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, Antigravity vs Cursor rules |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
-| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (103 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
+| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (106 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
 | [docs/LIVE_SMOKE_MATRIX.md](docs/LIVE_SMOKE_MATRIX.md) | Live vs untested honesty matrix for agents |
 | [docs/PRE_COMMIT_REVIEW.md](docs/PRE_COMMIT_REVIEW.md) | Pre-commit secrets / catalog / test checklist |
 | [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
@@ -163,17 +180,20 @@ All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (W
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Security test suite and CI |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | STRIDE / MCP threat analysis |
 | [.config/.env.example](.config/.env.example) | CPQ profile field reference |
+| [.config/template/README.md](.config/template/README.md) | Branded Word / Excel / PowerPoint templates for exports |
 
 ## Features
 
 Full product write-up (including **security / human-in-the-loop**): **[`docs/FEATURES.md`](docs/FEATURES.md)**. What’s new in **0.3.0**: [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
 
-- **103 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
+- **106 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
 - **Read-only by default** — `READ_ONLY=true`; writes use dry-run + `confirmation_token`
 - **DEBUG_MODE logging** — redacted CPQ request traces in `logs/{profile}-{environment}.log`
 - **Async BML** — `start_bml_site_export` + `get_local_job`; local search via `search_local_bml` / `cpq://local`
 - **Configurable HTTP timeout** — `HTTP_TIMEOUT` / `CPQ_HTTP_TIMEOUT` (default 60s)
-- **Refined prompts** — reusable footer + library / picker; optional Prompt Studio on port **8765** (Download all)
+- **Cross-IDE agent instructions** — MCP `build_server_instructions` is SSOT for Antigravity, Cursor, and VS Code ([`AGENTS.md`](AGENTS.md)); `.cursor/rules/` is a Cursor mirror only
+- **Refined prompts** — YES-gate footer after real site/cache work + library / picker; includes **Turn metrics** (Elapsed best-effort; Tokens only if the host surfaces usage); optional Prompt Studio on port **8765** (`ensure_prompt_studio`)
+- **Document templates** — Word/Excel/PPT from [`.config/template/`](.config/template/); MCP exporters use `branded_documents` when templates are valid
 - **Local `data/` snapshots** — `LOCAL_DATA_POLICY=ask|prefer|never`; sync tools under `data/{profile}/{env}/`
 - **Post-response export** — Excel/Word under `data/.../exports/` after tabular answers
 - **Server-side security** — validation, rate limits, replay protection, PEM/credential redaction
@@ -192,7 +212,7 @@ See [`docs/LIVE_SMOKE_MATRIX.md`](docs/LIVE_SMOKE_MATRIX.md). Offline unit/contr
 
 ## MCP tools (summary)
 
-**103 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
+**106 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
 
 Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_token`. Blocked when `READ_ONLY=true`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME`. Envelopes include **`profile`** + **`environment`**.
 
@@ -225,8 +245,8 @@ Also: MCP resources `cpq://saved-prompts`, `cpq://local`, `cpq://local/bml/{path
 | `CPQ_ENVIRONMENT` | Override default: `dev`, `test`, `prod` |
 | `READ_ONLY` | Default `true` — blocks create/update/delete |
 | `DEBUG_MODE` | Default `true` — append redacted CPQ API traces to `logs/{profile}-{environment}.log` |
-| `REFINED_PROMPT` | Default `true` — append refined-prompt footer after CPQ-related tasks (live and/or local cache) |
-| `AUTO_SAVE_REFINED_PROMPT` | Default `false` — when true, auto-save refined prompts; when false, agent asks |
+| `REFINED_PROMPT` | Default `true` — append refined-prompt footer after CPQ site/cache work (includes Turn metrics) |
+| `AUTO_SAVE_REFINED_PROMPT` | Example profile default `true` — auto-save refined prompts; set `false` to ask each time |
 | `LOCAL_DATA_POLICY` | Default `ask` — `ask` / `prefer` / `never` for using `data/` snapshots before live CPQ |
 | `POST_RESPONSE_EXPORT` | Default `ask` — `ask` / `never` / `always_excel` for post-response Excel/Word export offers |
 | `CPQ_LOCAL_DATA_DIR` | Optional override for local snapshot root (default `<repo>/data`) |
@@ -301,7 +321,7 @@ List tools return one page per call (`limit`, `offset`, `hasMore`, `totalResults
 | Cursor | Needs testing | `.cursor/mcp.json` | [`.cursor/mcp.json.example`](.cursor/mcp.json.example) |
 | VS Code | Needs testing | `.vscode/mcp.json` | [`.vscode/mcp.json.example`](.vscode/mcp.json.example) |
 
-See [Add MCP in Google Antigravity](#add-mcp-in-google-antigravity-recommended) above and [docs/QUICKSTART.md](docs/QUICKSTART.md).
+See [Add MCP in Google Antigravity](#add-mcp-in-google-antigravity-recommended) above, [AGENTS.md](AGENTS.md) (instruction layering), and [docs/QUICKSTART.md](docs/QUICKSTART.md).
 
 </details>
 
@@ -337,35 +357,49 @@ Do **not** put CPQ passwords, profile `.env` files, or `data/` / `logs/` in the 
 
 ### Prompt Studio (local)
 
-Browse/search/favorites/suites and fill `{{placeholders}}` against `.config/saved_prompts.json`:
+Browse/search/favorites/suites and fill `{{placeholders}}` against `.prompts/saved_prompts.json`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install '.[prompt-studio]'
 .\.venv\Scripts\python.exe -m apps.prompt_studio
 ```
 
-Then open [http://127.0.0.1:8765](http://127.0.0.1:8765). Details: [`apps/prompt_studio/README.md`](apps/prompt_studio/README.md) and [`docs/FEATURES.md`](docs/FEATURES.md#prompt-studio-enable-and-run).
+**Restart:** set `CPQ_PROMPT_STUDIO_PORT` if needed, then:
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.prompt_studio restart
+# or: .\scripts\restart-prompt-studio.cmd
+```
+
+`ensure_prompt_studio` only auto-starts when Studio is down. Details: [`apps/prompt_studio/README.md`](apps/prompt_studio/README.md#restart) and [`docs/QUICKSTART.md`](docs/QUICKSTART.md#restart-prompt-studio-one-command).
+
+**Word Mermaid diagrams:** install Node.js, then `npm i -g @mermaid-js/mermaid-cli` and verify `mmdc --version`. See [QUICKSTART Step 2.1](docs/QUICKSTART.md#21-optional--mermaid-cli-for-word-diagrams).
 
 ## Project structure
 
 ```
+AGENTS.md             # Portable agent entry (all IDEs) — points at MCP instructions
 mcp/oracle_cpq_mcp/   # MCP server package
   core/               # Config, CPQClient, errors, preflight
+  exporters/          # Excel/Word builders + branded_documents templates
+  prompts/            # build_server_instructions (SSOT for agent policy)
   security/           # Policy, validation, confirmation, audit
   tools/              # MCP tool handlers
   registry/           # Tool catalog
 apps/prompt_studio/   # Local Prompt Studio (FastAPI + static UI)
 .config/              # Customer profiles (*.env gitignored)
+  template/           # Word / Excel / PPT branding templates (committed)
 scripts/              # mcp-server.cmd / mcp-server.sh launchers
 .agents/              # Antigravity MCP example (local mcp_config.json not committed)
-.cursor/              # Cursor MCP examples only (local mcp.json gitignored)
-docs/                 # QUICKSTART, SETUP, security review
+.cursor/              # Cursor MCP examples + rules mirrors (local mcp.json gitignored)
+.github/              # CI + copilot-instructions.md pointer
+docs/                 # QUICKSTART, SETUP, FAQ, STANDARDS, security
 tests/                # Unit + security tests
 ```
 
 ## Security & git
 
-- **Never commit** `.agents/mcp_config.json`, `.cursor/mcp.json`, `.config/*.env`, `saved_prompts.json`, `prompt_studio.json`, or `data/` — see [.gitignore](.gitignore)
+- **Never commit** `.agents/mcp_config.json`, `.cursor/mcp.json`, `.config/*.env`, `.prompts/saved_prompts.json`, `prompt_studio.json`, or `data/` — see [.gitignore](.gitignore)
 - **Never put passwords** in MCP config JSON
 - Guardrails + HITL writes: [`docs/FEATURES.md`](docs/FEATURES.md#security-guardrails-and-human-in-the-loop) and [`SECURITY.md`](SECURITY.md)
 - Pre-commit checklist: [`docs/PRE_COMMIT_REVIEW.md`](docs/PRE_COMMIT_REVIEW.md)

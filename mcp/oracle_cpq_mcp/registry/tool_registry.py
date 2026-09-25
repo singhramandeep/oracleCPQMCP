@@ -591,6 +591,22 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "/productFamilies/{prodFamVarName}/productLines/{prodLineVarName}/models"
         ),
     ),
+    "list_product_hierarchy_table": _spec(
+        "list_product_hierarchy_table",
+        domain="configuration",
+        operation="read",
+        description=(
+            "Walk all product families → lines → models and return a flat table of "
+            "variable names and display names (one row per model; empty model "
+            "columns when a family/line has no models). Pages CPQ collections. "
+            "Does not write profile YAML. Soft-caps at 500 families "
+            "(truncated=true when more exist)."
+        ),
+        tags={"configuration", "metadata", "table"},
+        read_only=True,
+        http_method="GET",
+        api_path="/productFamilies/.../productLines/.../models",
+    ),
     "get_model": _spec(
         "get_model",
         domain="configuration",
@@ -837,6 +853,20 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         http_method="GET",
         api_path="/commerceProcessSetups",
     ),
+    "list_commerce_processes_table": _spec(
+        "list_commerce_processes_table",
+        domain="commerce",
+        operation="read",
+        description=(
+            "List all Commerce process setups as a flat table with variable_name, "
+            "name, description, id, and label. Pages until complete. "
+            "Does not list live transactions."
+        ),
+        tags={"metadata", "commerce", "table"},
+        read_only=True,
+        http_method="GET",
+        api_path="/commerceProcessSetups",
+    ),
     "list_transactions": _spec(
         "list_transactions",
         domain="commerce",
@@ -979,6 +1009,243 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=False,
         http_method="POST",
         api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionName}",
+    ),
+    "create_transaction": _spec(
+        "create_transaction",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Create a Commerce transaction/quote (POST /commerceDocuments{Process}{Doc}). "
+            "Pass documents/attributes in body as required by the site."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}",
+    ),
+    "new_transaction": _spec(
+        "new_transaction",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Create a Commerce transaction via the _new_transaction action "
+            "(POST .../actions/_new_transaction)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/actions/_new_transaction",
+    ),
+    "add_from_favorites": _spec(
+        "add_from_favorites",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Add favorites onto a Commerce transaction "
+            "(POST .../actions/{action_var_name}; default _s_addFromFavorites_t)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "display_transaction_history": _spec(
+        "display_transaction_history",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Display transaction history via a site-specific action "
+            "(POST .../actions/{action_var_name}; action_var_name required)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "save_transaction": _spec(
+        "save_transaction",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Save a Commerce transaction "
+            "(POST .../actions/{action_var_name}; default cleanSave_t)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "save_transaction_version": _spec(
+        "save_transaction_version",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Save a Commerce transaction version "
+            "(POST .../actions/{action_var_name}; default versionSave_t)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "submit_transaction": _spec(
+        "submit_transaction",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Submit a Commerce transaction for approval "
+            "(POST .../actions/{action_var_name}; default submit_t)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "reconfigure_transaction": _spec(
+        "reconfigure_transaction",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Reconfigure a Commerce transaction "
+            "(POST .../actions/_reconfigure_action)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/_reconfigure_action",
+    ),
+    "create_transaction_version": _spec(
+        "create_transaction_version",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Create a Commerce transaction version "
+            "(POST .../actions/{action_var_name}; default versionTransaction_t)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "add_transaction_lines": _spec(
+        "add_transaction_lines",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Add line items to a Commerce transaction "
+            "(POST .../actions/{action_var_name}; default addLineItem_t)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/{actionVarName}",
+    ),
+    "update_transaction_lines": _spec(
+        "update_transaction_lines",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Update transaction lines "
+            "(POST .../actions/_update_line_items)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/_update_line_items",
+    ),
+    "remove_transaction_lines": _spec(
+        "remove_transaction_lines",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Remove transaction lines via action "
+            "(POST .../actions/_remove_transactionLine). "
+            "Destructive — removes selected lines from the quote."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines", "write"},
+        read_only=False,
+        destructive=True,
+        http_method="POST",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/actions/_remove_transactionLine",
+    ),
+    "delete_transaction_line": _spec(
+        "delete_transaction_line",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Delete one transaction line "
+            "(DELETE .../transactionLine/{documentNumber}). "
+            "Destructive — permanently removes that line document."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines", "write"},
+        read_only=False,
+        destructive=True,
+        http_method="DELETE",
+        api_path="/commerceDocuments{Process}{Doc}/{id}/transactionLine/{documentNumber}",
+    ),
+    "interact_transaction_line": _spec(
+        "interact_transaction_line",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Interact with a configured transaction line "
+            "(POST .../transactionLine/{documentNumber}/actions/_interact)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path=(
+            "/commerceDocuments{Process}{Doc}/{id}/transactionLine/"
+            "{documentNumber}/actions/_interact"
+        ),
+    ),
+    "reconfigure_transaction_line": _spec(
+        "reconfigure_transaction_line",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Reconfigure a transaction line "
+            "(POST .../transactionLine/{documentNumber}/actions/_reconfigure_action)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path=(
+            "/commerceDocuments{Process}{Doc}/{id}/transactionLine/"
+            "{documentNumber}/actions/_reconfigure_action"
+        ),
+    ),
+    "reconfigure_transaction_line_inbound": _spec(
+        "reconfigure_transaction_line_inbound",
+        domain="commerce",
+        operation="write",
+        description=(
+            "Inbound reconfigure of a transaction line "
+            "(POST .../transactionLine/{documentNumber}/actions/_reconfigure_inbound_action)."
+            + DRY_RUN_DESCRIPTION_SUFFIX
+        ),
+        tags={"dry_run", "confirmation", "transactions", "lines", "write"},
+        read_only=False,
+        http_method="POST",
+        api_path=(
+            "/commerceDocuments{Process}{Doc}/{id}/transactionLine/"
+            "{documentNumber}/actions/_reconfigure_inbound_action"
+        ),
     ),
     "list_metrics": _spec(
         "list_metrics",
@@ -1224,11 +1491,11 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         operation="read",
         description=(
             "List locally saved refined prompts (title, tags, tools, last_run). "
-            "Does not call Oracle CPQ. Library file defaults to .config/saved_prompts.json."
+            "Does not call Oracle CPQ. Library file defaults to .prompts/saved_prompts.json."
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.0.0",
+        version="1.1.0",
     ),
     "search_saved_prompts": _spec(
         "search_saved_prompts",
@@ -1275,11 +1542,11 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "tags, tools, output_format) into the local library. "
             "output_format is chat_text (default), json, or excel_download. "
             "Dedupes by content hash (includes output_format). "
-            "Writes only .config/saved_prompts.json (or CPQ_SAVED_PROMPTS_PATH); not Oracle CPQ."
+            "Writes only .prompts/saved_prompts.json (or CPQ_SAVED_PROMPTS_PATH); not Oracle CPQ."
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.1.0",
+        version="1.2.0",
     ),
     "offer_save_refined_prompt": _spec(
         "offer_save_refined_prompt",
@@ -1454,15 +1721,20 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="meta",
         operation="read",
         description=(
-            "Build a Word (.docx) from structured sheets (optional notes) and write under "
-            "data/{profile}/{env}/exports/. Returns attachment lead with path + file:// URI "
-            "plus File bytes. Requires optional dependency python-docx "
+            "Build a Word (.docx) from structured sheets (optional notes) and optional "
+            "diagrams [{title, mermaid?, image_path?, caption?}] and write under "
+            "data/{profile}/{env}/exports/. Mermaid is rasterized locally via mmdc "
+            "(@mermaid-js/mermaid-cli) when on PATH, or via a pre-rendered PNG at "
+            "image_path under tmp/{profile}/{env}/; skipped diagrams keep source as "
+            "prose and are listed in diagrams_skipped (export still succeeds). "
+            "Returns attachment lead with path + file:// URI plus File bytes. "
+            "Requires optional dependency python-docx "
             '(pip install python-docx or pip install -e ".[docs]"). '
-            "Does not call Oracle CPQ."
+            "Does not call Oracle CPQ. Does not use public Kroki/mermaid.ink."
         ),
         tags={"export"},
         read_only=True,
-        version="1.0.0",
+        version="1.1.0",
     ),
     "set_post_response_export": _spec(
         "set_post_response_export",
@@ -1474,6 +1746,22 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "Reload MCP if you need server instructions rebuilt from the new flag."
         ),
         tags={"export", "local_data"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "ensure_prompt_studio": _spec(
+        "ensure_prompt_studio",
+        domain="meta",
+        operation="read",
+        description=(
+            "Probe local Prompt Studio (GET http://127.0.0.1:8765/api/health by default) and "
+            "auto-start it in the background if it is not running "
+            "(python -m apps.prompt_studio). Returns running/started, url, host, port, "
+            "optional pid, and activation_commands if start fails. "
+            "Does not call Oracle CPQ. Port override: CPQ_PROMPT_STUDIO_PORT. "
+            "Calling this alone does not make a turn YES-gate for refined prompts."
+        ),
+        tags={"saved_prompts", "prompt_studio"},
         read_only=True,
         version="1.0.0",
     ),

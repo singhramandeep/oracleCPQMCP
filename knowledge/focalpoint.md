@@ -2,6 +2,11 @@
 
 Site-specific notes for the Focalpoint CPQ profile. Shared rules still apply from `CPQBaseKnowledge.md`.
 
+There are three business units in focalpoint. Focalpoint and OCL are already live on the oraclecpqo commerce. Finelite is being setup on the new commmerce process.  Its prodouct models are being setup and they are under the fineliteFamily product family.
+
+OCL products are under the ocl product family
+Focalpoint products are under the seemProducts_f product family
+
 ## Commerce
 
 - Primary / “base” commerce process variable name is typically `oraclecpqo` (confirm via profile `COMMERCE_PROCESS_VAR_NAME` and `COMMERCE_PROCESS_ALIAS`).

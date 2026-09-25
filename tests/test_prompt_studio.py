@@ -359,6 +359,153 @@ def test_index_cache_control(studio_client):
     resp = client.get("/")
     assert resp.status_code == 200
     assert "no-cache" in (resp.headers.get("cache-control") or "").lower()
+    assert "?v=0.2.0" not in resp.text
+    assert f"?v=" in resp.text
+    from apps.prompt_studio import __version__ as studio_version
+
+    assert f"?v={studio_version}" in resp.text
     js_resp = client.get("/static/app.js")
     assert js_resp.status_code == 200
     assert "no-cache" in (js_resp.headers.get("cache-control") or "").lower()
+    assert "bindClick(\"refreshBtn\"" in js_resp.text or "bindClick('refreshBtn'" in js_resp.text
+    assert "loadProfiles" in js_resp.text
+    assert "profileFilter" in js_resp.text
+
+
+def test_api_profile_filter(studio_client):
+    client, entry = studio_client
+    created = client.post(
+        "/api/prompts",
+        json={
+            "title": "Profile scoped",
+            "original_user_prompt": "scoped",
+            "refined_prompt": "Do {{thing}} for profile filter test",
+            "tags": ["profile-test"],
+            "profile": "drees",
+        },
+    )
+    assert created.status_code == 200
+    assert created.json()["profile"] == "drees"
+
+    profiles = client.get("/api/profiles")
+    assert profiles.status_code == 200
+    body = profiles.json()
+    assert "drees" in body["profiles"]
+    assert body["unscoped_count"] >= 1  # fixture entry has no profile
+
+    filtered = client.get("/api/prompts", params={"profile": "drees"})
+    assert filtered.status_code == 200
+    titles = [p["title"] for p in filtered.json()["prompts"]]
+    assert "Profile scoped" in titles
+    assert entry.title not in titles
+
+    unscoped = client.get("/api/prompts", params={"profile": "__unscoped__"})
+    assert unscoped.status_code == 200
+    unscoped_titles = [p["title"] for p in unscoped.json()["prompts"]]
+    assert entry.title in unscoped_titles
+    assert "Profile scoped" not in unscoped_titles
+
+
+def test_api_create_import_export_help(studio_client):
+    client, entry = studio_client
+
+    info = client.get("/api/library_info")
+    assert info.status_code == 200
+    assert info.json()["path"]
+    assert "commands" in info.json()
+    assert "restart" in info.json()["commands"]
+
+    help_resp = client.get("/api/help")
+    assert help_resp.status_code == 200
+    help_body = help_resp.json()
+    assert help_body["library_path"]
+    assert len(help_body["sections"]) >= 4
+    assert "restart" in help_body["commands"]
+
+    created = client.post(
+        "/api/prompts",
+        json={
+            "title": "Manual prompt",
+            "original_user_prompt": "do the thing",
+            "refined_prompt": "Do {{thing}} as {{output_format}}",
+            "tags": ["manual"],
+            "output_format": "chat_text",
+        },
+    )
+    assert created.status_code == 200
+    assert created.json()["created"] is True
+    assert created.json()["title"] == "Manual prompt"
+
+    payload = {
+        "version": 1,
+        "prompts": [
+            {
+                "title": "Imported A",
+                "original_user_prompt": "a",
+                "refined_prompt": "Import body A unique {{output_format}}",
+                "tags": ["x"],
+                "tools": [],
+                "output_format": "chat_text",
+            },
+            {
+                "title": "Imported B",
+                "original_user_prompt": "b",
+                "refined_prompt": "Import body B unique {{output_format}}",
+                "tags": [],
+                "tools": [],
+                "output_format": "json",
+            },
+            {
+                "title": "Empty refined",
+                "refined_prompt": "   ",
+            },
+        ],
+    }
+    preview = client.post("/api/prompts/import/preview", json={"data": payload})
+    assert preview.status_code == 200
+    assert preview.json()["count"] == 3
+    assert preview.json()["candidates"][2]["empty_refined"] is True
+
+    applied = client.post(
+        "/api/prompts/import",
+        json={
+            "import_label": "Teammate Export Sep25",
+            "indices": [0, 1, 2],
+            "prompts": payload["prompts"],
+        },
+    )
+    assert applied.status_code == 200
+    body = applied.json()
+    assert body["imported"] == 2
+    assert body["skipped_empty"] == 1
+    assert "imported" in body["import_tags"]
+    assert "import:teammate_export_sep25" in body["import_tags"]
+
+    tagged = client.get("/api/prompts", params={"tag": "import:teammate_export_sep25"})
+    assert tagged.json()["count"] >= 2
+
+    export = client.post(
+        "/api/prompts/export",
+        json={"ids": [entry.id]},
+    )
+    assert export.status_code == 200
+    assert "attachment" in (export.headers.get("content-disposition") or "").lower()
+    exported = export.json()
+    assert exported["prompts"]
+    assert exported["prompts"][0]["id"] == entry.id
+
+
+def test_import_batch_slug_helpers():
+    assert saved_library.import_batch_slug("Hello World!") == "hello_world"
+    assert saved_library.import_batch_tags("Batch One") == [
+        "imported",
+        "import:batch_one",
+    ]
+    rows = saved_library.normalize_import_payload(
+        {"prompts": [{"title": "t", "refined_prompt": "r"}]}
+    )
+    assert len(rows) == 1
+    single = saved_library.normalize_import_payload(
+        {"title": "t", "refined_prompt": "r"}
+    )
+    assert len(single) == 1

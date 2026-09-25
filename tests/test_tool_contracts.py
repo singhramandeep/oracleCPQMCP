@@ -30,6 +30,7 @@ from oracle_cpq_mcp.tools.parts import register_parts_tools
 from oracle_cpq_mcp.tools.performance import register_performance_tools
 from oracle_cpq_mcp.tools.response_export import register_response_export_tools
 from oracle_cpq_mcp.tools.saved_prompts import register_saved_prompt_tools
+from oracle_cpq_mcp.tools.prompt_studio import register_prompt_studio_tools
 from oracle_cpq_mcp.tools.saved_searches import register_saved_search_tools
 from oracle_cpq_mcp.tools.tasks import register_tasks_tools
 from oracle_cpq_mcp.tools.transactions import register_transaction_tools
@@ -100,6 +101,7 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
         "prod_line_var_name": "servers",
         "limit": 5,
     },
+    "list_product_hierarchy_table": {"page_size": 50},
     "get_model": {
         "prod_fam_var_name": "products",
         "prod_line_var_name": "servers",
@@ -182,6 +184,7 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
         "process_var_name": "oraclecpqo",
     },
     "list_commerce_processes": {"limit": 5, "offset": 0},
+    "list_commerce_processes_table": {"page_size": 50},
     "get_line_attributes": {"process_var_name": "oraclecpqo"},
     "get_line_actions": {"process_var_name": "oraclecpqo"},
     "list_transactions": {"limit": 5, "offset": 0, "process_var_name": "oraclecpqo"},
@@ -220,6 +223,83 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
     },
     "copy_transaction_lines": {
         "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "create_transaction": {"process_var_name": "oraclecpqo", "dry_run": True},
+    "new_transaction": {"process_var_name": "oraclecpqo", "dry_run": True},
+    "add_from_favorites": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "display_transaction_history": {
+        "transaction_id": "12345",
+        "action_var_name": "displayHistory_t",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "save_transaction": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "save_transaction_version": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "submit_transaction": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "reconfigure_transaction": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "create_transaction_version": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "add_transaction_lines": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "update_transaction_lines": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "remove_transaction_lines": {
+        "transaction_id": "12345",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "delete_transaction_line": {
+        "transaction_id": "12345",
+        "document_number": "2",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "interact_transaction_line": {
+        "transaction_id": "12345",
+        "document_number": "2",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "reconfigure_transaction_line": {
+        "transaction_id": "12345",
+        "document_number": "2",
+        "process_var_name": "oraclecpqo",
+        "dry_run": True,
+    },
+    "reconfigure_transaction_line_inbound": {
+        "transaction_id": "12345",
+        "document_number": "2",
         "process_var_name": "oraclecpqo",
         "dry_run": True,
     },
@@ -297,6 +377,7 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
         "notes": "Contract test",
     },
     "set_post_response_export": {"policy": "ask"},
+    "ensure_prompt_studio": {},
     "sync_users_local": {},
     "sync_groups_local": {},
     "sync_bml_local": {},
@@ -529,6 +610,7 @@ def registered_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     register_response_export_tools(mcp, client)  # type: ignore[arg-type]
     register_discovery_tools(mcp)
     register_saved_prompt_tools(mcp)
+    register_prompt_studio_tools(mcp)
 
     missing = set(TOOL_CATALOG) - set(mcp.tools)
     assert not missing, f"tools not registered: {sorted(missing)}"
@@ -536,8 +618,17 @@ def registered_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
 
 
 @pytest.mark.parametrize("tool_name", sorted(TOOL_CATALOG))
-def test_tool_contract_envelope(tool_name: str, registered_tools: dict[str, Any]) -> None:
+def test_tool_contract_envelope(
+    tool_name: str,
+    registered_tools: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     assert tool_name in TOOL_KWARGS, f"add default kwargs for {tool_name}"
+    if tool_name == "ensure_prompt_studio":
+        monkeypatch.setattr(
+            "oracle_cpq_mcp.core.prompt_studio_process.probe_health",
+            lambda **_kwargs: True,
+        )
     fn = registered_tools[tool_name]
     result = fn(**TOOL_KWARGS[tool_name])
     envelope = _lead_envelope(result)

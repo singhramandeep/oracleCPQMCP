@@ -16,7 +16,13 @@ from oracle_cpq_mcp.core.commerce_paths import (
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.errors import build_tool_error
 from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
-from oracle_cpq_mcp.core.preflight import resolve_write_execution, run_commerce_action_preflight
+from oracle_cpq_mcp.core.preflight import (
+    WriteAction,
+    resolve_write_execution,
+    run_commerce_action_preflight,
+    run_commerce_create_preflight,
+    run_commerce_delete_line_preflight,
+)
 from oracle_cpq_mcp.core.responses import build_attachment_lead_envelope
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
@@ -59,6 +65,121 @@ def _maybe_enrich(response: Any, tool_name: str) -> Any:
     if isinstance(response, dict) and ("hasMore" in response or "items" in response):
         return enrich_pagination_hint(response, tool_name)
     return response
+
+
+def _post_txn_action(
+    client: CPQClient,
+    *,
+    tool: str,
+    action_label: str,
+    process_var_name: str | None,
+    doc_var_name: str,
+    transaction_id: str,
+    action_segment: str,
+    body: dict[str, Any] | None,
+    dry_run: bool,
+    confirmation_token: str | None,
+    write_action: WriteAction = "copy",
+) -> dict[str, Any]:
+    """POST an action on an existing transaction with dry-run / confirmation."""
+    base = _resolve_base(client, process_var_name, doc_var_name)
+    if isinstance(base, dict):
+        return base
+    txn_path = f"{base}/{transaction_id}"
+    post_path = f"{txn_path}/actions/{action_segment}"
+    return resolve_write_execution(
+        read_only=client.profile.read_only,
+        dry_run=dry_run,
+        confirmation_token=confirmation_token,
+        tool=tool,
+        action=write_action,
+        preflight_fn=lambda: run_commerce_action_preflight(
+            client,
+            tool=tool,
+            action_label=action_label,
+            transaction_path=txn_path,
+            post_path=post_path,
+            body=body,
+            write_action=write_action,
+        ),
+        execute_fn=lambda: client.post(post_path, json_body=body or {}),
+    )
+
+
+def _post_line_action(
+    client: CPQClient,
+    *,
+    tool: str,
+    action_label: str,
+    process_var_name: str | None,
+    doc_var_name: str,
+    transaction_id: str,
+    document_number: str,
+    action_segment: str,
+    body: dict[str, Any] | None,
+    dry_run: bool,
+    confirmation_token: str | None,
+    write_action: WriteAction = "update",
+) -> dict[str, Any]:
+    """POST an action on a transaction line with dry-run / confirmation."""
+    base = _resolve_base(client, process_var_name, doc_var_name)
+    if isinstance(base, dict):
+        return base
+    txn_path = f"{base}/{transaction_id}"
+    line_path = f"{txn_path}/transactionLine/{document_number}"
+    post_path = f"{line_path}/actions/{action_segment}"
+    return resolve_write_execution(
+        read_only=client.profile.read_only,
+        dry_run=dry_run,
+        confirmation_token=confirmation_token,
+        tool=tool,
+        action=write_action,
+        preflight_fn=lambda: run_commerce_action_preflight(
+            client,
+            tool=tool,
+            action_label=action_label,
+            transaction_path=txn_path,
+            post_path=post_path,
+            body=body,
+            write_action=write_action,
+            line_path=line_path,
+        ),
+        execute_fn=lambda: client.post(post_path, json_body=body or {}),
+    )
+
+
+def _post_collection_create(
+    client: CPQClient,
+    *,
+    tool: str,
+    action_label: str,
+    process_var_name: str | None,
+    doc_var_name: str,
+    path_suffix: str,
+    body: dict[str, Any] | None,
+    dry_run: bool,
+    confirmation_token: str | None,
+) -> dict[str, Any]:
+    """POST create/new-transaction against the documents collection."""
+    base = _resolve_base(client, process_var_name, doc_var_name)
+    if isinstance(base, dict):
+        return base
+    post_path = f"{base}{path_suffix}"
+    return resolve_write_execution(
+        read_only=client.profile.read_only,
+        dry_run=dry_run,
+        confirmation_token=confirmation_token,
+        tool=tool,
+        action="create",
+        preflight_fn=lambda: run_commerce_create_preflight(
+            client,
+            tool=tool,
+            action_label=action_label,
+            post_path=post_path,
+            body=body,
+        ),
+        execute_fn=lambda: client.post(post_path, json_body=body or {}),
+    )
 
 
 def register_transaction_tools(mcp: Any, client: CPQClient) -> None:
@@ -399,3 +520,426 @@ def register_transaction_tools(mcp: Any, client: CPQClient) -> None:
 
     copy_transaction_lines.__doc__ = TOOL_CATALOG["copy_transaction_lines"].description
     register_tool(mcp, copy_transaction_lines, "copy_transaction_lines")
+
+    def create_transaction(
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_collection_create(
+            client,
+            tool="create_transaction",
+            action_label="CREATE TRANSACTION (POST collection)",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            path_suffix="",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+        )
+
+    create_transaction.__doc__ = TOOL_CATALOG["create_transaction"].description
+    register_tool(mcp, create_transaction, "create_transaction")
+
+    def new_transaction(
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_collection_create(
+            client,
+            tool="new_transaction",
+            action_label="CREATE TRANSACTION via _new_transaction",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            path_suffix="/actions/_new_transaction",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+        )
+
+    new_transaction.__doc__ = TOOL_CATALOG["new_transaction"].description
+    register_tool(mcp, new_transaction, "new_transaction")
+
+    def add_from_favorites(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        action_var_name: str = "_s_addFromFavorites_t",
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="add_from_favorites",
+            action_label=f"ADD FROM FAVORITES via {action_var_name}",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment=action_var_name,
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="create",
+        )
+
+    add_from_favorites.__doc__ = TOOL_CATALOG["add_from_favorites"].description
+    register_tool(mcp, add_from_favorites, "add_from_favorites")
+
+    def display_transaction_history(
+        transaction_id: str,
+        action_var_name: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="display_transaction_history",
+            action_label=f"DISPLAY HISTORY via {action_var_name}",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment=action_var_name,
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="export",
+        )
+
+    display_transaction_history.__doc__ = TOOL_CATALOG[
+        "display_transaction_history"
+    ].description
+    register_tool(mcp, display_transaction_history, "display_transaction_history")
+
+    def save_transaction(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        action_var_name: str = "cleanSave_t",
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="save_transaction",
+            action_label=f"SAVE TRANSACTION via {action_var_name}",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment=action_var_name,
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="update",
+        )
+
+    save_transaction.__doc__ = TOOL_CATALOG["save_transaction"].description
+    register_tool(mcp, save_transaction, "save_transaction")
+
+    def save_transaction_version(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        action_var_name: str = "versionSave_t",
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="save_transaction_version",
+            action_label=f"SAVE TRANSACTION VERSION via {action_var_name}",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment=action_var_name,
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="update",
+        )
+
+    save_transaction_version.__doc__ = TOOL_CATALOG["save_transaction_version"].description
+    register_tool(mcp, save_transaction_version, "save_transaction_version")
+
+    def submit_transaction(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        action_var_name: str = "submit_t",
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="submit_transaction",
+            action_label=f"SUBMIT TRANSACTION FOR APPROVAL via {action_var_name}",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment=action_var_name,
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="submit",
+        )
+
+    submit_transaction.__doc__ = TOOL_CATALOG["submit_transaction"].description
+    register_tool(mcp, submit_transaction, "submit_transaction")
+
+    def reconfigure_transaction(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="reconfigure_transaction",
+            action_label="RECONFIGURE TRANSACTION",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment="_reconfigure_action",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="update",
+        )
+
+    reconfigure_transaction.__doc__ = TOOL_CATALOG["reconfigure_transaction"].description
+    register_tool(mcp, reconfigure_transaction, "reconfigure_transaction")
+
+    def create_transaction_version(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        action_var_name: str = "versionTransaction_t",
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="create_transaction_version",
+            action_label=f"CREATE TRANSACTION VERSION via {action_var_name}",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment=action_var_name,
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="create",
+        )
+
+    create_transaction_version.__doc__ = TOOL_CATALOG[
+        "create_transaction_version"
+    ].description
+    register_tool(mcp, create_transaction_version, "create_transaction_version")
+
+    def add_transaction_lines(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        action_var_name: str = "addLineItem_t",
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="add_transaction_lines",
+            action_label=f"ADD TRANSACTION LINES via {action_var_name}",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment=action_var_name,
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="create",
+        )
+
+    add_transaction_lines.__doc__ = TOOL_CATALOG["add_transaction_lines"].description
+    register_tool(mcp, add_transaction_lines, "add_transaction_lines")
+
+    def update_transaction_lines(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="update_transaction_lines",
+            action_label="UPDATE TRANSACTION LINES",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment="_update_line_items",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="update",
+        )
+
+    update_transaction_lines.__doc__ = TOOL_CATALOG["update_transaction_lines"].description
+    register_tool(mcp, update_transaction_lines, "update_transaction_lines")
+
+    def remove_transaction_lines(
+        transaction_id: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_txn_action(
+            client,
+            tool="remove_transaction_lines",
+            action_label="REMOVE TRANSACTION LINES",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            action_segment="_remove_transactionLine",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            write_action="delete",
+        )
+
+    remove_transaction_lines.__doc__ = TOOL_CATALOG["remove_transaction_lines"].description
+    register_tool(mcp, remove_transaction_lines, "remove_transaction_lines")
+
+    def delete_transaction_line(
+        transaction_id: str,
+        document_number: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        base = _resolve_base(client, process_var_name, doc_var_name)
+        if isinstance(base, dict):
+            return base
+        txn_path = f"{base}/{transaction_id}"
+        line_path = f"{txn_path}/transactionLine/{document_number}"
+        return resolve_write_execution(
+            read_only=client.profile.read_only,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+            tool="delete_transaction_line",
+            action="delete",
+            preflight_fn=lambda: run_commerce_delete_line_preflight(
+                client,
+                tool="delete_transaction_line",
+                transaction_path=txn_path,
+                line_path=line_path,
+                document_number=document_number,
+            ),
+            execute_fn=lambda: client.delete(line_path),
+        )
+
+    delete_transaction_line.__doc__ = TOOL_CATALOG["delete_transaction_line"].description
+    register_tool(mcp, delete_transaction_line, "delete_transaction_line")
+
+    def interact_transaction_line(
+        transaction_id: str,
+        document_number: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_line_action(
+            client,
+            tool="interact_transaction_line",
+            action_label="INTERACT TRANSACTION LINE",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            document_number=document_number,
+            action_segment="_interact",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+        )
+
+    interact_transaction_line.__doc__ = TOOL_CATALOG[
+        "interact_transaction_line"
+    ].description
+    register_tool(mcp, interact_transaction_line, "interact_transaction_line")
+
+    def reconfigure_transaction_line(
+        transaction_id: str,
+        document_number: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_line_action(
+            client,
+            tool="reconfigure_transaction_line",
+            action_label="RECONFIGURE TRANSACTION LINE",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            document_number=document_number,
+            action_segment="_reconfigure_action",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+        )
+
+    reconfigure_transaction_line.__doc__ = TOOL_CATALOG[
+        "reconfigure_transaction_line"
+    ].description
+    register_tool(mcp, reconfigure_transaction_line, "reconfigure_transaction_line")
+
+    def reconfigure_transaction_line_inbound(
+        transaction_id: str,
+        document_number: str,
+        process_var_name: str | None = None,
+        doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
+        body: dict[str, Any] | None = None,
+        dry_run: bool = True,
+        confirmation_token: str | None = None,
+    ) -> dict[str, Any]:
+        return _post_line_action(
+            client,
+            tool="reconfigure_transaction_line_inbound",
+            action_label="RECONFIGURE TRANSACTION LINE (INBOUND)",
+            process_var_name=process_var_name,
+            doc_var_name=doc_var_name,
+            transaction_id=transaction_id,
+            document_number=document_number,
+            action_segment="_reconfigure_inbound_action",
+            body=body,
+            dry_run=dry_run,
+            confirmation_token=confirmation_token,
+        )
+
+    reconfigure_transaction_line_inbound.__doc__ = TOOL_CATALOG[
+        "reconfigure_transaction_line_inbound"
+    ].description
+    register_tool(
+        mcp, reconfigure_transaction_line_inbound, "reconfigure_transaction_line_inbound"
+    )

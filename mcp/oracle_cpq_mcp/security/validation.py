@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from oracle_cpq_mcp.core.pagination import clamp_limit
 from oracle_cpq_mcp.core.users_filters import UserStatusFilter
@@ -497,6 +497,10 @@ class ListLocalDataInput(_StrictModel):
     """No parameters — lists snapshots for the active profile/env."""
 
 
+class EnsurePromptStudioInput(_StrictModel):
+    """No parameters — probe/start local Prompt Studio on localhost."""
+
+
 class GetLocalDataStatusInput(_StrictModel):
     domain: Literal["users", "groups", "bml", "commerce", "datatables"] = Field(
         ...,
@@ -604,7 +608,10 @@ class OfferExportResponseInput(_StrictModel):
     notes: str | None = Field(
         default=None,
         max_length=8000,
-        description="Optional prose for Word exports (ignored by Excel).",
+        description=(
+            "Optional prose for Word exports (ignored by Excel). Prefer ## / ### "
+            "headings and - / * bullets over one dense paragraph."
+        ),
     )
     choice: (
         Literal["excel", "word", "both", "skip", "always_excel", "never"] | None
@@ -637,6 +644,46 @@ class ExportResponseExcelInput(_StrictModel):
     )
 
 
+class ExportResponseDiagramInput(_StrictModel):
+    """Word-only Mermaid or pre-rendered PNG diagram (ignored by Excel)."""
+
+    title: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Heading 2 title above the diagram.",
+    )
+    mermaid: str | None = Field(
+        default=None,
+        max_length=16_000,
+        description=(
+            "Mermaid source. Rendered locally via mmdc (@mermaid-js/mermaid-cli) when "
+            "on PATH; otherwise skipped (source kept as prose) unless image_path is set."
+        ),
+    )
+    image_path: str | None = Field(
+        default=None,
+        max_length=500,
+        description=(
+            "Optional path to a pre-rendered PNG (prefer under tmp/{profile}/{env}/). "
+            "Never under .config/template/. Used when mmdc is unavailable or as an override."
+        ),
+    )
+    caption: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional caption under the diagram (Normal style).",
+    )
+
+    @model_validator(mode="after")
+    def _require_mermaid_or_image(self) -> ExportResponseDiagramInput:
+        has_mermaid = bool(self.mermaid and str(self.mermaid).strip())
+        has_image = bool(self.image_path and str(self.image_path).strip())
+        if not has_mermaid and not has_image:
+            raise ValueError("Each diagram needs mermaid and/or image_path")
+        return self
+
+
 class ExportResponseWordInput(_StrictModel):
     title: str = Field(
         ...,
@@ -653,7 +700,18 @@ class ExportResponseWordInput(_StrictModel):
     notes: str | None = Field(
         default=None,
         max_length=8000,
-        description="Optional intro paragraphs inserted above the tables.",
+        description=(
+            "Optional intro above tables. Use newlines; ## / ### for headings; "
+            "- / * for bullets (lightweight — not full Markdown)."
+        ),
+    )
+    diagrams: list[ExportResponseDiagramInput] | None = Field(
+        default=None,
+        max_length=8,
+        description=(
+            "Optional Word-only diagrams (max 8). Each item: title plus mermaid source "
+            "and/or image_path (PNG). Placed after notes, before tables. Excel ignores this."
+        ),
     )
 
 
@@ -1476,6 +1534,329 @@ class CopyTransactionLinesInput(_StrictModel):
         return v
 
 
+class CreateTransactionInput(_StrictModel):
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Commerce process variable name. Defaults to profile COMMERCE_PROCESS_VAR_NAME.",
+    )
+    doc_var_name: str = Field(
+        default="transaction",
+        max_length=128,
+        description="Main document variable name (default: transaction).",
+    )
+    body: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional POST JSON body for the new transaction/quote documents payload.",
+    )
+    dry_run: bool = Field(
+        default=True,
+        description="When true (default), run preflight only and return a confirmation_token.",
+    )
+    confirmation_token: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Server-issued token required when dry_run=false.",
+    )
+
+    @field_validator("process_var_name", "doc_var_name")
+    @classmethod
+    def validate_commerce_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid commerce identifier: {v}")
+        return v
+
+    @field_validator("body")
+    @classmethod
+    def validate_body(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        if v is not None and len(v) > 50:
+            raise ValueError("body has too many fields")
+        return v
+
+
+class NewTransactionInput(CreateTransactionInput):
+    """POST .../actions/_new_transaction — same fields as create_transaction."""
+
+
+class TransactionIdActionInput(_StrictModel):
+    """Shared shape for POST .../{id}/actions/{action} tools."""
+
+    transaction_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=r"^[0-9]+$",
+        description="Numeric CPQ transaction id.",
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Commerce process variable name. Defaults to profile COMMERCE_PROCESS_VAR_NAME.",
+    )
+    doc_var_name: str = Field(
+        default="transaction",
+        max_length=128,
+        description="Main document variable name (default: transaction).",
+    )
+    body: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional POST JSON body (documents, selections, criteria, etc.).",
+    )
+    dry_run: bool = Field(
+        default=True,
+        description="When true (default), run preflight only and return a confirmation_token.",
+    )
+    confirmation_token: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Server-issued token required when dry_run=false.",
+    )
+
+    @field_validator("process_var_name", "doc_var_name")
+    @classmethod
+    def validate_commerce_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid commerce identifier: {v}")
+        return v
+
+    @field_validator("body")
+    @classmethod
+    def validate_body(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        if v is not None and len(v) > 50:
+            raise ValueError("body has too many fields")
+        return v
+
+
+class AddFromFavoritesInput(TransactionIdActionInput):
+    action_var_name: str = Field(
+        default="_s_addFromFavorites_t",
+        max_length=128,
+        description="Commerce action variable name (default _s_addFromFavorites_t; site-specific).",
+    )
+
+    @field_validator("action_var_name")
+    @classmethod
+    def validate_action_var_name(cls, v: str) -> str:
+        if not v or not _ACTION_NAME_PATTERN.match(v):
+            raise ValueError("action_var_name has invalid format")
+        return v
+
+
+class DisplayTransactionHistoryInput(TransactionIdActionInput):
+    action_var_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        description=(
+            "Required site-specific display-history action variable name "
+            "(Oracle docs use displayHistoryActionVarName)."
+        ),
+    )
+
+    @field_validator("action_var_name")
+    @classmethod
+    def validate_action_var_name(cls, v: str) -> str:
+        if not v or not _ACTION_NAME_PATTERN.match(v):
+            raise ValueError("action_var_name has invalid format")
+        return v
+
+
+class SaveTransactionInput(TransactionIdActionInput):
+    action_var_name: str = Field(
+        default="cleanSave_t",
+        max_length=128,
+        description="Commerce action variable name (default cleanSave_t; site-specific).",
+    )
+
+    @field_validator("action_var_name")
+    @classmethod
+    def validate_action_var_name(cls, v: str) -> str:
+        if not v or not _ACTION_NAME_PATTERN.match(v):
+            raise ValueError("action_var_name has invalid format")
+        return v
+
+
+class SaveTransactionVersionInput(TransactionIdActionInput):
+    action_var_name: str = Field(
+        default="versionSave_t",
+        max_length=128,
+        description="Commerce action variable name (default versionSave_t; site-specific).",
+    )
+
+    @field_validator("action_var_name")
+    @classmethod
+    def validate_action_var_name(cls, v: str) -> str:
+        if not v or not _ACTION_NAME_PATTERN.match(v):
+            raise ValueError("action_var_name has invalid format")
+        return v
+
+
+class SubmitTransactionInput(TransactionIdActionInput):
+    action_var_name: str = Field(
+        default="submit_t",
+        max_length=128,
+        description="Commerce action variable name (default submit_t; site-specific).",
+    )
+
+    @field_validator("action_var_name")
+    @classmethod
+    def validate_action_var_name(cls, v: str) -> str:
+        if not v or not _ACTION_NAME_PATTERN.match(v):
+            raise ValueError("action_var_name has invalid format")
+        return v
+
+
+class ReconfigureTransactionInput(TransactionIdActionInput):
+    """POST .../actions/_reconfigure_action (fixed system action)."""
+
+
+class CreateTransactionVersionInput(TransactionIdActionInput):
+    action_var_name: str = Field(
+        default="versionTransaction_t",
+        max_length=128,
+        description="Commerce action variable name (default versionTransaction_t; site-specific).",
+    )
+
+    @field_validator("action_var_name")
+    @classmethod
+    def validate_action_var_name(cls, v: str) -> str:
+        if not v or not _ACTION_NAME_PATTERN.match(v):
+            raise ValueError("action_var_name has invalid format")
+        return v
+
+
+class AddTransactionLinesInput(TransactionIdActionInput):
+    action_var_name: str = Field(
+        default="addLineItem_t",
+        max_length=128,
+        description="Commerce action variable name (default addLineItem_t; site-specific).",
+    )
+
+    @field_validator("action_var_name")
+    @classmethod
+    def validate_action_var_name(cls, v: str) -> str:
+        if not v or not _ACTION_NAME_PATTERN.match(v):
+            raise ValueError("action_var_name has invalid format")
+        return v
+
+
+class UpdateTransactionLinesInput(TransactionIdActionInput):
+    """POST .../actions/_update_line_items."""
+
+
+class RemoveTransactionLinesInput(TransactionIdActionInput):
+    """POST .../actions/_remove_transactionLine."""
+
+
+class DeleteTransactionLineInput(_StrictModel):
+    transaction_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=r"^[0-9]+$",
+        description="Numeric CPQ transaction id.",
+    )
+    document_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=r"^[0-9]+$",
+        description="Line documentNumber to delete.",
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Commerce process variable name. Defaults to profile COMMERCE_PROCESS_VAR_NAME.",
+    )
+    doc_var_name: str = Field(
+        default="transaction",
+        max_length=128,
+        description="Main document variable name (default: transaction).",
+    )
+    dry_run: bool = Field(
+        default=True,
+        description="When true (default), run preflight only and return a confirmation_token.",
+    )
+    confirmation_token: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Server-issued token required when dry_run=false.",
+    )
+
+    @field_validator("process_var_name", "doc_var_name")
+    @classmethod
+    def validate_commerce_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid commerce identifier: {v}")
+        return v
+
+
+class TransactionLineActionInput(_StrictModel):
+    transaction_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=r"^[0-9]+$",
+        description="Numeric CPQ transaction id.",
+    )
+    document_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=r"^[0-9]+$",
+        description="Line documentNumber.",
+    )
+    process_var_name: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Commerce process variable name. Defaults to profile COMMERCE_PROCESS_VAR_NAME.",
+    )
+    doc_var_name: str = Field(
+        default="transaction",
+        max_length=128,
+        description="Main document variable name (default: transaction).",
+    )
+    body: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional POST JSON body for the line action.",
+    )
+    dry_run: bool = Field(
+        default=True,
+        description="When true (default), run preflight only and return a confirmation_token.",
+    )
+    confirmation_token: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Server-issued token required when dry_run=false.",
+    )
+
+    @field_validator("process_var_name", "doc_var_name")
+    @classmethod
+    def validate_commerce_identifiers(cls, v: str | None) -> str | None:
+        if v is not None and not re.match(CPQ_ID_PATTERN, v):
+            raise ValueError(f"Invalid commerce identifier: {v}")
+        return v
+
+    @field_validator("body")
+    @classmethod
+    def validate_body(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
+        if v is not None and len(v) > 50:
+            raise ValueError("body has too many fields")
+        return v
+
+
+class InteractTransactionLineInput(TransactionLineActionInput):
+    """POST .../transactionLine/{dn}/actions/_interact."""
+
+
+class ReconfigureTransactionLineInput(TransactionLineActionInput):
+    """POST .../transactionLine/{dn}/actions/_reconfigure_action."""
+
+
+class ReconfigureTransactionLineInboundInput(TransactionLineActionInput):
+    """POST .../transactionLine/{dn}/actions/_reconfigure_inbound_action."""
+
+
 class CommerceMetadataInput(_StrictModel):
     process_var_name: str | None = Field(
         default=None,
@@ -2121,6 +2502,34 @@ class ListModelsInput(_StrictModel):
         return clamp_limit(v)
 
 
+class ListProductHierarchyTableInput(_StrictModel):
+    page_size: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="CPQ page size when walking families/lines/models (1–1000).",
+    )
+
+    @field_validator("page_size")
+    @classmethod
+    def clamp_page_size(cls, v: int) -> int:
+        return clamp_limit(v)
+
+
+class ListCommerceProcessesTableInput(_StrictModel):
+    page_size: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="CPQ page size when listing commerce process setups (1–1000).",
+    )
+
+    @field_validator("page_size")
+    @classmethod
+    def clamp_page_size(cls, v: int) -> int:
+        return clamp_limit(v)
+
+
 class GetModelInput(_StrictModel):
     prod_fam_var_name: str = Field(
         ...,
@@ -2369,6 +2778,7 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "list_product_lines": ListProductLinesInput,
     "get_product_line": GetProductLineInput,
     "list_models": ListModelsInput,
+    "list_product_hierarchy_table": ListProductHierarchyTableInput,
     "get_model": GetModelInput,
     "list_config_attributes": ListConfigAttributesInput,
     "get_config_attribute": GetConfigAttributeInput,
@@ -2385,6 +2795,7 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_commerce_attribute": GetCommerceAttributeInput,
     "get_commerce_action": GetCommerceActionInput,
     "list_commerce_processes": ListCommerceProcessesInput,
+    "list_commerce_processes_table": ListCommerceProcessesTableInput,
     "get_line_attributes": LineMetadataInput,
     "get_line_actions": LineMetadataInput,
     "list_transactions": ListTransactionsInput,
@@ -2397,6 +2808,22 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "download_attachment": DownloadAttachmentInput,
     "copy_transaction": CopyTransactionInput,
     "copy_transaction_lines": CopyTransactionLinesInput,
+    "create_transaction": CreateTransactionInput,
+    "new_transaction": NewTransactionInput,
+    "add_from_favorites": AddFromFavoritesInput,
+    "display_transaction_history": DisplayTransactionHistoryInput,
+    "save_transaction": SaveTransactionInput,
+    "save_transaction_version": SaveTransactionVersionInput,
+    "submit_transaction": SubmitTransactionInput,
+    "reconfigure_transaction": ReconfigureTransactionInput,
+    "create_transaction_version": CreateTransactionVersionInput,
+    "add_transaction_lines": AddTransactionLinesInput,
+    "update_transaction_lines": UpdateTransactionLinesInput,
+    "remove_transaction_lines": RemoveTransactionLinesInput,
+    "delete_transaction_line": DeleteTransactionLineInput,
+    "interact_transaction_line": InteractTransactionLineInput,
+    "reconfigure_transaction_line": ReconfigureTransactionLineInput,
+    "reconfigure_transaction_line_inbound": ReconfigureTransactionLineInboundInput,
     "list_performance_logs": ListPerformanceLogsInput,
     "get_performance_log": GetPerformanceLogInput,
     "export_performance_logs": ExportPerformanceLogsInput,
@@ -2431,6 +2858,7 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "export_response_excel": ExportResponseExcelInput,
     "export_response_word": ExportResponseWordInput,
     "set_post_response_export": SetPostResponseExportInput,
+    "ensure_prompt_studio": EnsurePromptStudioInput,
     "sync_users_local": SyncUsersLocalInput,
     "sync_groups_local": SyncGroupsLocalInput,
     "sync_bml_local": SyncBmlLocalInput,

@@ -5,17 +5,59 @@ from __future__ import annotations
 from pathlib import Path
 
 from oracle_cpq_mcp.prompts.saved_library import (
+    UNSCOPED_PROFILE_FILTER,
     content_hash_for,
     delete_prompt,
     get_entry,
     last_used,
     list_entries,
+    list_profile_names,
     sanitize_variables,
+    saved_prompts_path,
     search_entries,
     set_enabled,
     upsert_prompt,
 )
 from oracle_cpq_mcp.prompts.tags import tags_for_tools
+
+
+def test_saved_prompts_path_defaults_to_prompts_dir(monkeypatch) -> None:
+    monkeypatch.delenv("CPQ_SAVED_PROMPTS_PATH", raising=False)
+    path = saved_prompts_path()
+    assert path.name == "saved_prompts.json"
+    assert path.parent.name == ".prompts"
+
+
+def test_saved_prompts_path_ignores_legacy_config_when_prompts_exists(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from oracle_cpq_mcp.prompts import saved_library as lib
+
+    prompts_dir = tmp_path / ".prompts"
+    prompts_dir.mkdir()
+    canonical = prompts_dir / "saved_prompts.json"
+    canonical.write_text('{"version": 1, "prompts": []}', encoding="utf-8")
+    legacy = tmp_path / ".config" / "saved_prompts.json"
+    legacy.parent.mkdir()
+    legacy.write_text('{"version": 1, "prompts": []}', encoding="utf-8")
+
+    monkeypatch.setattr(lib, "find_project_root", lambda: tmp_path)
+    monkeypatch.setenv("CPQ_SAVED_PROMPTS_PATH", str(legacy))
+    assert saved_prompts_path() == canonical.resolve()
+
+
+def test_pin_saved_prompts_env_overrides_legacy(tmp_path: Path) -> None:
+    from oracle_cpq_mcp.prompts.saved_library import pin_saved_prompts_env
+
+    legacy = str((tmp_path / ".config" / "saved_prompts.json").resolve())
+    env = pin_saved_prompts_env(
+        tmp_path,
+        {"CPQ_SAVED_PROMPTS_PATH": legacy, "CPQ_CONFIG_DIR": str(tmp_path / ".config")},
+    )
+    assert env["CPQ_SAVED_PROMPTS_PATH"].endswith(
+        str(Path(".prompts") / "saved_prompts.json")
+    )
+    assert Path(env["CPQ_SAVED_PROMPTS_PATH"]).parent.name == ".prompts"
 
 
 def test_sanitize_variables_strips_secrets() -> None:
@@ -239,3 +281,99 @@ def test_upsert_preserves_enabled_on_dedupe(tmp_path: Path, monkeypatch) -> None
     )
     assert created is False
     assert again.enabled is False
+
+
+def test_profile_defaults_none_and_round_trip(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "saved_prompts.json"
+    monkeypatch.setenv("CPQ_SAVED_PROMPTS_PATH", str(path))
+    from oracle_cpq_mcp.prompts.saved_library import SavedPrompt
+
+    legacy = SavedPrompt.from_dict(
+        {
+            "id": "legacy",
+            "title": "Legacy",
+            "original_user_prompt": "x",
+            "refined_prompt": "y",
+            "tools": [],
+        }
+    )
+    assert legacy.profile is None
+
+    entry, created = upsert_prompt(
+        title="Drees users",
+        original_user_prompt="list users",
+        refined_prompt="List users for {{status}}",
+        tools=["list_users"],
+        profile="drees",
+        path=path,
+    )
+    assert created is True
+    assert entry.profile == "drees"
+    loaded = get_entry(entry.id, path=path)
+    assert loaded is not None
+    assert loaded.profile == "drees"
+
+
+def test_upsert_dedupes_per_profile(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "saved_prompts.json"
+    monkeypatch.setenv("CPQ_SAVED_PROMPTS_PATH", str(path))
+    body = "List {{status_filter}} users"
+    a, created_a = upsert_prompt(
+        title="Users A",
+        original_user_prompt="list",
+        refined_prompt=body,
+        tools=["list_users"],
+        profile="drees",
+        path=path,
+    )
+    b, created_b = upsert_prompt(
+        title="Users B",
+        original_user_prompt="list",
+        refined_prompt=body,
+        tools=["list_users"],
+        profile="focalpoint",
+        path=path,
+    )
+    c, created_c = upsert_prompt(
+        title="Users A2",
+        original_user_prompt="list again",
+        refined_prompt=body,
+        tools=["list_users"],
+        profile="drees",
+        path=path,
+    )
+    assert created_a is True
+    assert created_b is True
+    assert created_c is False
+    assert a.id != b.id
+    assert a.id == c.id
+    assert len(list_entries(path)) == 2
+
+
+def test_search_entries_by_profile(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "saved_prompts.json"
+    monkeypatch.setenv("CPQ_SAVED_PROMPTS_PATH", str(path))
+    upsert_prompt(
+        title="Scoped",
+        original_user_prompt="a",
+        refined_prompt="Scoped body",
+        tools=["list_users"],
+        profile="drees",
+        path=path,
+    )
+    upsert_prompt(
+        title="Unscoped",
+        original_user_prompt="b",
+        refined_prompt="Unscoped body",
+        tools=["list_groups"],
+        path=path,
+    )
+    by_drees = search_entries(profile="drees", path=path)
+    assert len(by_drees) == 1
+    assert by_drees[0].title == "Scoped"
+    unscoped = search_entries(profile=UNSCOPED_PROFILE_FILTER, path=path)
+    assert len(unscoped) == 1
+    assert unscoped[0].title == "Unscoped"
+    names = list_profile_names(path=path)
+    assert names["profiles"] == ["drees"]
+    assert names["unscoped_count"] == 1

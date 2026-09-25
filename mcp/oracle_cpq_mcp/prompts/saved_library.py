@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 import uuid
@@ -12,10 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from oracle_cpq_mcp.core.config import config_dir
+from oracle_cpq_mcp.core.config import find_project_root
+
+logger = logging.getLogger(__name__)
 
 LIBRARY_VERSION = 1
 DEFAULT_FILENAME = "saved_prompts.json"
+DEFAULT_DIRNAME = ".prompts"
 
 _SECRET_KEY_RE = re.compile(
     r"(password|passwd|secret|token|api[_-]?key|authorization|credential)",
@@ -25,6 +29,21 @@ _SECRET_KEY_RE = re.compile(
 
 OUTPUT_FORMATS = frozenset({"chat_text", "json", "excel_download"})
 DEFAULT_OUTPUT_FORMAT = "chat_text"
+# Query/filter token for prompts with no profile stamped.
+UNSCOPED_PROFILE_FILTER = "__unscoped__"
+
+
+def normalize_profile(value: str | None) -> str | None:
+    """Return stripped profile name, or None when blank/missing."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def profiles_equal(left: str | None, right: str | None) -> bool:
+    """True when both profiles normalize to the same key (None ≡ blank)."""
+    return (normalize_profile(left) or "") == (normalize_profile(right) or "")
 
 
 @dataclass
@@ -44,6 +63,7 @@ class SavedPrompt:
     content_hash: str = ""
     enabled: bool = True
     output_format: str = DEFAULT_OUTPUT_FORMAT
+    profile: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -73,6 +93,7 @@ class SavedPrompt:
             content_hash=str(data.get("content_hash") or ""),
             enabled=enabled,
             output_format=fmt,
+            profile=normalize_profile(data.get("profile")),
         )
 
 
@@ -117,12 +138,59 @@ def content_hash_for(
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def default_saved_prompts_path(project_root: Path | None = None) -> Path:
+    """Canonical library path: ``{repo}/.prompts/saved_prompts.json``."""
+    root = project_root or find_project_root()
+    return (root / DEFAULT_DIRNAME / DEFAULT_FILENAME).resolve()
+
+
+def is_legacy_config_saved_prompts_path(path: Path) -> bool:
+    """True when *path* is the old ``.config/saved_prompts.json`` location."""
+    try:
+        resolved = path.expanduser().resolve()
+    except OSError:
+        return False
+    return resolved.name == DEFAULT_FILENAME and resolved.parent.name == ".config"
+
+
 def saved_prompts_path() -> Path:
-    """Resolve library path from env or default under .config/."""
+    """Resolve library path from env or default under ``.prompts/``.
+
+    If ``CPQ_SAVED_PROMPTS_PATH`` points at the legacy
+    ``.config/saved_prompts.json`` and the canonical ``.prompts`` file exists,
+    prefer ``.prompts`` so Studio/MCP do not split the library.
+    """
+    canonical = default_saved_prompts_path()
     override = os.environ.get("CPQ_SAVED_PROMPTS_PATH")
-    if override:
-        return Path(override).expanduser().resolve()
-    return config_dir() / DEFAULT_FILENAME
+    if not override or not str(override).strip():
+        return canonical
+    candidate = Path(override).expanduser().resolve()
+    if is_legacy_config_saved_prompts_path(candidate) and canonical.is_file():
+        logger.info(
+            "Ignoring legacy CPQ_SAVED_PROMPTS_PATH under .config; using %s",
+            canonical,
+        )
+        return canonical
+    return candidate
+
+
+def pin_saved_prompts_env(
+    repo_root: Path,
+    env: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Return env with ``CPQ_SAVED_PROMPTS_PATH`` pinned to ``.prompts`` when needed.
+
+    Pins when unset or when set to legacy ``.config/saved_prompts.json``.
+    Custom non-legacy overrides are preserved.
+    """
+    out = dict(env) if env is not None else dict(os.environ)
+    config = repo_root / ".config"
+    out.setdefault("CPQ_CONFIG_DIR", str(config.resolve()))
+    canonical = str(default_saved_prompts_path(repo_root))
+    current = (out.get("CPQ_SAVED_PROMPTS_PATH") or "").strip()
+    if not current or is_legacy_config_saved_prompts_path(Path(current)):
+        out["CPQ_SAVED_PROMPTS_PATH"] = canonical
+    return out
 
 
 def _empty_library() -> dict[str, Any]:
@@ -197,16 +265,19 @@ def upsert_prompt(
     tags: list[str] | None = None,
     tools: list[str] | None = None,
     output_format: str = DEFAULT_OUTPUT_FORMAT,
+    profile: str | None = None,
     path: Path | None = None,
 ) -> tuple[SavedPrompt, bool]:
-    """Insert or update by content hash. Returns (entry, created).
+    """Insert or update by content hash + profile. Returns (entry, created).
 
     New rows are always enabled=True. Dedupe updates do not flip enabled.
+    Same content under a different profile creates a separate row.
     """
     tools_list = list(tools or [])
     tags_list = sorted(set(tags or []))
     variables_clean = sanitize_variables(variables)
     fmt = normalize_output_format(output_format)
+    profile_norm = normalize_profile(profile)
     digest = content_hash_for(refined_prompt, tools_list, fmt)
     now = _utc_now()
     data = load_library(path)
@@ -221,7 +292,7 @@ def upsert_prompt(
             existing.tools,
             existing.output_format,
         )
-        if existing_hash == digest:
+        if existing_hash == digest and profiles_equal(existing.profile, profile_norm):
             existing.title = title.strip() or existing.title
             existing.original_user_prompt = original_user_prompt or existing.original_user_prompt
             existing.refined_prompt = refined_prompt
@@ -230,6 +301,8 @@ def upsert_prompt(
             existing.tools = tools_list or existing.tools
             existing.output_format = fmt
             existing.content_hash = digest
+            if profile_norm is not None:
+                existing.profile = profile_norm
             existing.last_run_at = now
             existing.run_count = max(existing.run_count, 0) + 1
             if not existing.created_at:
@@ -254,6 +327,7 @@ def upsert_prompt(
         content_hash=digest,
         enabled=True,
         output_format=fmt,
+        profile=profile_norm,
     )
     prompts.append(entry.to_dict())
     data["prompts"] = prompts
@@ -315,11 +389,13 @@ def update_prompt(
     tools: list[str] | None = None,
     output_format: str | None = None,
     enabled: bool | None = None,
+    profile: str | None = None,
     path: Path | None = None,
 ) -> SavedPrompt:
     """Update a saved prompt by id (not content-hash dedupe).
 
-    Raises UpdatePromptError if the new content hash collides with another id.
+    Raises UpdatePromptError if the new content hash collides with another id
+    under the same profile.
     """
     data = load_library(path)
     prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
@@ -349,6 +425,9 @@ def update_prompt(
         entry.output_format = normalize_output_format(output_format)
     if enabled is not None:
         entry.enabled = bool(enabled)
+    if profile is not None:
+        # Empty string clears profile (unscoped).
+        entry.profile = normalize_profile(profile)
 
     if variables is not None:
         entry.variables = sanitize_variables(variables)
@@ -370,7 +449,7 @@ def update_prompt(
             other.tools,
             other.output_format,
         )
-        if other_hash == new_hash:
+        if other_hash == new_hash and profiles_equal(other.profile, entry.profile):
             raise UpdatePromptError(
                 "Updated content matches another saved prompt (content hash collision). "
                 "Change the refined template or save as a duplicate instead."
@@ -438,10 +517,11 @@ def search_entries(
     tag: str | None = None,
     tool_domain: str | None = None,
     tool: str | None = None,
+    profile: str | None = None,
     path: Path | None = None,
     include_disabled: bool = False,
 ) -> list[SavedPrompt]:
-    """Filter saved prompts by title substring, tag, tool name, and/or tool domain."""
+    """Filter saved prompts by title substring, tag, tool, domain, and/or profile."""
     from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 
     results = list_entries(path, include_disabled=include_disabled)
@@ -473,7 +553,38 @@ def search_entries(
                     filtered.append(entry)
                     break
         results = filtered
+    if profile is not None and str(profile).strip():
+        token = str(profile).strip()
+        if token == UNSCOPED_PROFILE_FILTER:
+            results = [e for e in results if normalize_profile(e.profile) is None]
+        else:
+            want = normalize_profile(token)
+            results = [
+                e for e in results if profiles_equal(e.profile, want)
+            ]
     return results
+
+
+def list_profile_names(
+    path: Path | None = None,
+    *,
+    include_disabled: bool = True,
+) -> dict[str, Any]:
+    """Distinct profile names plus unscoped count for Studio filter UI."""
+    entries = list_entries(path, include_disabled=include_disabled)
+    names = sorted(
+        {
+            normalize_profile(e.profile)
+            for e in entries
+            if normalize_profile(e.profile)
+        }
+    )
+    unscoped = sum(1 for e in entries if normalize_profile(e.profile) is None)
+    return {
+        "profiles": names,
+        "unscoped_count": unscoped,
+        "total": len(entries),
+    }
 
 
 def last_used(
@@ -491,3 +602,77 @@ def choice_label(entry: SavedPrompt) -> str:
     """Plain-text menu label (no icons): [tags] title."""
     tag_prefix = ",".join(entry.tags[:3]) if entry.tags else "general"
     return f"[{tag_prefix}] {entry.title}"[:120]
+
+
+def import_batch_slug(label: str) -> str:
+    """Sanitize an import batch name into a short tag-safe slug."""
+    raw = re.sub(r"[^a-zA-Z0-9]+", "_", (label or "").strip().lower()).strip("_")
+    return (raw[:40] or "batch")
+
+
+def import_batch_tags(label: str) -> list[str]:
+    """Tags applied to every prompt imported under *label*."""
+    slug = import_batch_slug(label)
+    return ["imported", f"import:{slug}"]
+
+
+def normalize_import_payload(raw: Any) -> list[dict[str, Any]]:
+    """Accept library object, prompt array, or single prompt → list of dicts."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [p for p in raw if isinstance(p, dict)]
+    if isinstance(raw, dict):
+        prompts = raw.get("prompts")
+        if isinstance(prompts, list):
+            return [p for p in prompts if isinstance(p, dict)]
+        # Single prompt object (has refined text or title)
+        if raw.get("refined_prompt") is not None or raw.get("title") is not None:
+            return [raw]
+    raise ValueError(
+        "Import JSON must be a library object {prompts: [...]}, a prompt array, "
+        "or a single prompt object"
+    )
+
+
+def build_import_candidates(
+    raw_prompts: list[dict[str, Any]],
+    *,
+    path: Path | None = None,
+) -> list[dict[str, Any]]:
+    """Normalize import rows for preview (index, hash, already_in_library)."""
+    existing_hashes: set[str] = set()
+    for entry in list_entries(path, include_disabled=True):
+        digest = entry.content_hash or content_hash_for(
+            entry.refined_prompt, entry.tools, entry.output_format
+        )
+        if digest:
+            existing_hashes.add(digest)
+
+    candidates: list[dict[str, Any]] = []
+    for idx, raw in enumerate(raw_prompts):
+        title = str(raw.get("title") or "Untitled prompt").strip()[:120]
+        refined = str(raw.get("refined_prompt") or "")
+        tools = [str(t) for t in (raw.get("tools") or []) if str(t).strip()]
+        tags = [str(t) for t in (raw.get("tags") or []) if str(t).strip()]
+        fmt = normalize_output_format(str(raw.get("output_format") or ""))
+        digest = content_hash_for(refined, tools, fmt) if refined.strip() else ""
+        preview = refined.strip()
+        if len(preview) > 160:
+            preview = preview[:157] + "…"
+        candidates.append(
+            {
+                "index": idx,
+                "id": str(raw.get("id") or "") or None,
+                "title": title or "Untitled prompt",
+                "tags": tags,
+                "tools": tools,
+                "output_format": fmt,
+                "refined_preview": preview,
+                "content_hash": digest,
+                "already_in_library": bool(digest and digest in existing_hashes),
+                "empty_refined": not bool(refined.strip()),
+            }
+        )
+    return candidates
+

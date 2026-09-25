@@ -10,6 +10,7 @@ from urllib.parse import quote
 
 from oracle_cpq_mcp.core.config import CPQProfile
 from oracle_cpq_mcp.core.local_data import profile_env_root, safe_segment
+from oracle_cpq_mcp.exporters.branded_documents import assert_not_template_path
 
 MAX_EXPORT_SHEETS = 20
 MAX_EXPORT_ROWS = 10_000
@@ -101,8 +102,10 @@ def relative_export_path(profile: CPQProfile, filename: str) -> str:
 def write_export_bytes(profile: CPQProfile, filename: str, payload: bytes) -> Path:
     """Write *payload* under the profile exports dir and return the absolute path."""
     directory = exports_dir(profile)
+    assert_not_template_path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / filename
+    assert_not_template_path(path)
     path.write_bytes(payload)
     return path
 

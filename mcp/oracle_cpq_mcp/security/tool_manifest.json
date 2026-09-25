@@ -1,16 +1,23 @@
 {
-  "tool_definitions_sha256": "4961f736afe7dc715071fa7623334898a040b46d3ad8d769147335798ce86f08",
-  "tool_count": 103,
+  "tool_definitions_sha256": "99613aeb6bd49503fe11bb23717ca52ce67bb9f6111f985a4e94958206f38c02",
+  "tool_count": 122,
   "tools": [
+    "add_from_favorites",
+    "add_transaction_lines",
     "clear_collab_operation_queue",
     "copy_transaction",
     "copy_transaction_lines",
     "create_datatable",
     "create_group",
+    "create_transaction",
+    "create_transaction_version",
+    "delete_transaction_line",
     "deploy_datatables",
     "discover_tools",
+    "display_transaction_history",
     "download_attachment",
     "download_task_file",
+    "ensure_prompt_studio",
     "export_attachment",
     "export_bml_library_functions",
     "export_datatables",
@@ -58,12 +65,14 @@
     "get_transaction_line",
     "get_user",
     "get_user_groups",
+    "interact_transaction_line",
     "list_array_set_attributes",
     "list_array_sets",
     "list_bml_common_functions",
     "list_bml_library_folders",
     "list_certificates",
     "list_commerce_processes",
+    "list_commerce_processes_table",
     "list_config_attributes",
     "list_config_menu_items",
     "list_datatable_fields",
@@ -76,6 +85,7 @@
     "list_parts",
     "list_performance_logs",
     "list_product_families",
+    "list_product_hierarchy_table",
     "list_product_lines",
     "list_saved_prompts",
     "list_saved_searches",
@@ -83,11 +93,18 @@
     "list_transactions",
     "list_users",
     "load_local_data",
+    "new_transaction",
     "offer_export_response",
     "offer_save_refined_prompt",
     "offer_use_local_data",
+    "reconfigure_transaction",
+    "reconfigure_transaction_line",
+    "reconfigure_transaction_line_inbound",
     "record_prompt_use",
+    "remove_transaction_lines",
     "save_refined_prompt",
+    "save_transaction",
+    "save_transaction_version",
     "search_bml_scripts",
     "search_local_bml",
     "search_parts",
@@ -98,15 +115,25 @@
     "set_saved_prompt_enabled",
     "start_bml_site_export",
     "start_prompt_picker",
+    "submit_transaction",
     "sync_bml_local",
     "sync_commerce_metadata_local",
     "sync_datatable_local",
     "sync_datatables_local",
     "sync_groups_local",
     "sync_users_local",
+    "update_transaction_lines",
     "update_user"
   ],
   "tool_versions": {
+    "add_from_favorites": {
+      "version": "1.0.0",
+      "definition_sha256": "32613b51bd8cf4bd5502b74a4c76c7ba503f70f9653b5afa2c45766007a47b59"
+    },
+    "add_transaction_lines": {
+      "version": "1.0.0",
+      "definition_sha256": "ee434baa977351d1e73280aa2cb519d4b086687f5ad0781eed304b5f7225c19b"
+    },
     "clear_collab_operation_queue": {
       "version": "1.0.0",
       "definition_sha256": "21b2c69c9021976357746714ddc02442080737c31c72947aec2e5133e49fb879"
@@ -127,6 +154,18 @@
       "version": "1.0.0",
       "definition_sha256": "97e0acba38d4b56680cc6c67ca429c029a87bf328d9577b78b85872aedec1d06"
     },
+    "create_transaction": {
+      "version": "1.0.0",
+      "definition_sha256": "2aed01e7ad020c0e0fba1c2e783b8cd6efe8a6c3eba36918938b9ba52471ed3d"
+    },
+    "create_transaction_version": {
+      "version": "1.0.0",
+      "definition_sha256": "b02e2ae0e2fd4f60b5955e9184616f8be5810b26d36100b203a9cb9690542fe6"
+    },
+    "delete_transaction_line": {
+      "version": "1.0.0",
+      "definition_sha256": "5f12ada3bbcc6a602b5640f038e53672e8519f1b8ca9d6c26cf0fd852b96075a"
+    },
     "deploy_datatables": {
       "version": "1.0.0",
       "definition_sha256": "e6c0c7c6b2d233f25cc927e6e70a5e7045b7d54dadc8787eb82f48217f87d32f"
@@ -135,6 +174,10 @@
       "version": "1.0.0",
       "definition_sha256": "fc9237e8ae52ddb53116968b624012e3cb58d01097d1f2c22101399525d0e453"
     },
+    "display_transaction_history": {
+      "version": "1.0.0",
+      "definition_sha256": "f72cd55b7249c2c0a340ca1b63776d3b8c6f7c40a083d273caa673cf178ef11a"
+    },
     "download_attachment": {
       "version": "1.0.0",
       "definition_sha256": "ea3f774e6397aacd9150b176ef988c1d046d528c038e41cb19113e3abfb604e3"
@@ -142,6 +185,10 @@
     "download_task_file": {
       "version": "1.0.0",
       "definition_sha256": "3e08f2ef6fd6af470a79a22e6b7504ef7677d2887109fd25f2f923b352b94f07"
+    },
+    "ensure_prompt_studio": {
+      "version": "1.0.0",
+      "definition_sha256": "ef44be445b0ba77f27943daf6f51174fd463851b8eefbe79f52f70d595a1782f"
     },
     "export_attachment": {
       "version": "1.0.0",
@@ -164,8 +211,8 @@
       "definition_sha256": "7bada64445560f2a132cb02f22473bbe933c7911f5121f693daa467685babede"
     },
     "export_response_word": {
-      "version": "1.0.0",
-      "definition_sha256": "d62988deee25317f2ef8afcf7dc81af7879b0fbeb77e01b90adc2781eb14a3a0"
+      "version": "1.1.0",
+      "definition_sha256": "d8bf38eedb9980abdd6d410d3bb2a6260d961d68a632bbc006c6b86141e17fba"
     },
     "export_users_excel": {
       "version": "1.2.0",
@@ -331,6 +378,10 @@
       "version": "1.0.0",
       "definition_sha256": "e7b967c79588b0f2d2cad97e11c32a2afc096b3bdcb54cd5e7eb3718bd19c231"
     },
+    "interact_transaction_line": {
+      "version": "1.0.0",
+      "definition_sha256": "a728bd568207a78971c6b8e39a924e3dd35758d9db17ddb015476039add6a373"
+    },
     "list_array_set_attributes": {
       "version": "1.0.0",
       "definition_sha256": "a4543051aea86f88f95402401dc4aace5108287ee6625624ccdedad5a70b570a"
@@ -354,6 +405,10 @@
     "list_commerce_processes": {
       "version": "1.0.0",
       "definition_sha256": "765fcf5f9f1c3d0cad1980ce9093916d3a412d1fa8b5f21c8aa3d90809ba8c4f"
+    },
+    "list_commerce_processes_table": {
+      "version": "1.0.0",
+      "definition_sha256": "ce84b4a88669b5965f571a723ffbd970f561282f7709e6221bd3dc7e7b7dcccb"
     },
     "list_config_attributes": {
       "version": "1.0.0",
@@ -403,13 +458,17 @@
       "version": "1.0.0",
       "definition_sha256": "1a51da62d7d386871bff9eea5dac29ab83306010c9ee448107b164a5b6c02833"
     },
+    "list_product_hierarchy_table": {
+      "version": "1.0.0",
+      "definition_sha256": "c4a4c0f9080f2eddd3e7797d2187418a1c29f6a79ab2274cc1e2e1f4c3462914"
+    },
     "list_product_lines": {
       "version": "1.0.0",
       "definition_sha256": "b870f06b1634bd6607797491557728af8e91637c139f52e0d3e71ff1cd9956f5"
     },
     "list_saved_prompts": {
-      "version": "1.0.0",
-      "definition_sha256": "95e2d803b3e193b4d7be3f00e7970da150eb88c9df2553fee80403401e59bedc"
+      "version": "1.1.0",
+      "definition_sha256": "33a1d9b9c831fae98dff8cc3cb94d6369aeb0397b7be4a989a45e1f6dde47547"
     },
     "list_saved_searches": {
       "version": "1.0.0",
@@ -431,6 +490,10 @@
       "version": "1.1.0",
       "definition_sha256": "00307f19e42a2a3c0c147cbe11102f6df4f3ca50447253313118d36c83162256"
     },
+    "new_transaction": {
+      "version": "1.0.0",
+      "definition_sha256": "353db97a20af06f4b8bf63fab5fcdec50c01cc293a73aff1e4256986d50b1b76"
+    },
     "offer_export_response": {
       "version": "1.0.0",
       "definition_sha256": "5197b845c1e9a483057d443c69b65164624c6129a55fc095e76c6881dd03abd4"
@@ -443,13 +506,37 @@
       "version": "1.1.0",
       "definition_sha256": "bb072288bd8302a49a06c6d698ae13d95a823e668f425912893afa1d7e65b6dc"
     },
+    "reconfigure_transaction": {
+      "version": "1.0.0",
+      "definition_sha256": "36c4683d0b5331892dad235e0fcd379337bcc5c3f8b7824bf5e01edb15d24690"
+    },
+    "reconfigure_transaction_line": {
+      "version": "1.0.0",
+      "definition_sha256": "bd475916668c74e5497efcfd24c39652acac7d0679cd812296b681788e3822d4"
+    },
+    "reconfigure_transaction_line_inbound": {
+      "version": "1.0.0",
+      "definition_sha256": "d2c3a0156d334cc39db9faa57413a1da4b50a0337126a650d771d4c308a4de23"
+    },
     "record_prompt_use": {
       "version": "1.0.0",
       "definition_sha256": "231dc6a82096872d0965d534aaabec97ebff48c6c66b6f8f4fb039614f2e386e"
     },
+    "remove_transaction_lines": {
+      "version": "1.0.0",
+      "definition_sha256": "13ab46782e87ed9e6171ef57d724060e34d3bae0b52484c99e4458908c28fe9e"
+    },
     "save_refined_prompt": {
-      "version": "1.1.0",
-      "definition_sha256": "1f66745e71a73d805c4145c090cf223502386ccc3e31766ccb3bf976eb15ba4b"
+      "version": "1.2.0",
+      "definition_sha256": "fe031a4b86ee298cdb593344553de8be15747a3ac8fbf07223a209e4b9b20e0d"
+    },
+    "save_transaction": {
+      "version": "1.0.0",
+      "definition_sha256": "e35be10f8816c658cb613b12ca9051b24a12b6c2d0eca616c50019b184682ccf"
+    },
+    "save_transaction_version": {
+      "version": "1.0.0",
+      "definition_sha256": "58f15cb196baf3da5d3f976f8f2c76fb77023fe792b0ea0c88fbec664f096173"
     },
     "search_bml_scripts": {
       "version": "1.0.0",
@@ -491,6 +578,10 @@
       "version": "1.1.0",
       "definition_sha256": "391f0cf484d24ca24c9a4759e25863a93aef20c71108657fddfd73e55a804b2a"
     },
+    "submit_transaction": {
+      "version": "1.0.0",
+      "definition_sha256": "a6d6cfce61c0ccef6ef176d21d277e31acd689ab6e51aea9ee5f8fdc236217dc"
+    },
     "sync_bml_local": {
       "version": "1.1.0",
       "definition_sha256": "1d2c169bd769d34287cb841ae184ca970ca0c04022a7b4d139b1337ed52bc195"
@@ -514,6 +605,10 @@
     "sync_users_local": {
       "version": "1.1.0",
       "definition_sha256": "bb58efc5049af9426670d6649d64d2a60aa753c543449be705e16c4de4cf7931"
+    },
+    "update_transaction_lines": {
+      "version": "1.0.0",
+      "definition_sha256": "ce54be5ec7c2e155a357ac88e02ed9b511e734f08b3e96574f22997ae3049add"
     },
     "update_user": {
       "version": "1.0.0",

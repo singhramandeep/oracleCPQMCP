@@ -1,6 +1,6 @@
 # Prompt Studio
 
-Lightweight local UI to browse and fill saved refined prompts from `.config/saved_prompts.json`.
+Lightweight local UI to browse and fill saved refined prompts from `.prompts/saved_prompts.json`.
 
 ## Stack
 
@@ -35,6 +35,31 @@ Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Bound to localhost only; no
 
 After updating Studio, **hard-refresh once** (Ctrl+F5) if buttons look stale; static assets use version cache-busting automatically on later loads.
 
+## Restart
+
+One command (repo root, project venv) — stops listeners on port **8765** (or `CPQ_PROMPT_STUDIO_PORT`), then starts Studio in the foreground:
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.prompt_studio restart
+```
+
+```powershell
+.\scripts\restart-prompt-studio.cmd
+```
+
+```bash
+./scripts/restart-prompt-studio.sh
+# or: ./.venv/bin/python -m apps.prompt_studio restart
+```
+
+Stop only:
+
+```powershell
+.\.venv\Scripts\python.exe -m apps.prompt_studio stop
+```
+
+MCP `ensure_prompt_studio` only **starts** Studio when `/api/health` is down; it does **not** restart a live process. After restart, hard-refresh the browser (**Ctrl+F5**).
+
 ### Env overrides
 
 | Variable | Purpose |
@@ -50,18 +75,24 @@ After updating Studio, **hard-refresh once** (Ctrl+F5) if buttons look stale; st
 - Rich metadata: format, run count, last run, created, placeholders
 - Favorites (star toggle)
 - Suites (named ordered prompt lists; add from cards)
+- **New prompt** — create a prompt manually in the UI
+- **Import** — upload JSON (library / array / single), require an import name/tag, select/deselect rows; tags `imported` + `import:<slug>`
+- **Export all** / **Export selected** — download library JSON
+- **Help** — in-app docs for library path, start/restart commands, import/export
+- Header shows the **absolute library file path** (click to copy)
 - Run / fill: detect `{{snake_case}}` placeholders, recent values, Generate + Copy; `{{output_format}}` uses a dropdown (Text / JSON / Excel download)
 - Run modal shows **expected response format** (Text by default; JSON / Excel download when set)
-- **Refresh** reloads `.config/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, disabled count, and library last write)
+- **Refresh** reloads `.prompts/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, disabled count, and library last write). Toolbar binds are null-safe; static assets are cache-busted from the Studio version (`0.3.1+`).
+- **Profile filter** — dropdown (All / Unscoped / each stamped profile). MCP `save_refined_prompt` stamps `profile` from the active CPQ customer profile; New prompt accepts an optional profile.
 - **Auto-reload banner** when the library file changes on disk (poll + window focus)
 - **Show disabled** toggle for prompts with `enabled=false`
 - **Edit prompt** — change title, original/refined text, enable/disable; **Make variable** wraps selected text as `{{snake_case}}`
 - Sorted by **most recent** (`last_run_at` / `created_at`) like MCP `list_saved_prompts`
-- **Download all** downloads the full library JSON (`GET /api/prompts/download`; includes disabled prompts by default)
+- **Export all** downloads the full library JSON (`GET /api/prompts/download`; includes disabled prompts by default)
 - Run modal shows **original user prompt** and refined template
 - **Remove** on cards/list permanently deletes a prompt from the shared library after **two** confirms; also clears favorites/suite references
 
-Studio and MCP share the same `.config/saved_prompts.json` (override with `CPQ_SAVED_PROMPTS_PATH`). On startup, Studio pins `CPQ_CONFIG_DIR` and `CPQ_SAVED_PROMPTS_PATH` to `<repo>/.config/` when unset — matching MCP defaults.
+Studio and MCP share the same `.prompts/saved_prompts.json` (override with `CPQ_SAVED_PROMPTS_PATH`). On startup, Studio pins `CPQ_CONFIG_DIR` to `<repo>/.config/` and `CPQ_SAVED_PROMPTS_PATH` to `<repo>/.prompts/saved_prompts.json` when unset — matching MCP defaults.
 
 **Prompts not appearing?**
 
@@ -70,6 +101,7 @@ Studio and MCP share the same `.config/saved_prompts.json` (override with `CPQ_S
 3. Similar tasks **dedupe** by content hash — you may see one updated row instead of a new card.
 4. Toggle **Show disabled** if a prompt was soft-disabled.
 5. Click **Refresh** or use the **Reload** banner when the file changes on disk.
+6. Use the **Profile** filter if you only want prompts stamped for one customer profile (leave **All profiles** to see everything; **Unscoped** shows rows with no profile).
 
 ## Backlog
 

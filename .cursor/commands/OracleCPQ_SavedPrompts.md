@@ -21,6 +21,6 @@ You are helping the user pick an **enabled** saved refined prompt from the local
 
 ## Rules
 
-- Use MCP tools only — never invent ad-hoc Python scripts to read `.config/saved_prompts.json`.
+- Use MCP tools only — never invent ad-hoc Python scripts to read `.prompts/saved_prompts.json`.
 - Never show or run **disabled** prompts. To re-enable one, use `set_saved_prompt_enabled(prompt_id=..., enabled=true)`.
 - Do not invent a free-form CPQ task until a saved prompt is selected (or the user cancels).

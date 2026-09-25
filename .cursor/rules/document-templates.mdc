@@ -1,0 +1,29 @@
+# Document templates (Word / Excel / PowerPoint)
+
+> **Mirror only (Cursor).** Authoritative copy is MCP `DOCUMENT_TEMPLATES` in
+> `build_server_instructions` and root [`AGENTS.md`](../../AGENTS.md).
+> Antigravity / VS Code do **not** load this file.
+
+Whenever you create a `.docx`, `.xlsx`, or `.pptx` file in this repo:
+
+1. Look under [`.config/template/`](.config/template/) for the typed template — **exact names only**:
+   - Word → `Word Template.docx`
+   - Excel → `Excel Template.xlsx`
+   - PowerPoint → `PowerPoint Template.pptx`
+2. If that file exists and is a **valid** Office package (non-empty ZIP starting with `PK`), **clone it** (copy-then-open; never write back into the template dir). Clear **body/slide content only** so section headers/footers, logos, themes, and style definitions remain.
+3. Apply template styles by name when present:
+   - Document title → `Title` (fallback `Heading 1`)
+   - Sections → `Heading 1` / `Heading 2` / `Heading 3`
+   - Notes / body → `Normal`
+   - Tables → prefer a template table style; `Table Grid` is an acceptable fallback
+   - Excel → reuse header-row style from the template sample cell
+4. If the template is missing, 0 bytes, or unreadable, fall back to a blank document and note that the template was not applied — do not invent logos, fonts, branding, or alternate template paths.
+5. Treat [`.config/template/`](.config/template/) as **read-only**: never create, overwrite, delete, or “fix” files there. Write new `.docx`/`.xlsx`/`.pptx` under `data/{profile}/{env}/exports/` (or another non-template path).
+6. MCP exporters (`export_response_excel` / `export_response_word`) and any agent-built PPTX must use [`oracle_cpq_mcp.exporters.branded_documents`](mcp/oracle_cpq_mcp/exporters/branded_documents.py) (`open_word_document` / `open_excel_workbook` / `open_pptx_presentation`).
+7. Word-only: for analytical or structured exports (audits, pass/fail, flows, comparisons),
+   `export_response_word` **must** include **1–3** `diagrams` (Mermaid via local `mmdc`,
+   or PNG `image_path` under `tmp/{profile}/{env}/`) — expected, not optional; do not wait
+   for the user to ask. Skip only for trivial short lists or pure errors. Diagram images
+   are center-aligned. Structure `notes` with `##` / `###` headings and `-` / `*` bullets —
+   never one dense paragraph. Never write diagram assets into `.config/template/`.
+8. See [`.config/template/README.md`](.config/template/README.md) for naming and styling notes.

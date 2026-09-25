@@ -1,4 +1,4 @@
-"""Load and resolve Oracle CPQ customer profiles from `.config/<customer>.env`."""
+"""Load and resolve Oracle CPQ customer profiles from `.config/<customer>.yaml` or `.env`."""
 
 from __future__ import annotations
 
@@ -9,9 +9,13 @@ from typing import Literal
 from dotenv import dotenv_values
 from pydantic import BaseModel, Field, field_validator
 
+from oracle_cpq_mcp.core.catalog import CatalogProductFamily
+
 EnvironmentName = Literal["dev", "test", "prod"]
 LocalDataPolicy = Literal["ask", "prefer", "never"]
 PostResponseExportPolicy = Literal["ask", "never", "always_excel"]
+CatalogSource = Literal["none", "env", "catalog_yaml", "profile_yaml"]
+ProfileFileKind = Literal["yaml", "env"]
 
 
 class CredentialSet(BaseModel):
@@ -46,6 +50,13 @@ class CPQProfile(BaseModel):
     http_timeout: float = 60.0
     # METRICS_<NAME> → description; keys are NAME suffixes (e.g. QUOTES).
     metric_descriptions: dict[str, str] = Field(default_factory=dict)
+    # Product family tree + aliases (from profile YAML, .catalog.yaml, or flat keys).
+    product_families: list[CatalogProductFamily] = Field(default_factory=list)
+    product_family_aliases: dict[str, str] = Field(default_factory=dict)
+    product_line_aliases: dict[str, str] = Field(default_factory=dict)
+    product_model_aliases: dict[str, str] = Field(default_factory=dict)
+    catalog_source: CatalogSource = "none"
+    profile_file_kind: ProfileFileKind = "env"
 
     @field_validator("base_url")
     @classmethod
@@ -94,14 +105,34 @@ def config_dir() -> Path:
     return find_project_root() / ".config"
 
 
+def profile_env_path(customer_id: str) -> Path:
+    """Return `.config/<customer_id>.env` path (may not exist)."""
+    return config_dir() / f"{customer_id}.env"
+
+
+def profile_yaml_path(customer_id: str) -> Path:
+    """Return `.config/<customer_id>.yaml` path (may not exist)."""
+    return config_dir() / f"{customer_id}.yaml"
+
+
+def resolve_profile_path(customer_id: str) -> Path:
+    """Prefer `.config/<id>.yaml` when present; otherwise require `.env`."""
+    yaml_path = profile_yaml_path(customer_id)
+    if yaml_path.is_file():
+        return yaml_path
+    env_path = profile_env_path(customer_id)
+    if env_path.is_file():
+        return env_path
+    raise FileNotFoundError(
+        f"Customer profile not found: {yaml_path} (or {env_path}). "
+        f"Copy .config/.profile.yaml.example to .config/{customer_id}.yaml "
+        f"or use a legacy .config/{customer_id}.env"
+    )
+
+
 def profile_path(customer_id: str) -> Path:
-    path = config_dir() / f"{customer_id}.env"
-    if not path.is_file():
-        raise FileNotFoundError(
-            f"Customer profile not found: {path}. "
-            f"Copy .config/.env.example to .config/{customer_id}.env"
-        )
-    return path
+    """Resolved active profile file (``.yaml`` preferred, else ``.env``)."""
+    return resolve_profile_path(customer_id)
 
 
 def _env_prefix(environment: EnvironmentName) -> str:
@@ -217,9 +248,10 @@ def update_profile_env_key(
     *,
     path: Path | None = None,
 ) -> Path:
-    """Replace or append a single allowlisted key in the profile .env file.
+    """Replace or append a single allowlisted key in the active profile file.
 
-    Preserves comments and all other keys. Never used for credentials.
+    Supports both `.yaml` (snake_case fields) and legacy `.env`. Never used for
+    credentials.
     """
     if key not in PROFILE_ENV_WRITABLE_KEYS:
         raise ValueError(
@@ -230,13 +262,14 @@ def update_profile_env_key(
     if not target.is_file():
         raise FileNotFoundError(f"Customer profile not found: {target}")
 
+    if target.suffix.lower() in (".yaml", ".yml"):
+        from oracle_cpq_mcp.core.profile_yaml import update_profile_yaml_key
+
+        return update_profile_yaml_key(target, key, value)
+
     text = target.read_text(encoding="utf-8")
     lines = text.splitlines(keepends=True)
-    if lines and not lines[-1].endswith(("\n", "\r")):
-        # Normalize so we can append cleanly later
-        pass
 
-    key_prefix = f"{key}="
     replaced = False
     new_lines: list[str] = []
     for line in lines:
@@ -244,7 +277,6 @@ def update_profile_env_key(
         if stripped.startswith("#") or "=" not in line:
             new_lines.append(line)
             continue
-        # Compare key part (ignore leading whitespace)
         left = line.split("=", 1)[0].strip()
         if left == key:
             eol = "\n"
@@ -366,6 +398,21 @@ def resolve_custom_data_table_alias(profile: CPQProfile, text: str) -> str | Non
     return resolve_alias(profile.custom_data_table_aliases, text)
 
 
+def resolve_product_family_alias(profile: CPQProfile, text: str) -> str | None:
+    """Resolve a product-family alias phrase using the profile map."""
+    return resolve_alias(profile.product_family_aliases, text)
+
+
+def resolve_product_line_alias(profile: CPQProfile, text: str) -> str | None:
+    """Resolve a product-line alias phrase using the profile map."""
+    return resolve_alias(profile.product_line_aliases, text)
+
+
+def resolve_product_model_alias(profile: CPQProfile, text: str) -> str | None:
+    """Resolve a product-model alias phrase using the profile map."""
+    return resolve_alias(profile.product_model_aliases, text)
+
+
 def _resolve_customer_knowledge_file(raw: dict[str, str | None]) -> str | None:
     value = (raw.get("CUSTOMER_KNOWLEDGE_FILE") or "").strip()
     return value or None
@@ -431,14 +478,158 @@ def _resolve_credential_index(
     return credential_index
 
 
-def load_profile(
-    customer_id: str | None = None,
-    environment: EnvironmentName | None = None,
-    credential_index: int | None = None,
+def _coerce_http_timeout(value: float | None) -> float:
+    """Host ``CPQ_HTTP_TIMEOUT`` wins; otherwise use profile value or 60s."""
+    raw_value = os.environ.get("CPQ_HTTP_TIMEOUT")
+    if raw_value is not None and str(raw_value).strip():
+        try:
+            timeout = float(str(raw_value).strip())
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid CPQ_HTTP_TIMEOUT={raw_value!r}; use seconds as a number"
+            ) from exc
+    elif value is None:
+        return 60.0
+    else:
+        timeout = float(value)
+    if timeout < 5.0 or timeout > 3600.0:
+        raise ValueError(
+            f"HTTP_TIMEOUT/CPQ_HTTP_TIMEOUT={timeout} out of range; use 5–3600 seconds"
+        )
+    return timeout
+
+
+def _host_bool_override(env_name: str, file_value: bool, *, default: bool) -> bool:
+    if os.environ.get(env_name) is not None:
+        return parse_bool_env(os.environ.get(env_name), default=default)
+    return file_value
+
+
+def _load_profile_from_yaml(
+    customer_id: str,
+    path: Path,
+    environment: EnvironmentName | None,
+    credential_index: int | None,
 ) -> CPQProfile:
-    """Load `.config/<customer_id>.env` and resolve the active environment."""
-    customer_id = customer_id or os.environ.get("CPQ_CUSTOMER_PROFILE", "mycompany")
-    raw = dotenv_values(profile_path(customer_id))
+    from oracle_cpq_mcp.core.local_data import parse_local_data_policy
+    from oracle_cpq_mcp.core.profile_yaml import (
+        commerce_from_catalog,
+        data_tables_from_catalog,
+        enabled_product_families,
+        load_profile_document,
+        product_family_aliases_from_tree,
+    )
+
+    document = load_profile_document(path)
+    active_env: EnvironmentName = (
+        environment
+        or os.environ.get("CPQ_ENVIRONMENT")  # type: ignore[assignment]
+        or document.default_environment
+    )
+    if active_env not in ("dev", "test", "prod"):
+        raise ValueError(f"Invalid environment '{active_env}'. Use dev, test, or prod.")
+
+    env_block = document.environments.get(active_env)
+    if env_block is None or not env_block.url:
+        raise ValueError(
+            f"Profile '{customer_id}' is missing environments.{active_env}.url "
+            f"in {path}"
+        )
+    if not env_block.enabled:
+        raise ValueError(
+            f"Profile '{customer_id}' environment '{active_env}' is disabled "
+            f"(environments.{active_env}.enabled=false in {path}). "
+            "Pick another environment or set enabled: true."
+        )
+    if not env_block.credentials:
+        raise ValueError(
+            f"Profile '{customer_id}' is missing environments.{active_env}.credentials "
+            f"in {path}"
+        )
+
+    credentials = [
+        CredentialSet(username=item.username, password=item.password)
+        for item in env_block.credentials
+    ]
+    resolved_index = _resolve_credential_index(credential_index, len(credentials))
+
+    catalog = document.as_catalog()
+    commerce_names, commerce_aliases = commerce_from_catalog(catalog)
+    table_names, table_aliases = data_tables_from_catalog(catalog)
+    product_families = enabled_product_families(catalog.product_families)
+    family_aliases, line_aliases, model_aliases = product_family_aliases_from_tree(
+        product_families
+    )
+
+    read_only = _host_bool_override("CPQ_READ_ONLY", document.read_only, default=True)
+    refined_prompt = _host_bool_override(
+        "CPQ_REFINED_PROMPT", document.refined_prompt, default=True
+    )
+    auto_save = _host_bool_override(
+        "CPQ_AUTO_SAVE_REFINED_PROMPT",
+        document.auto_save_refined_prompt,
+        default=False,
+    )
+    debug_mode = _host_bool_override(
+        "CPQ_DEBUG_MODE", document.debug_mode, default=True
+    )
+
+    if os.environ.get("CPQ_LOCAL_DATA_POLICY") is not None:
+        local_policy = parse_local_data_policy(
+            os.environ.get("CPQ_LOCAL_DATA_POLICY"), default="ask"
+        )
+    else:
+        local_policy = parse_local_data_policy(
+            document.local_data_policy, default="ask"
+        )
+
+    if os.environ.get("CPQ_POST_RESPONSE_EXPORT") is not None:
+        export_policy = _resolve_post_response_export(
+            {"POST_RESPONSE_EXPORT": os.environ.get("CPQ_POST_RESPONSE_EXPORT")}
+        )
+    else:
+        export_policy = _resolve_post_response_export(
+            {"POST_RESPONSE_EXPORT": document.post_response_export}
+        )
+
+    return CPQProfile(
+        customer_name=document.customer_name or customer_id,
+        customer_id=customer_id,
+        environment=active_env,
+        base_url=env_block.url,
+        rest_version=document.rest_api_version or "v18",
+        company_login_name=document.company_login_name or "_host",
+        credentials=credentials,
+        credential_index=resolved_index,
+        custom_data_table_names=table_names,
+        commerce_process_var_names=commerce_names,
+        customer_knowledge_file=document.customer_knowledge_file,
+        commerce_process_aliases=commerce_aliases,
+        custom_data_table_aliases=table_aliases,
+        read_only=read_only,
+        refined_prompt=refined_prompt,
+        auto_save_refined_prompt=auto_save,
+        debug_mode=debug_mode,
+        local_data_policy=local_policy,
+        post_response_export=export_policy,
+        http_timeout=_coerce_http_timeout(document.http_timeout),
+        metric_descriptions=dict(document.metrics),
+        product_families=product_families,
+        product_family_aliases=family_aliases,
+        product_line_aliases=line_aliases,
+        product_model_aliases=model_aliases,
+        catalog_source="profile_yaml",
+        profile_file_kind="yaml",
+    )
+
+
+def _load_profile_from_env(
+    customer_id: str,
+    path: Path,
+    environment: EnvironmentName | None,
+    credential_index: int | None,
+) -> CPQProfile:
+    raw = dotenv_values(path)
 
     active_env: EnvironmentName = (
         environment
@@ -472,6 +663,37 @@ def load_profile(
     table_names, table_aliases = pair_aliases_from_raw(
         raw, name_key="CUSTOM_DATA_TABLE_NAME", alias_key="CUSTOM_DATA_TABLE_ALIAS"
     )
+    metric_descriptions = _collect_metric_descriptions(raw)
+
+    from oracle_cpq_mcp.core.catalog import (
+        commerce_from_catalog,
+        data_tables_from_catalog,
+        enabled_product_families,
+        load_catalog,
+        parse_flat_product_families,
+        product_family_aliases_from_tree,
+    )
+
+    catalog = load_catalog(customer_id)
+    catalog_source: CatalogSource = "none"
+    product_families: list[CatalogProductFamily] = []
+
+    if catalog is not None:
+        catalog_source = "catalog_yaml"
+        commerce_names, commerce_aliases = commerce_from_catalog(catalog)
+        table_names, table_aliases = data_tables_from_catalog(catalog)
+        if catalog.metrics:
+            metric_descriptions = dict(catalog.metrics)
+        product_families = enabled_product_families(catalog.product_families)
+    else:
+        flat_families = parse_flat_product_families(raw)
+        if flat_families:
+            catalog_source = "env"
+            product_families = enabled_product_families(flat_families)
+
+    family_aliases, line_aliases, model_aliases = product_family_aliases_from_tree(
+        product_families
+    )
 
     return CPQProfile(
         customer_name=raw.get("CUSTOMER_NAME") or customer_id,
@@ -494,5 +716,26 @@ def load_profile(
         local_data_policy=_resolve_local_data_policy(raw),
         post_response_export=_resolve_post_response_export(raw),
         http_timeout=_resolve_http_timeout(raw),
-        metric_descriptions=_collect_metric_descriptions(raw),
+        metric_descriptions=metric_descriptions,
+        product_families=product_families,
+        product_family_aliases=family_aliases,
+        product_line_aliases=line_aliases,
+        product_model_aliases=model_aliases,
+        catalog_source=catalog_source,
+        profile_file_kind="env",
     )
+
+
+def load_profile(
+    customer_id: str | None = None,
+    environment: EnvironmentName | None = None,
+    credential_index: int | None = None,
+) -> CPQProfile:
+    """Load `.config/<id>.yaml` when present, else legacy `.env` (+ optional catalog)."""
+    customer_id = customer_id or os.environ.get("CPQ_CUSTOMER_PROFILE", "mycompany")
+    path = resolve_profile_path(customer_id)
+    if path.suffix.lower() in (".yaml", ".yml"):
+        return _load_profile_from_yaml(
+            customer_id, path, environment, credential_index
+        )
+    return _load_profile_from_env(customer_id, path, environment, credential_index)

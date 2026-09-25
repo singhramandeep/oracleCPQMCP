@@ -26,16 +26,46 @@ Then:
 pip install -e ".[dev]"
 ```
 
+### Optional — Mermaid CLI (Word diagrams)
+
+Word exports with Mermaid need local `mmdc` (Node.js / npm):
+
+```bash
+npm i -g @mermaid-js/mermaid-cli
+mmdc --version
+```
+
+Without `mmdc`, Word still builds but diagrams appear as raw Mermaid text. Details: [QUICKSTART — Step 2.1](QUICKSTART.md#21-optional--mermaid-cli-for-word-diagrams).
+
+### Optional — Prompt Studio
+
+```bash
+pip install -e ".[prompt-studio]"
+python -m apps.prompt_studio            # start → http://127.0.0.1:8765
+python -m apps.prompt_studio restart    # stop + start (one command)
+```
+
+Or: `.\scripts\restart-prompt-studio.cmd` / `./scripts/restart-prompt-studio.sh`. See [QUICKSTART — Restart Prompt Studio](QUICKSTART.md#restart-prompt-studio-one-command).
+
 ## Configure
 
-**IDE terminal** (repo root):
+**Preferred — unified YAML** (IDE terminal, repo root):
 
 | Shell | Command |
 |-------|---------|
-| Windows PowerShell / CMD | `copy .config\.env.example .config\mycompany.env` |
-| macOS / Linux / Git Bash | `cp .config/.env.example .config/mycompany.env` |
+| Windows PowerShell / CMD | `copy .config\.profile.yaml.example .config\mycompany.yaml` |
+| macOS / Linux / Git Bash | `cp .config/.profile.yaml.example .config/mycompany.yaml` |
 
-Edit `.config/mycompany.env` with your CPQ URLs and credentials.
+Edit `.config/mycompany.yaml` with your CPQ URLs and credentials.
+
+**Migrate an existing `.env`:**
+
+```bash
+python scripts/migrate_profile_yaml.py mycompany --dry-run
+python scripts/migrate_profile_yaml.py mycompany
+```
+
+Detailed steps: [FAQ — migrate `.env` → `.yaml`](FAQ.md#how-do-i-migrate-from-a-legacy-env-to-yaml). Legacy `.env` profiles still work if no `.yaml` exists for that id.
 
 ## Verify
 

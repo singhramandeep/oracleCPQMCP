@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from oracle_cpq_mcp.core.config import update_profile_env_key
@@ -10,6 +11,7 @@ from oracle_cpq_mcp.prompts.saved_library import (
     get_entry,
     last_used,
     list_entries,
+    normalize_profile,
     record_use,
     search_entries,
     set_enabled,
@@ -26,6 +28,14 @@ def _active_customer_id() -> str:
     if ctx is None or not ctx.customer_id:
         raise RuntimeError("Security context not configured (no active customer profile).")
     return ctx.customer_id
+
+
+def _stamp_profile() -> str | None:
+    """Active CPQ customer profile for saved-prompt stamping (None if unknown)."""
+    ctx = get_security_context()
+    if ctx is not None and ctx.customer_id:
+        return normalize_profile(ctx.customer_id)
+    return normalize_profile(os.environ.get("CPQ_CUSTOMER_PROFILE"))
 
 
 def _enable_auto_save(enabled: bool) -> dict[str, Any]:
@@ -154,6 +164,7 @@ def register_saved_prompt_tools(mcp: Any) -> None:
             tags=merged_tags,
             tools=tool_names,
             output_format=output_format,
+            profile=_stamp_profile(),
         )
         return {
             "created": created,

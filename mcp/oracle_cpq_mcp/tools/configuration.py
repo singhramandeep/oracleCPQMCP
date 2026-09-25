@@ -81,6 +81,16 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
     list_models.__doc__ = TOOL_CATALOG["list_models"].description
     register_tool(mcp, list_models, "list_models")
 
+    def list_product_hierarchy_table(page_size: int = 100) -> dict[str, Any]:
+        from oracle_cpq_mcp.core.hierarchy_tables import build_product_hierarchy_table
+
+        return build_product_hierarchy_table(client, page_size=page_size)
+
+    list_product_hierarchy_table.__doc__ = TOOL_CATALOG[
+        "list_product_hierarchy_table"
+    ].description
+    register_tool(mcp, list_product_hierarchy_table, "list_product_hierarchy_table")
+
     def get_model(
         prod_fam_var_name: str,
         prod_line_var_name: str,

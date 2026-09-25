@@ -12,7 +12,7 @@ from oracle_cpq_mcp.security.context import SecurityContext
 from oracle_cpq_mcp.security.settings import SecuritySettings
 
 PreflightStatus = Literal["preflight_ok", "preflight_failed"]
-WriteAction = Literal["update", "create", "deploy", "copy", "export"]
+WriteAction = Literal["update", "create", "deploy", "copy", "export", "delete", "submit"]
 
 PREFLIGHT_NEXT_STEP = (
     "Ask the user to confirm this change, then call again with "
@@ -518,20 +518,39 @@ def run_commerce_action_preflight(
     transaction_path: str,
     post_path: str,
     body: dict[str, Any] | None,
+    write_action: WriteAction = "copy",
+    method: str = "POST",
+    line_path: str | None = None,
 ) -> dict[str, Any]:
-    """Validate a commerce document action against an existing transaction."""
-    would = _would_execute(client, method="POST", path=post_path, body=body or {})
+    """Validate a commerce document action against an existing transaction (and line)."""
+    would = _would_execute(client, method=method, path=post_path, body=body or {})
     try:
         current = client.get(transaction_path)
     except CPQAPIError as exc:
         return _preflight_api_failure(
             tool,
-            action="copy",
+            action=write_action,
             message=f"Transaction not found or not accessible at {transaction_path}",
             would_execute=would,
             exc=exc,
             preflight={"transaction_path": transaction_path},
         )
+
+    if line_path:
+        try:
+            client.get(line_path)
+        except CPQAPIError as exc:
+            return _preflight_api_failure(
+                tool,
+                action=write_action,
+                message=f"Transaction line not found or not accessible at {line_path}",
+                would_execute=would,
+                exc=exc,
+                preflight={
+                    "transaction_path": transaction_path,
+                    "line_path": line_path,
+                },
+            )
 
     txn_id = None
     if isinstance(current, dict):
@@ -540,17 +559,117 @@ def run_commerce_action_preflight(
         f"This will {action_label} for transaction '{txn_id or transaction_path}' in CPQ. "
         "Confirm to proceed."
     )
+    preflight: dict[str, Any] = {
+        "transaction_path": transaction_path,
+        "post_path": post_path,
+        "body_keys": sorted((body or {}).keys()),
+        "transaction_id": txn_id,
+    }
+    if line_path:
+        preflight["line_path"] = line_path
     return build_preflight_response(
         tool,
-        action="copy",
+        action=write_action,
         status="preflight_ok",
         message=f"This will {action_label} for transaction '{txn_id or transaction_path}' in CPQ.",
         confirmation_prompt=confirmation_prompt,
         would_execute=would,
+        preflight=preflight,
+    )
+
+
+def run_commerce_create_preflight(
+    client: CPQClient,
+    *,
+    tool: str,
+    action_label: str,
+    post_path: str,
+    body: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Validate create/new transaction POSTs (no existing transaction id)."""
+    payload = body or {}
+    would = _would_execute(client, method="POST", path=post_path, body=payload)
+    errors: list[str] = []
+    if body is not None and not isinstance(body, dict):
+        errors.append("body must be an object when provided")
+    if errors:
+        return build_preflight_response(
+            tool,
+            action="create",
+            status="preflight_failed",
+            message=f"{tool} preflight failed",
+            would_execute=would,
+            errors=errors,
+        )
+    confirmation_prompt = (
+        f"This will {action_label} in CPQ (POST {post_path}). Confirm to proceed."
+    )
+    return build_preflight_response(
+        tool,
+        action="create",
+        status="preflight_ok",
+        message=f"This will {action_label} in CPQ.",
+        confirmation_prompt=confirmation_prompt,
+        would_execute=would,
+        preflight={"post_path": post_path, "body_keys": sorted(payload.keys())},
+    )
+
+
+def run_commerce_delete_line_preflight(
+    client: CPQClient,
+    *,
+    tool: str,
+    transaction_path: str,
+    line_path: str,
+    document_number: str,
+) -> dict[str, Any]:
+    """Validate DELETE of one transaction line."""
+    would = _would_execute(client, method="DELETE", path=line_path, body=None)
+    try:
+        client.get(transaction_path)
+    except CPQAPIError as exc:
+        return _preflight_api_failure(
+            tool,
+            action="delete",
+            message=f"Transaction not found or not accessible at {transaction_path}",
+            would_execute=would,
+            exc=exc,
+            preflight={"transaction_path": transaction_path},
+        )
+    try:
+        client.get(line_path)
+    except CPQAPIError as exc:
+        return _preflight_api_failure(
+            tool,
+            action="delete",
+            message=(
+                f"Transaction line document_number={document_number} not found "
+                f"or not accessible at {line_path}"
+            ),
+            would_execute=would,
+            exc=exc,
+            preflight={
+                "transaction_path": transaction_path,
+                "line_path": line_path,
+                "document_number": document_number,
+            },
+        )
+    confirmation_prompt = (
+        f"This will DELETE transaction line document_number={document_number} "
+        f"at {line_path}. Confirm to proceed."
+    )
+    return build_preflight_response(
+        tool,
+        action="delete",
+        status="preflight_ok",
+        message=(
+            f"This will DELETE transaction line document_number={document_number} in CPQ."
+        ),
+        confirmation_prompt=confirmation_prompt,
+        would_execute=would,
         preflight={
             "transaction_path": transaction_path,
-            "post_path": post_path,
-            "body_keys": sorted((body or {}).keys()),
-            "transaction_id": txn_id,
+            "line_path": line_path,
+            "document_number": document_number,
         },
     )

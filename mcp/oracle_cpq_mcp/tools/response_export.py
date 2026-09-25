@@ -10,6 +10,7 @@ from oracle_cpq_mcp.core.config import update_profile_env_key
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.errors import build_tool_error
 from oracle_cpq_mcp.core.responses import build_attachment_lead_envelope
+from oracle_cpq_mcp.exporters.branded_documents import last_template_status
 from oracle_cpq_mcp.exporters.chat_document import build_docx_from_tables
 from oracle_cpq_mcp.exporters.records_excel import build_multi_sheet_workbook
 from oracle_cpq_mcp.exporters.response_export import (
@@ -58,16 +59,27 @@ def _build_export_result(
     sheets: list[dict[str, Any]],
     notes: str | None,
     kind: Literal["excel", "word"],
+    diagrams: list[dict[str, Any]] | None = None,
 ) -> list[Any]:
     profile = client.profile
     normalized = validate_sheets_payload(sheets)
+    diagrams_embedded = 0
+    diagrams_skipped: list[dict[str, str]] = []
     if kind == "excel":
         payload = build_multi_sheet_workbook(normalized)
         filename = export_filename(title, extension="xlsx")
         mime_format = "xlsx"
         message_kind = "Excel"
     else:
-        payload = build_docx_from_tables(title=title, sheets=normalized, notes=notes)
+        docx_result = build_docx_from_tables(
+            title=title,
+            sheets=normalized,
+            notes=notes,
+            diagrams=diagrams,
+        )
+        payload = docx_result.payload
+        diagrams_embedded = docx_result.diagrams_embedded
+        diagrams_skipped = list(docx_result.diagrams_skipped)
         filename = export_filename(title, extension="docx")
         mime_format = "docx"
         message_kind = "Word"
@@ -76,24 +88,51 @@ def _build_export_result(
     rel = relative_export_path(profile, filename)
     uri = file_uri(path)
     row_count = count_sheet_rows(normalized)
+    template_kind = "excel" if kind == "excel" else "word"
+    template_status = last_template_status(template_kind)
+    template_info = (
+        template_status.as_dict()
+        if hasattr(template_status, "as_dict")
+        else {"kind": template_kind, "applied": False}
+    )
+    template_note = ""
+    if not template_info.get("applied"):
+        reason = template_info.get("reason") or "unavailable"
+        template_note = (
+            f" Template not applied ({reason}): place a valid "
+            f"{'Excel Template.xlsx' if kind == 'excel' else 'Word Template.docx'} "
+            "under .config/template/."
+        )
+    diagram_note = ""
+    if kind == "word" and (diagrams_embedded or diagrams_skipped):
+        diagram_note = (
+            f" Diagrams: {diagrams_embedded} embedded"
+            f"{f', {len(diagrams_skipped)} skipped' if diagrams_skipped else ''}."
+        )
     summary = (
         f"Exported {message_kind} for {title!r} "
         f"({len(normalized)} sheet(s), {row_count} row(s)) to {rel}."
+        f"{template_note}{diagram_note}"
     )
+    extra: dict[str, Any] = {
+        "title": title,
+        "path": rel,
+        "absolute_path": str(path),
+        "uri": uri,
+        "sheet_count": len(normalized),
+        "row_count": row_count,
+        "format": kind,
+        "template": template_info,
+    }
+    if kind == "word":
+        extra["diagrams_embedded"] = diagrams_embedded
+        extra["diagrams_skipped"] = diagrams_skipped
     return [
         build_attachment_lead_envelope(
             tool_name,
             message=summary,
             filename=filename,
-            extra={
-                "title": title,
-                "path": rel,
-                "absolute_path": str(path),
-                "uri": uri,
-                "sheet_count": len(normalized),
-                "row_count": row_count,
-                "format": kind,
-            },
+            extra=extra,
         ),
         File(data=payload, format=mime_format, name=filename),
     ]
@@ -191,7 +230,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
             "next_tools": next_tools,
             "message": (
                 f"User chose {choice}. Call {', '.join(next_tools)} with the same "
-                "title/sheets (and notes for Word)."
+                "title/sheets (and notes/diagrams for Word)."
             ),
             "pending": pending,
         }
@@ -220,6 +259,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
         title: str,
         sheets: list[dict[str, Any]],
         notes: str | None = None,
+        diagrams: list[dict[str, Any]] | None = None,
     ) -> list[Any] | dict[str, Any]:
         try:
             return _build_export_result(
@@ -229,6 +269,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
                 sheets=sheets,
                 notes=notes,
                 kind="word",
+                diagrams=diagrams,
             )
         except RuntimeError as exc:
             return build_tool_error(

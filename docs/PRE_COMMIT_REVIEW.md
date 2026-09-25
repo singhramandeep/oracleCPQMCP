@@ -6,8 +6,8 @@ Use this before committing large batches (Prompt Studio, local data, saved promp
 
 Confirm these stay **untracked / ignored**:
 
-- [ ] `.config/*.env` (real credentials) — only `.config/.env.example` is OK
-- [ ] `.config/saved_prompts.json` and `.config/prompt_studio.json`
+- [ ] `.config/*.yaml` / `.config/*.env` (real credentials) — only `.profile.yaml.example`, `.env.example`, `.catalog.yaml.example` are OK
+- [ ] `.prompts/saved_prompts.json` and `.config/prompt_studio.json`
 - [ ] `data/`, `dat/`, `exports/`, `*.xlsx` under exports
 - [ ] `.venv/`, `__pycache__/`, `.pytest_cache/`
 - [ ] Local MCP configs: `.cursor/mcp.json`, `.agents/mcp_config.json`, `.vscode/mcp.json`
@@ -36,14 +36,14 @@ Confirm these stay **untracked / ignored**:
 .\.venv\Scripts\python.exe -m pytest -q -m "not live_eval"
 ```
 
-- [ ] Catalog tool count matches README / FEATURES (currently **87**)
+- [ ] Catalog tool count matches README / FEATURES (currently **106**)
 - [ ] `tool_manifest.json` regenerated/updated with new tools (schema integrity)
 - [ ] No failing unit tests; launcher example tests if you changed MCP JSON examples
 
 ## Product / ops checks
 
-- [ ] Reload MCP after pull so new tools (`*_local`, saved prompts) appear
-- [ ] Prompt Studio: `pip install '.[prompt-studio]'` then `python -m apps.prompt_studio`
+- [ ] Reload MCP after pull so new tools (`*_local`, saved prompts, `ensure_prompt_studio`) appear
+- [ ] Prompt Studio: agents may auto-start via `ensure_prompt_studio`, or `pip install '.[prompt-studio]'` then `python -m apps.prompt_studio`
 - [ ] Writes still default `dry_run=true`; `READ_ONLY=true` in example profile
 - [ ] Document live **untested** domains honestly (tasks, configuration, some BML/datatable writes)
 

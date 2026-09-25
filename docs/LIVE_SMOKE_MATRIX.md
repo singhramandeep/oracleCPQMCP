@@ -12,7 +12,8 @@ Package: **0.3.0**. Offline unit/contract tests cover the full catalog. Live sta
 | BML util JSON | `get_all_bml_code(json)`, `sync_bml_local` | **Partial** | N+1 GETs; prefer cache |
 | BML live search | `search_bml_scripts` | **May 404** | Prefer `search_local_bml` after extract |
 | Local BML search | `search_local_bml` | **Offline OK** | Needs `data/.../bml/site/` |
-| Commerce metadata / txns | attributes, transactions, … | **Used live** | |
+| Commerce metadata / txns | attributes, list/get txns | **Used live** | |
+| Commerce txn writes | create/save/submit/version/reconfigure/line mutate | **Untested live** | New tools; action names site-specific; v19 docs |
 | Metrics / collab / UI settings | list_metrics, collab, commerceUISettings | **v19 preferred** | v18 may 404 |
 | Saved searches / admin | searchResources, certificates, SSO | **v19 preferred** | PEM redacted |
 | Parts | list/get/search | **Used live** | |

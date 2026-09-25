@@ -3,7 +3,9 @@
 # ==============================================================================
 # COMMIT:  source code, tests, scripts/mcp-server.*, .cursor/mcp.json.example,
 #          .cursor/mcp.json.unix.example, .vscode/mcp.json.example, docs/
-# NEVER:   .config/*.env (credentials), .venv/, exports/, .cursor/mcp.json (local MCP)
+# NEVER:   .config/* (credentials, profiles, studio state) except .env.example /
+#          .profile.yaml.example / .catalog.yaml.example / template/; .prompts/;
+#          .venv/; exports/; .cursor/mcp.json
 # ==============================================================================
 
 # --- Generated outputs ---
@@ -31,13 +33,18 @@ venv/
 *.egg
 
 # --- Secrets & credentials (CRITICAL) ---
-# Customer CPQ profiles contain DEV_PASSWORD, TEST_PASSWORD, etc.
-.config/*.env
+# Ignore everything under .config/ except committed templates (examples only).
+.config/*
 !.config/.env.example
-.config/saved_prompts.json
-.config/saved_prompts.json.tmp
-.config/prompt_studio.json
-.config/prompt_studio.json.tmp
+!.config/.profile.yaml.example
+!.config/.catalog.yaml.example
+!.config/template/
+!.config/template/**
+# Global *.xlsx ignore would hide branded templates — re-include them.
+!.config/template/*.xlsx
+!.config/template/*.docx
+!.config/template/*.pptx
+!.config/template/*.md
 docs/*.md 
 !docs/QUICKSTART.md
 !docs/SETUP.md
@@ -99,3 +106,8 @@ desktop.ini
 logs/
 tmp/
 temp/
+# Accidental agent dumps left at repo root (prefer tmp/{profile}/{env}/)
+/tmp_*.json
+/tmp_*.md
+/tmp_*.xlsx
+/tmp_*.zip

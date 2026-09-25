@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prompt Studio</title>
-  <link rel="stylesheet" href="/static/styles.css?v=0.2.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=0.3.1" />
 </head>
 <body>
   <div class="app-shell">
@@ -16,7 +16,12 @@
       <div class="header-search">
         <input id="searchInput" type="search" placeholder="Search prompts…" autocomplete="off" />
       </div>
-      <div class="header-meta" id="statusLine">Library</div>
+      <div class="header-meta-block">
+        <div class="header-meta" id="statusLine">Library</div>
+        <button type="button" class="library-path" id="libraryPathBtn" title="Click to copy library path">
+          <span id="libraryPathText">…</span>
+        </button>
+      </div>
     </header>
 
     <aside class="shell-sidebar">
@@ -24,6 +29,7 @@
         <button type="button" class="nav-item active" data-view="all">All prompts</button>
         <button type="button" class="nav-item" data-view="favorites">Favorites</button>
         <button type="button" class="nav-item" data-view="suites">Suites</button>
+        <button type="button" class="nav-item" data-view="help">Help</button>
       </nav>
       <div class="nav-section tags-section">
         <div class="nav-label">Tags</div>
@@ -49,10 +55,20 @@
             <button type="button" class="layout-btn active" id="layoutCards" data-layout="cards">Cards</button>
             <button type="button" class="layout-btn" id="layoutList" data-layout="list">List</button>
           </div>
-          <button type="button" class="btn-secondary" id="downloadAllBtn" title="Download full saved_prompts.json">Download all</button>
+          <button type="button" class="btn-primary" id="newPromptBtn" title="Create a prompt manually">New</button>
+          <button type="button" class="btn-secondary" id="importBtn" title="Import prompts from JSON">Import</button>
+          <button type="button" class="btn-secondary" id="exportSelectedBtn" title="Export checked prompts" disabled>Export selected</button>
+          <button type="button" class="btn-secondary" id="downloadAllBtn" title="Export full saved_prompts.json">Export all</button>
           <label class="toggle-label" title="Include disabled prompts from the library">
             <input type="checkbox" id="showDisabledToggle" />
             Show disabled
+          </label>
+          <label class="filter-label" for="profileFilter" title="Filter by CPQ customer profile">
+            Profile
+            <select id="profileFilter">
+              <option value="">All profiles</option>
+              <option value="__unscoped__">Unscoped</option>
+            </select>
           </label>
           <button type="button" class="btn-secondary" id="refreshBtn" title="Reload from saved_prompts.json">Refresh</button>
         </div>
@@ -69,6 +85,13 @@
         </div>
         <div id="suiteList" class="suite-list"></div>
         <div id="suiteDetail" class="suite-detail hidden"></div>
+      </section>
+
+      <section id="helpView" class="view hidden">
+        <div class="toolbar">
+          <h1>Help</h1>
+        </div>
+        <div id="helpContent" class="help-content"></div>
       </section>
     </main>
   </div>
@@ -142,6 +165,68 @@
     </form>
   </dialog>
 
-  <script src="/static/app.js?v=0.2.0"></script>
+  <dialog id="newPromptModal" class="modal">
+    <form method="dialog" class="modal-panel" id="newPromptForm">
+      <header class="modal-header">
+        <h2>New prompt</h2>
+        <button type="button" class="btn-ghost" id="closeNewPrompt" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <label class="field-label" for="newTitle">Title</label>
+        <input id="newTitle" type="text" maxlength="120" required />
+        <label class="field-label" for="newOriginal">Original user prompt</label>
+        <textarea id="newOriginal" rows="3"></textarea>
+        <label class="field-label" for="newRefined">Refined template</label>
+        <textarea id="newRefined" rows="8" required></textarea>
+        <label class="field-label" for="newTags">Tags (comma-separated)</label>
+        <input id="newTags" type="text" placeholder="e.g. users, audit" />
+        <label class="field-label" for="newProfile">Profile (optional)</label>
+        <input id="newProfile" type="text" maxlength="80" placeholder="e.g. drees — leave blank for unscoped" />
+        <label class="field-label" for="newFormat">Output format</label>
+        <select id="newFormat">
+          <option value="chat_text">Text</option>
+          <option value="json">JSON</option>
+          <option value="excel_download">Excel download</option>
+        </select>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn-secondary" id="cancelNewPrompt">Cancel</button>
+        <button type="button" class="btn-primary" id="saveNewPrompt">Save</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="importModal" class="modal">
+    <form method="dialog" class="modal-panel modal-wide" id="importForm">
+      <header class="modal-header">
+        <h2>Import prompts</h2>
+        <button type="button" class="btn-ghost" id="closeImport" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <label class="field-label" for="importFile">JSON file</label>
+        <input id="importFile" type="file" accept=".json,application/json" />
+        <label class="field-label" for="importLabel">Import name / tag (required)</label>
+        <input id="importLabel" type="text" maxlength="80" placeholder="e.g. teammate-export-sep25" />
+        <p class="muted import-hint">
+          Selected prompts get tags <code>imported</code> and <code>import:&lt;slug&gt;</code>
+          so you can find this batch later.
+        </p>
+        <div class="import-actions">
+          <button type="button" class="btn-secondary btn-sm" id="importSelectAll">Select all</button>
+          <button type="button" class="btn-secondary btn-sm" id="importSelectNone">Select none</button>
+          <span id="importPreviewCount" class="muted"></span>
+        </div>
+        <div id="importCandidateList" class="import-candidate-list"></div>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn-secondary" id="cancelImport">Cancel</button>
+        <button type="button" class="btn-primary" id="applyImport" disabled>Import selected</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <input type="file" id="importFileHidden" class="hidden" accept=".json,application/json" />
+
+  <script src="/static/app.js?v=0.3.1"></script>
 </body>
 </html>
