@@ -29,20 +29,20 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 
 ## Unreleased
 
+Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Narrative below includes everything still shipping under Unreleased; **bold items marked “since last notes pass”** are the delta after the prior documentation revision (`d004860` → `c8ef795` and related).
+
 ### Highlights
 
 - Branded Word/Excel/PPT exports via `.config/template/` + Mermaid diagrams in analytical Word exports (local `mmdc`, center-aligned, structured `notes`).
 - Prompt Studio **0.3.1**: fixed Refresh cache-bust / event binds; **Profile** filter on saved prompts (stamped from active CPQ customer).
 - Prompt Studio **0.3.2**: **API logs** view — parse `logs/{profile}-{env}.log`, status/latency charts, filters, copy curl/blocks/JSON, download raw.
 - Prompt Studio **0.4.0**: prompt ratings (1–10) + comments; per-source cache/api/mixed run telemetry via `record_prompt_use`; read-only **Profiles & Paths** (redacted YAML + workspace path map); import/export preserves feedback/telemetry without double-counting runs.
-- Prompt Studio **0.4.1**: aligned list columns; rating badge on cards by default; toolbar rating filter (`rating_filter` / `min_rating` on `GET /api/prompts`).
-- Prompt Studio **0.4.2**: edit-mode Original / Refined textareas auto-grow to content (manual vertical resize kept; max-height cap).
-- Prompt Studio **0.4.3**: header always shows Studio version; expanded in-app Help + README; Word Mermaid guidance prefers pie / xychart-beta / flowchart by content type.
+- **Since last notes pass — Prompt Studio 0.4.1–0.4.3:** list column alignment + default rating badge + toolbar rating filter; autosizing Original/Refined edit textareas; permanent header version badge; expanded in-app Help + README; agents prefer Mermaid **pie** / **xychart-beta** / **flowchart** by content for Word diagrams.
 - Unified customer profile: prefer one gitignored `.config/<id>.yaml` (secrets + catalog); legacy `.env` / `.catalog.yaml` still load when no full YAML exists.
 - Removed committed `.config/.catalog.yaml.example` (use `example.yaml` only; legacy sidecars still load for `.env` upgrades).
 - Installable maintainer CLI: `oracle-cpq` (`migrate-yaml`, `migrate-catalog`, `lint-schemas`, `generate-tool-catalog`); `scripts/*.py` are thin wrappers.
 - Profile defaults: `local_data_policy=prefer`, `post_response_export=always_excel` (aliases `true`/`yes`/`on` accepted); example includes a commented setup prompt to sync `product_families` from live CPQ.
-- Slim profile config / unified YAML migrate docs: FAQ “How do I migrate from a legacy `.env` to `.yaml`?”; QUICKSTART §3.1b; SETUP prefers `.config/example.yaml` (renamed from `.profile.yaml.example`).
+- Slim profile config / unified YAML migrate docs: FAQ “How do I migrate from a legacy `.env` to `.yaml`?”; QUICKSTART (full guide); SETUP (8-step quick guide) prefers `.config/example.yaml` (renamed from `.profile.yaml.example`).
 - Agents call `ensure_prompt_studio` after YES-gate CPQ work (auto-start local UI on port 8765 when down).
 - Docs: `SETUP.md` is the 8-step quick guide; `QUICKSTART.md` is the full setup guide.
 
@@ -61,6 +61,9 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 - Prompt Studio ratings/comments APIs (`PATCH /api/prompts/{id}/rating`, comment CRUD) and per-source stats on prompt summaries.
 - Read-only `GET /api/config/profiles`, `GET /api/config/profiles/{id}`, `GET /api/workspace/paths` (redacted YAML; never `.env`).
 - `record_prompt_use` **1.1.0** optional `duration_ms` + `source=cache|api|mixed` (averages never blended). Optional `profile` / `environment` may be stripped by some MCP hosts — duration/source are sufficient.
+- **Since last notes pass:** Prompt Studio library `rating_filter` (`unrated`|`rated`) and `min_rating` (1–10) on `search_entries` / `GET /api/prompts`; toolbar Rating select (persisted).
+- **Since last notes pass:** `/api/health` and `/api/library_info` return `version`; UI `#studioVersion` badge always visible.
+- **Since last notes pass:** `export_response_word` catalog **1.2.0** + MCP `DOCUMENT_TEMPLATES` / `AGENTS.md` / Cursor `document-templates` mirror — choose Mermaid `pie` (shares), `xychart-beta` (numeric bars/lines), `flowchart`/`graph` (flows); pictographs only via optional `image_path` PNG under `tmp/`.
 
 ### Changed
 
@@ -68,10 +71,46 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 - Saved-prompt dedupe is per **content hash + profile** (same template under different profiles = separate rows).
 - Example profiles default `AUTO_SAVE_REFINED_PROMPT=true` (user owns live profile flags).
 - Saved-prompt upsert/import no longer treat save/import as completed runs; import preserves rating/comments/telemetry.
+- **Since last notes pass:** Prompt Studio list layout uses fixed shared CSS grid tracks (`minmax(0, …)`) so Rating / Format / Runs / Last run columns stay aligned; rating shown on card title row.
+- **Since last notes pass:** Edit-mode Original/Refined textareas autosize to content (`autosizeCodeEdit`); larger min-heights; `max-height: min(45vh, 420px)`.
+- **Since last notes pass:** Prompt Studio Help (`GET /api/help`) and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) expanded (TOC, filters, ratings, Paths, restart); FAQ/FEATURES/QUICKSTART/PRE_COMMIT point at Studio **0.4.3+**.
+- Profile template path renamed `.config/.profile.yaml.example` → `.config/example.yaml` (gitignore + Prompt Studio config viewer blocked stem `example`).
+
+### Fixed
+
+- Empty Word/Excel table rows when agents passed list-of-list sheet `rows` — `coerce_sheet_records` maps positional lists to column dicts before Excel/Word builders.
+- MCP startup fail-closed on stale `tool_manifest.json` after tool-description edits — regenerate via `write_manifest_file()` / commit updated hash (required after `export_response_word` **1.2.0** text).
+- Invalid profile YAML `local_data_policy: true` (bool) rejected by schema — must be `ask`|`prefer`|`never` (string).
 
 ### Git commits (auto-generated)
 
 <!-- git-commits -->
+- `c8ef795` feature additions
+- `d004860` improved documentation
+- `b5bba1d` generic improvements
+- `3f86111` generic improvements
+- `2b890d5` committed some leftovers
+- `3f71082` Ship branded Word/Mermaid exports and Prompt Studio profile filter.
+- `9afbe0c` add yaml support
+- `62bcf6f` Ship 0.3.0 agent UX and Prompt Studio editing.
+- `17d2b93` major feature addition
+- `32f8320` major feature addition
+- `f90354a` some documentation
+- `d88bb7b` some documentation
+- `2ee4c83` Added couple of tools, better prompt suggestios, prompt studio
+- `fda086e` release notes
+- `a1b39e2` release notes
+- `c000974` Expand MCP catalog to 67 tools with tasks, configuration, parts, and transactions.
+- `b3f0445` updated quickstart
+- `b5c97c5` updated documentation
+- `c05cd49` updated documentation
+- `494b2ee` Restructure QUICKSTART for clearer first-time setup flow.
+- `90bb92c` Add cross-platform MCP config, output validation, and doc sync for 19 tools.
+- `62f1a29` Add MCP best-practice envelopes, annotations, and progress
+- `df85397` Add JSON Schema output contracts for all MCP tools
+- `0714bcb` Add commerce and line-level attribute and action metadata tools
+- `130ba9b` Add get_all_bml_code MCP tool for BML export and util library source
+- `ceaa2a6` first commit
 <!-- /git-commits -->
 
 ---
