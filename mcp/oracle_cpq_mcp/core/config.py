@@ -45,8 +45,8 @@ class CPQProfile(BaseModel):
     refined_prompt: bool = True
     auto_save_refined_prompt: bool = False
     debug_mode: bool = True
-    local_data_policy: LocalDataPolicy = "ask"
-    post_response_export: PostResponseExportPolicy = "ask"
+    local_data_policy: LocalDataPolicy = "prefer"
+    post_response_export: PostResponseExportPolicy = "always_excel"
     http_timeout: float = 60.0
     # METRICS_<NAME> → description; keys are NAME suffixes (e.g. QUOTES).
     metric_descriptions: dict[str, str] = Field(default_factory=dict)
@@ -215,24 +215,33 @@ def _resolve_local_data_policy(raw: dict[str, str | None]) -> LocalDataPolicy:
     from oracle_cpq_mcp.core.local_data import parse_local_data_policy
 
     if os.environ.get("CPQ_LOCAL_DATA_POLICY") is not None:
-        return parse_local_data_policy(os.environ.get("CPQ_LOCAL_DATA_POLICY"), default="ask")
-    return parse_local_data_policy(raw.get("LOCAL_DATA_POLICY"), default="ask")
+        return parse_local_data_policy(
+            os.environ.get("CPQ_LOCAL_DATA_POLICY"), default="prefer"
+        )
+    return parse_local_data_policy(raw.get("LOCAL_DATA_POLICY"), default="prefer")
 
 
 def _resolve_post_response_export(raw: dict[str, str | None]) -> PostResponseExportPolicy:
-    def _parse(value: str | None, *, default: PostResponseExportPolicy = "ask") -> PostResponseExportPolicy:
+    def _parse(
+        value: str | None, *, default: PostResponseExportPolicy = "always_excel"
+    ) -> PostResponseExportPolicy:
         if value is None or not str(value).strip():
             return default
         normalized = str(value).strip().lower()
+        if normalized in ("true", "yes", "on", "1"):
+            return "always_excel"
         if normalized in ("ask", "never", "always_excel"):
             return normalized  # type: ignore[return-value]
         raise ValueError(
-            f"Invalid POST_RESPONSE_EXPORT={value!r}; use ask, never, or always_excel"
+            f"Invalid POST_RESPONSE_EXPORT={value!r}; use ask, never, or always_excel "
+            "(aliases: true/yes/on → always_excel)"
         )
 
     if os.environ.get("CPQ_POST_RESPONSE_EXPORT") is not None:
-        return _parse(os.environ.get("CPQ_POST_RESPONSE_EXPORT"), default="ask")
-    return _parse(raw.get("POST_RESPONSE_EXPORT"), default="ask")
+        return _parse(
+            os.environ.get("CPQ_POST_RESPONSE_EXPORT"), default="always_excel"
+        )
+    return _parse(raw.get("POST_RESPONSE_EXPORT"), default="always_excel")
 
 
 # Keys the MCP tools are allowed to rewrite in the active profile .env.
@@ -576,11 +585,11 @@ def _load_profile_from_yaml(
 
     if os.environ.get("CPQ_LOCAL_DATA_POLICY") is not None:
         local_policy = parse_local_data_policy(
-            os.environ.get("CPQ_LOCAL_DATA_POLICY"), default="ask"
+            os.environ.get("CPQ_LOCAL_DATA_POLICY"), default="prefer"
         )
     else:
         local_policy = parse_local_data_policy(
-            document.local_data_policy, default="ask"
+            document.local_data_policy, default="prefer"
         )
 
     if os.environ.get("CPQ_POST_RESPONSE_EXPORT") is not None:

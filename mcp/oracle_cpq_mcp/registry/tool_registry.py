@@ -1526,12 +1526,16 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="meta",
         operation="read",
         description=(
-            "Update last_run_at and run_count for a saved prompt after the user runs it. "
+            "Record a completed saved-prompt run after the agent finishes the task. "
+            "Updates last_run_at and run_count. When duration_ms and source are set "
+            "(source=cache|api|mixed), also appends run history and updates that "
+            "source's last/average duration only — never blend cache and API averages. "
+            "Call after YES-gate CPQ work with best-effort wall-clock elapsed. "
             "Writes only the local saved-prompts library (not Oracle CPQ)."
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.0.0",
+        version="1.1.0",
     ),
     "save_refined_prompt": _spec(
         "save_refined_prompt",

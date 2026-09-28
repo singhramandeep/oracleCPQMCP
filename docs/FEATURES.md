@@ -51,7 +51,7 @@ python scripts/generate_tool_catalog.py
 
 - After CPQ-related work (live MCP and/or local cache), agents append **`### Refined prompt (Better token usage)`** with title, tags, **output format**, **cached data**, prose with `{{placeholders}}`, Variables, and Tools.
 - Profile flags: `REFINED_PROMPT` (default true), `AUTO_SAVE_REFINED_PROMPT` (**example** profile default true; each customer YAML may set false).
-- Library: `.prompts/saved_prompts.json` (gitignored). Tools: `offer_save_refined_prompt`, `save_refined_prompt`, `list_saved_prompts`, `search_saved_prompts`, `get_saved_prompt`, `record_prompt_use`, `set_saved_prompt_enabled`, `start_prompt_picker`, `set_auto_save_refined_prompt`.
+- Library: `.prompts/saved_prompts.json` (gitignored). Tools: `offer_save_refined_prompt`, `save_refined_prompt`, `list_saved_prompts`, `search_saved_prompts`, `get_saved_prompt`, `record_prompt_use` (optional `duration_ms` + `source=cache|api|mixed`), `set_saved_prompt_enabled`, `start_prompt_picker`, `set_auto_save_refined_prompt`.
 - Cursor: **`/OracleCPQ_SavedPrompts`** or “use a saved prompt”.
 
 ### Local `data/` snapshots
@@ -59,13 +59,13 @@ python scripts/generate_tool_catalog.py
 - Path: `data/{profile}/{env}/…` (gitignored).
 - Sync tools: `sync_users_local`, `sync_groups_local`, `sync_bml_local`, `sync_commerce_metadata_local`, `sync_datatable(s)_local`.
 - UX: `list_local_data`, `get_local_data_status`, `offer_use_local_data`, `load_local_data`, `set_local_data_policy`.
-- Policy: `LOCAL_DATA_POLICY=ask|prefer|never` (default `ask`). Auto-persist also from `export_users_excel` / `get_all_bml_code`.
+- Policy: `LOCAL_DATA_POLICY=ask|prefer|never` (default `prefer`). Auto-persist also from `export_users_excel` / `get_all_bml_code`.
 - **BML zip (`get_all_bml_code` delivery=zip):** saves the archive under `data/.../bml/` **and** extracts the full site tree to `data/.../bml/site/` (zip-slip safe).
 
 ### Post-response Excel / Word export
 
 - After tabular chat answers, agents can offer an export (default) via `offer_export_response`.
-- Policy: `POST_RESPONSE_EXPORT=ask|never|always_excel` (default `ask`). Writable via `set_post_response_export` or offer choices `always_excel` / `never`.
+- Policy: `POST_RESPONSE_EXPORT=ask|never|always_excel` (default `always_excel`). Writable via `set_post_response_export` or offer choices `always_excel` / `never`.
 - `export_response_excel` — multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` + MCP File attachment.
 - `export_response_word` — `.docx` under the same folder + local `file://` URI (optional dep: `python-docx`, install with `pip install python-docx` or `pip install -e ".[docs]"`).
 - Branding resolution (Word / Excel / PPT): `CPQ_*_TEMPLATE` env path → `.config/template/{Word,Excel,PowerPoint} Template.*` → `data/templates/` (or `CPQ_TEMPLATE_WORK_DIR`). See [`.config/template/README.md`](../.config/template/README.md). Export envelopes include `template.applied` and `template.source` (`env` / `config` / `working`).
@@ -76,11 +76,11 @@ python scripts/generate_tool_catalog.py
 
 ### Prompt Studio (local UI)
 
-Lightweight FastAPI + static UI (**app 0.3.1+**) to browse/fill saved prompts. Does **not** call Oracle CPQ. Supports **New**, **Import** (with batch tag), **Export all/selected**, in-app **Help**, **Refresh** (null-safe binds + versioned static cache-bust), and a **Profile** filter (All / Unscoped / stamped CPQ customer profiles). MCP `save_refined_prompt` stamps `profile` from the active customer. See [Prompt Studio](#prompt-studio-enable-and-run) below and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
+Lightweight FastAPI + static UI (**app 0.4.0+**) to browse/fill saved prompts, inspect **DEBUG_MODE API logs**, and view **redacted profile YAML / workspace paths**. Does **not** call Oracle CPQ. Supports **New**, **Import** (with batch tag; preserves ratings/comments/telemetry), **Export all/selected**, in-app **Help**, **Refresh**, a **Profile** filter, **API logs**, **1–10 ratings + comments**, per-source **cache/api/mixed** run telemetry, and **Profiles & Paths**. MCP `save_refined_prompt` stamps `profile` from the active customer; `record_prompt_use` records timed completions. See [Prompt Studio](#prompt-studio-enable-and-run) below and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
 
 ### Profiles and environments
 
-- Per-customer `.config/<profile>.env` (gitignored); template `.config/.env.example`.
+- Per-customer `.config/<profile>.yaml` (gitignored); template [`.config/.profile.yaml.example`](../.config/.profile.yaml.example).
 - Environments: `dev` / `test` / `prod` credential sets; `DEFAULT_ENVIRONMENT`.
 - Host-only: `CPQ_CUSTOMER_PROFILE`, `CPQ_CONFIG_DIR`, `CPQ_CONFIRMATION_SECRET`, `CPQ_ALLOW_PROD`, schema integrity flags.
 - **`DEBUG_MODE`** (default true) — appends timestamped, redacted CPQ request traces (curl + parameters) to `logs/{profile}-{environment}.log`. Override with `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`. Independent of `CPQ_VERBOSE` (stderr).
@@ -142,6 +142,8 @@ Host must set `CPQ_CONFIRMATION_SECRET` when enabling writes (`READ_ONLY=false`)
 
 - Binds to **`127.0.0.1` only**; no auth.
 - Reads prompt bodies from the saved library; studio state (favorites/suites/history) in `.config/prompt_studio.json` (gitignored).
+- **API logs** view reads only `*.log` under `logs/` (or `CPQ_DEBUG_LOG_DIR`); path traversal rejected. Treat logs as sensitive (usernames / query strings); passwords in curl are already `***`.
+- **Profiles & Paths** exposes allowlisted `.config/<id>.yaml` (and optional legacy catalog) as **redacted, read-only** JSON/YAML — never raw `.env`, credentials, or arbitrary repo YAML. Path traversal rejected; size-capped.
 - Does **not** call Oracle CPQ or replace MCP write guardrails.
 
 ---

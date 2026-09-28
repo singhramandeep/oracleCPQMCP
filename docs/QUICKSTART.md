@@ -1,4 +1,4 @@
-﻿# Quickstart — Download, Configure, and Connect
+# Quickstart — Download, Configure, and Connect
 
 Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials, verify connectivity, and connect an IDE.
 
@@ -102,9 +102,8 @@ This folder is your **project root** — all commands in later steps run from he
 ```
 oracleCPQMCP/                  ← project root (open this folder in your IDE)
 ├── pyproject.toml             ← Python project file (confirms you are in the right folder)
-├── .config/                   ← CPQ credentials (YOU create *.yaml or *.env here)
-│   ├── .profile.yaml.example  ← Preferred unified template (safe to commit)
-│   └── .env.example           ← Legacy flat template (safe to commit)
+├── .config/                   ← CPQ credentials (YOU create *.yaml here)
+│   └── .profile.yaml.example  ← Unified profile template (safe to commit)
 ├── .cursor/
 │   ├── mcp.json.example       ← Copy → mcp.json (Windows)
 │   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
@@ -230,44 +229,24 @@ If `mmdc` is not found after install, close and reopen the IDE terminal (so PATH
 
 ## Step 3 — Create your CPQ credential profile
 
-Credentials live in **one file per customer**, never in MCP JSON. Prefer a unified `.yaml` profile.
+Credentials live in **one YAML file per customer**, never in MCP JSON.
 
 ### 3.1 Copy the template
 
 **IDE terminal** (project root):
 
 
-| Shell                    | Command                                                               |
-| ------------------------ | --------------------------------------------------------------------- |
-| Windows PowerShell / CMD | `copy .config\.profile.yaml.example .config\mycompany.yaml`           |
-| macOS / Linux / Git Bash | `cp .config/.profile.yaml.example .config/mycompany.yaml`             |
-| Legacy flat `.env`       | `copy .config\.env.example .config\mycompany.env` (or `cp` on Unix) |
+| Shell                    | Command                                                     |
+| ------------------------ | ----------------------------------------------------------- |
+| Windows PowerShell / CMD | `copy .config\.profile.yaml.example .config\mycompany.yaml` |
+| macOS / Linux / Git Bash | `cp .config/.profile.yaml.example .config/mycompany.yaml`   |
 
 
-Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.yaml` / `.env` becomes `CPQ_CUSTOMER_PROFILE`.
-
-### 3.1b Migrate an existing `.env` to `.yaml`
-
-If you already have `.config/<id>.env` (for example `mycompany.env` or `acme.env`):
-
-```bash
-# Preview (does not write a file; output may include passwords — keep it local)
-python scripts/migrate_profile_yaml.py mycompany --dry-run
-
-# Write .config/mycompany.yaml
-python scripts/migrate_profile_yaml.py mycompany
-
-# Overwrite if the YAML already exists
-python scripts/migrate_profile_yaml.py mycompany --force
-```
-
-Then smoke-test and reload MCP. While both `.yaml` and `.env` exist, **YAML wins**. After you confirm, remove the legacy `.env` (and any `.catalog.yaml` sidecar).
-
-Full steps, field mapping, and troubleshooting: [FAQ — How do I migrate from a legacy `.env` to `.yaml`?](FAQ.md#how-do-i-migrate-from-a-legacy-env-to-yaml).
+Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.yaml` becomes `CPQ_CUSTOMER_PROFILE`.
 
 ### 3.2 Edit `.config/mycompany.yaml`
 
-Open the file in the IDE editor and set at minimum `environments.dev` (url + credentials), `default_environment`, and optional commerce/table defaults. Legacy `.env` editing still works when no `.yaml` exists — see [`.config/.env.example`](../.config/.env.example).
+Open the file in the IDE editor and set at minimum `environments.dev` (url + credentials), `default_environment`, and optional commerce/table defaults. Every setting is documented with comments in [`.config/.profile.yaml.example`](../.config/.profile.yaml.example).
 
 Example YAML fragment:
 
@@ -331,17 +310,17 @@ Make sure you replace mycompany witha actual profile you have created
   - List users
   - List groups
   - List data tables
-  - Get table (each enabled `data_tables` name, or legacy `CUSTOM_DATA_TABLE_NAME*`)
+  - Get table (each enabled `data_tables` name)
 
 **If smoke test fails:**
 
 
 | Symptom                     | Fix                                                    |
 | --------------------------- | ------------------------------------------------------ |
-| `401 UNAUTHORIZED`          | Check credentials under `environments.<env>` (or legacy `DEV_USERNAME` / `DEV_PASSWORD`) |
-| `FileNotFoundError` profile | Wrong `--profile` name or missing `.config/<name>.yaml` / `.env` |
+| `401 UNAUTHORIZED`          | Check credentials under `environments.<env>` in your `.yaml` profile |
+| `FileNotFoundError` profile | Wrong `--profile` name or missing `.config/<name>.yaml` |
 | Network error               | VPN, URL typo, or CPQ site down                        |
-| Table check fails           | Fix `CUSTOM_DATA_TABLE_NAME` spelling                  |
+| Table check fails           | Fix `data_tables[].name` spelling                      |
 
 
 ---
@@ -356,10 +335,10 @@ Each client uses **stdio**: MCP runs `[scripts/mcp-server.cmd](../scripts/mcp-se
 Set these env vars in MCP config (all clients):
 
 
-| Variable               | Example          | Purpose                                |
-| ---------------------- | ---------------- | -------------------------------------- |
-| `CPQ_CUSTOMER_PROFILE` | `mycompany`      | Matches `.config/mycompany.env`        |
-| `CPQ_CONFIG_DIR`       | `<repo>/.config` | Folder containing profile `.env` files |
+| Variable               | Example          | Purpose                                         |
+| ---------------------- | ---------------- | ----------------------------------------------- |
+| `CPQ_CUSTOMER_PROFILE` | `mycompany`      | Matches `.config/mycompany.yaml`                |
+| `CPQ_CONFIG_DIR`       | `<repo>/.config` | Folder containing profile `.yaml` files         |
 
 
 
@@ -436,7 +415,7 @@ Antigravity requires **absolute paths** (not `${workspaceFolder}`). Edit `.agent
 }
 ```
 
-Replace `C:\\Users\\YourName\\workspaces\\oracleCPQMCP` with your real project path. Set `CPQ_CUSTOMER_PROFILE` to your profile id (the `.config/<name>.env` filename without `.env`).
+Replace `C:\\Users\\YourName\\workspaces\\oracleCPQMCP` with your real project path. Set `CPQ_CUSTOMER_PROFILE` to your profile id (the `.config/<name>.yaml` filename without `.yaml`).
 
 On macOS/Linux use the absolute path to `scripts/mcp-server.sh` instead of `.cmd`.
 
@@ -445,7 +424,7 @@ On macOS/Linux use the absolute path to `scripts/mcp-server.sh` instead of `.cmd
 | ------------------------ | --------- | ------------------------------------------- |
 | `MCP_MODE`               | **Yes**   | `stdio` transport                           |
 | `DISABLE_CONSOLE_OUTPUT` | **Yes**   | Prevents stdout pollution breaking JSON-RPC |
-| `CPQ_CUSTOMER_PROFILE`   | **Yes**   | Selects `.config/<profile>.env`             |
+| `CPQ_CUSTOMER_PROFILE`   | **Yes**   | Selects `.config/<profile>.yaml`            |
 | `CPQ_CONFIG_DIR`         | **Yes**   | Absolute path to the `.config` folder       |
 
 
@@ -595,7 +574,7 @@ After MCP is connected (preferably in **Antigravity**), paste these prompts into
 
 **Picking a saved prompt instead of typing:** type **`/OracleCPQ_SavedPrompts`** in Agent chat (or say **use a saved prompt**). The agent calls `start_prompt_picker`: **all titles** / **search** / **by tag** / **by tool**. Disabled prompts are hidden; toggle with `set_saved_prompt_enabled`. Or use the MCP prompt `run_saved_prompt` if your host shows MCP Prompts. **Reload the Oracle CPQ MCP server** after pulling these tools so they appear in the tool list.
 
-**Local data cache (`data/`):** full users/groups/BML/commerce attrs/datatables syncs persist under `data/{profile}/{env}/`. With `LOCAL_DATA_POLICY=ask` (default), the agent checks `list_local_data` / `offer_use_local_data` when a snapshot exists. Say **use cached data** or **fresh data** any time; set `prefer` / `never` via `set_local_data_policy` (or `CPQ_LOCAL_DATA_POLICY`).
+**Local data cache (`data/`):** full users/groups/BML/commerce attrs/datatables syncs persist under `data/{profile}/{env}/`. With `LOCAL_DATA_POLICY=prefer` (default), the agent uses `load_local_data` when a snapshot exists. Say **use cached data** or **fresh data** any time; set `ask` / `prefer` / `never` via `set_local_data_policy` (or `CPQ_LOCAL_DATA_POLICY`).
 
 Set `REFINED_PROMPT=false` to disable the footer.
 
@@ -680,7 +659,7 @@ Note: **tasks** and **configuration** (productFamilies), plus newer datatable cr
 
 > Tell me about the data table called `PricingMatrix` in CPQ — what columns does it have and how many rows?
 
-*(Replace* `PricingMatrix` *with the value of* `CUSTOM_DATA_TABLE_NAME` *in your profile if different.)*
+*(Replace* `PricingMatrix` *with a* `data_tables[].name` *from your profile if different.)*
 
 ### 6.6 Export users to Excel (optional)
 
@@ -738,7 +717,7 @@ New `configuration` domain (`list_product_families`, scoped attributes/array set
 
 Only when you need create/update/deploy in dev:
 
-1. Set `READ_ONLY=false` in `.config/mycompany.env`.
+1. Set `read_only: false` in `.config/mycompany.yaml`.
 2. Add to MCP config `env` (host env, not profile file):
   ```json
    "CPQ_CONFIRMATION_SECRET": "<long-random-string>"
@@ -760,7 +739,7 @@ See [SECURITY.md](../SECURITY.md) and [README.md](../README.md#safe-execution).
 | MCP server not listed                 | Restart IDE completely after config change                                                                                             |
 | `ModuleNotFoundError: oracle_cpq_mcp` | In IDE terminal: `pip install -e ".[dev]"` with venv active                                                                            |
 | Wrong Python in MCP                   | Use launcher scripts: `scripts/mcp-server.cmd` (Windows) or `scripts/mcp-server.sh` (macOS/Linux); run `pip install -e ".[dev]"` first |
-| Tools return `UNAUTHORIZED`           | Fix credentials in `.config/<profile>.env`                                                                                             |
+| Tools return `UNAUTHORIZED`           | Fix credentials under `environments.<env>` in `.config/<profile>.yaml`                                                                 |
 | Antigravity JSON parse error          | Add `MCP_MODE=stdio` and `DISABLE_CONSOLE_OUTPUT=true`                                                                                 |
 | Schema integrity startup failure      | Run manifest update (see [SECURITY_TESTING.md](../SECURITY_TESTING.md))                                                                |
 | Stale tools after code change         | IDE terminal: `pip install -e ".[dev]"` then restart IDE                                                                               |
@@ -777,8 +756,9 @@ If you fork or contribute changes, confirm these rules **before** `git add`. For
 
 | Path                                             | Commit?                          | Why                                   |
 | ------------------------------------------------ | -------------------------------- | ------------------------------------- |
-| `.config/.env.example`                           | Yes                              | Template only — placeholder passwords |
-| `.config/mycompany.env` (or any `*.env` profile) | **Never**                        | Contains real CPQ passwords           |
+| `.config/.profile.yaml.example`                  | Yes                              | Template only — placeholder passwords |
+| `.config/mycompany.yaml` (or any `*.yaml` profile) | **Never**                      | Contains real CPQ passwords           |
+| `.config/archive/`                               | **Never**                        | Local legacy profile archive          |
 | `.prompts/saved_prompts.json`                     | **Never**                        | Local refined-prompt library          |
 | `.config/prompt_studio.json`                     | **Never**                        | Prompt Studio favorites/suites        |
 | `data/`, `dat/`                                  | **Never**                        | Local CPQ snapshots                   |
@@ -794,14 +774,14 @@ If you fork or contribute changes, confirm these rules **before** `git add`. For
 **IDE terminal** (project root) — verify ignore rules:
 
 ```bash
-git check-ignore -v .config/mycompany.env .prompts/saved_prompts.json data/focalpoint
+git check-ignore -v .config/mycompany.yaml .prompts/saved_prompts.json data/focalpoint
 # Expected: matched by .gitignore
 
 git status
-# mycompany.env and other *.env profiles must NOT appear as tracked files
+# mycompany.yaml and other profile files must NOT appear as tracked files
 ```
 
-The repo `[.gitignore](../.gitignore)` blocks `.config/*.env`, saved prompts, Prompt Studio sidecar, `data/`, `.venv/`, exports, and local MCP override files.
+The repo `[.gitignore](../.gitignore)` blocks `.config/*` profiles (including `archive/`), saved prompts, Prompt Studio sidecar, `data/`, `.venv/`, exports, and local MCP override files.
 
 ---
 

@@ -37,6 +37,7 @@ prompt-studio = [
 ]
 
 [project.scripts]
+oracle-cpq = "oracle_cpq_mcp.cli:run"
 oracle-cpq-smoke = "utilities.smoke:main"
 
 [tool.hatch.build.targets.wheel]

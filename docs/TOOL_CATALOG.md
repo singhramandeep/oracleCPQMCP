@@ -4,7 +4,8 @@
 > Regenerate with:
 >
 > ```bash
-> python scripts/generate_tool_catalog.py
+> oracle-cpq generate-tool-catalog
+> # or: python scripts/generate_tool_catalog.py
 > ```
 
 **Total tools:** 122
@@ -326,7 +327,7 @@ _21 tool(s)_
 | `offer_export_response` | `1.0.0` | `read` | `READ_ONLY` | `excel`, `export`, `local_data`, `meta`, `read` | — | `title` (str, required); `sheets` (list[ExportResponseSheetInput] \| None, default None); `notes` (str \| None, default None); `choice` (Literal['excel', 'word', 'both', 'skip', 'always_excel', 'never'] \| None, default None) | - | read envelope `{status, tool, data}` |
 | `offer_save_refined_prompt` | `1.2.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `title` (str, required); `original_user_prompt` (str, required); `refined_prompt` (str, required); `variables` (dict[str, Any] \| None, default None); `tags` (list[str] \| None, default None); `tools` (list[str] \| None, default None); `output_format` (Literal['chat_text', 'json', 'excel_download'], default 'chat_text'); `save` (bool \| None, default None); `always` (bool \| None, default None) | - | read envelope `{status, tool, data}` |
 | `offer_use_local_data` | `1.1.0` | `read` | `READ_ONLY` | `local_data`, `meta`, `read` | — | `process_var_name` (str \| None, default None); `table_name` (str \| None, default None); `choice` (Literal['use_cache', 'fetch_fresh', 'prefer', 'never'] \| None, default None) | `domain` (Literal['users', 'groups', 'bml', 'commerce', 'datatables'], required) | read envelope `{status, tool, data}` |
-| `record_prompt_use` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `prompt_id` (str, required) | - | read envelope `{status, tool, data}` |
+| `record_prompt_use` | `1.1.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `prompt_id` (str, required); `duration_ms` (int \| None, default None); `source` (Literal['cache', 'api', 'mixed'] \| None, default None); `profile` (str \| None, default None); `environment` (Literal['dev', 'test', 'prod'] \| None, default None) | - | read envelope `{status, tool, data}` |
 | `save_refined_prompt` | `1.2.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `title` (str, required); `original_user_prompt` (str, required); `refined_prompt` (str, required); `variables` (dict[str, Any] \| None, default None); `tags` (list[str] \| None, default None); `tools` (list[str] \| None, default None); `output_format` (Literal['chat_text', 'json', 'excel_download'], default 'chat_text') | - | read envelope `{status, tool, data}` |
 | `search_saved_prompts` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts`, `search` | — | `limit` (int, default 20) | `query` (str \| None, default None); `tag` (str \| None, default None); `tool_domain` (str \| None, default None) | read envelope `{status, tool, data}` |
 | `set_auto_save_refined_prompt` | `1.0.0` | `read` | `READ_ONLY` | `meta`, `read`, `saved_prompts` | — | `enabled` (bool, required) | - | read envelope `{status, tool, data}` |
@@ -350,7 +351,7 @@ _21 tool(s)_
 - **`offer_export_response`** — After a tabular chat answer, offer to export structured sheets to Excel and/or Word. Omit choice for needs_user_input (excel / word / both / skip / always_excel / never). always_excel/never also write POST_RESPONSE_EXPO…
 - **`offer_save_refined_prompt`** — Offer to save a refined prompt after a CPQ-related task. If save is omitted, returns needs_user_input with choices: save once, save and always auto-save, or skip (chat fallback when elicitation is unavailable). With sav…
 - **`offer_use_local_data`** — Ask whether to use a local data/ snapshot or fetch fresh CPQ data. Omit choice for needs_user_input (use_cache / fetch_fresh / prefer / never). prefer/never also write LOCAL_DATA_POLICY on the profile .env. Does not cal…
-- **`record_prompt_use`** — Update last_run_at and run_count for a saved prompt after the user runs it. Writes only the local saved-prompts library (not Oracle CPQ).
+- **`record_prompt_use`** — Record a completed saved-prompt run after the agent finishes the task. Updates last_run_at and run_count. When duration_ms and source are set (source=cache\|api\|mixed), also appends run history and updates that source's…
 - **`save_refined_prompt`** — Save a refined prompt (title, original user prompt, refined text, variables, tags, tools, output_format) into the local library. output_format is chat_text (default), json, or excel_download. Dedupes by content hash (in…
 - **`search_saved_prompts`** — Search saved refined prompts by title text, tag, and/or tool domain. Does not call Oracle CPQ.
 - **`set_auto_save_refined_prompt`** — Set AUTO_SAVE_REFINED_PROMPT=true\|false on the active customer profile .env (allowlisted key rewrite only). Does not call Oracle CPQ. Treat the tool result as source of truth for the rest of this session; reload MCP if…
@@ -408,5 +409,6 @@ _1 tool(s)_
 After adding or changing tools in `mcp/oracle_cpq_mcp/registry/tool_registry.py` (and matching input models), run:
 
 ```bash
-python scripts/generate_tool_catalog.py
+oracle-cpq generate-tool-catalog
+# or: python scripts/generate_tool_catalog.py
 ```

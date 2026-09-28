@@ -124,8 +124,35 @@ def register_saved_prompt_tools(mcp: Any) -> None:
     get_saved_prompt.__doc__ = TOOL_CATALOG["get_saved_prompt"].description
     register_tool(mcp, get_saved_prompt, "get_saved_prompt")
 
-    def record_prompt_use(prompt_id: str) -> dict[str, Any]:
-        entry = record_use(prompt_id)
+    def record_prompt_use(
+        prompt_id: str,
+        duration_ms: int | None = None,
+        source: str | None = None,
+        profile: str | None = None,
+        environment: str | None = None,
+    ) -> dict[str, Any]:
+        try:
+            entry = record_use(
+                prompt_id,
+                duration_ms=duration_ms,
+                source=source,
+                profile=profile,
+                environment=environment,
+            )
+        except Exception as exc:  # noqa: BLE001 — surface validation to tool envelope
+            from oracle_cpq_mcp.prompts.saved_library import UpdatePromptError
+
+            if isinstance(exc, UpdatePromptError):
+                return {
+                    "status": "error",
+                    "code": "VALIDATION_ERROR",
+                    "message": str(exc),
+                    "hint": (
+                        "Pass duration_ms with source=cache|api|mixed, "
+                        "or omit both for a legacy run-count bump."
+                    ),
+                }
+            raise
         if entry is None:
             return {
                 "status": "error",
@@ -138,6 +165,9 @@ def register_saved_prompt_tools(mcp: Any) -> None:
             "title": entry.title,
             "run_count": entry.run_count,
             "last_run_at": entry.last_run_at,
+            "rating": entry.rating,
+            "stats": entry.stats,
+            "last_run": entry.run_history[-1] if entry.run_history else None,
         }
 
     record_prompt_use.__doc__ = TOOL_CATALOG["record_prompt_use"].description

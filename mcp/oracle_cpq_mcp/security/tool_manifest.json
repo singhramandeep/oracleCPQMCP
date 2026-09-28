@@ -1,5 +1,5 @@
 {
-  "tool_definitions_sha256": "99613aeb6bd49503fe11bb23717ca52ce67bb9f6111f985a4e94958206f38c02",
+  "tool_definitions_sha256": "73bab412bc8c6ae5c6ae156571de1c895f753886b4d896873df65494fcf15983",
   "tool_count": 122,
   "tools": [
     "add_from_favorites",
@@ -519,8 +519,8 @@
       "definition_sha256": "d2c3a0156d334cc39db9faa57413a1da4b50a0337126a650d771d4c308a4de23"
     },
     "record_prompt_use": {
-      "version": "1.0.0",
-      "definition_sha256": "231dc6a82096872d0965d534aaabec97ebff48c6c66b6f8f4fb039614f2e386e"
+      "version": "1.1.0",
+      "definition_sha256": "7ccc7fa3cb68312e2d7f2777bc4f0fab0bfa4eafe042678a361b4729dc31ba6e"
     },
     "remove_transaction_lines": {
       "version": "1.0.0",

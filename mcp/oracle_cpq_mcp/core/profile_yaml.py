@@ -74,8 +74,8 @@ class CustomerProfileDocument(BaseModel):
     debug_mode: bool = True
     refined_prompt: bool = True
     auto_save_refined_prompt: bool = False
-    local_data_policy: str = "ask"
-    post_response_export: str = "ask"
+    local_data_policy: str = "prefer"
+    post_response_export: str = "always_excel"
     http_timeout: float | None = None
     customer_knowledge_file: str | None = None
     environments: dict[str, ProfileEnvironment] = Field(default_factory=dict)
@@ -245,8 +245,10 @@ def profile_document_from_flat_env(raw: dict[str, str | None]) -> CustomerProfil
         auto_save_refined_prompt=parse_bool_env(
             raw.get("AUTO_SAVE_REFINED_PROMPT"), default=False
         ),
-        local_data_policy=(raw.get("LOCAL_DATA_POLICY") or "ask").strip() or "ask",
-        post_response_export=(raw.get("POST_RESPONSE_EXPORT") or "ask").strip() or "ask",
+        local_data_policy=(raw.get("LOCAL_DATA_POLICY") or "prefer").strip()
+        or "prefer",
+        post_response_export=(raw.get("POST_RESPONSE_EXPORT") or "always_excel").strip()
+        or "always_excel",
         http_timeout=http_timeout,
         customer_knowledge_file=knowledge,
         environments=environments,

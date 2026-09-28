@@ -15,6 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.prompt_studio import __version__ as STUDIO_VERSION
+from apps.prompt_studio import log_viewer
+from apps.prompt_studio import profile_config_viewer
 from apps.prompt_studio import store as studio_store
 from apps.prompt_studio.placeholders import (
     extract_placeholders,
@@ -37,6 +39,17 @@ class _StrictModel(BaseModel):
 class FavoriteOut(_StrictModel):
     prompt_id: str
     favorited: bool
+
+
+class RatingIn(_StrictModel):
+    rating: int | None = Field(
+        default=None,
+        description="Prompt rating 1–10, or null to clear.",
+    )
+
+
+class CommentIn(_StrictModel):
+    text: str = Field(min_length=1, max_length=saved_library.MAX_COMMENT_LEN)
 
 
 class SuiteCreateIn(_StrictModel):
@@ -113,9 +126,24 @@ class ExportSelectedIn(_StrictModel):
 def create_app() -> FastAPI:
     app = FastAPI(title="Prompt Studio", version=STUDIO_VERSION)
 
+    def _last_run_summary(entry: saved_library.SavedPrompt) -> dict[str, Any]:
+        history = entry.run_history or []
+        if not history:
+            return {
+                "last_source": None,
+                "last_duration_ms": None,
+            }
+        last = history[-1]
+        return {
+            "last_source": last.get("source"),
+            "last_duration_ms": last.get("duration_ms"),
+        }
+
     def _entry_summary(entry: saved_library.SavedPrompt, favorites: set[str]) -> dict[str, Any]:
         original = entry.original_user_prompt or ""
         preview = original if len(original) <= 160 else original[:157] + "…"
+        last_run = _last_run_summary(entry)
+        stats = entry.stats or saved_library.empty_stats()
         return {
             "id": entry.id,
             "title": entry.title,
@@ -131,6 +159,20 @@ def create_app() -> FastAPI:
             "favorite": entry.id in favorites,
             "placeholder_count": len(extract_placeholders(entry.refined_prompt)),
             "profile": entry.profile,
+            "rating": entry.rating,
+            "comment_count": len(entry.comments or []),
+            "last_source": last_run["last_source"],
+            "last_duration_ms": last_run["last_duration_ms"],
+            "stats_summary": {
+                source: {
+                    "count": (stats.get(source) or {}).get("count", 0),
+                    "last_duration_ms": (stats.get(source) or {}).get(
+                        "last_duration_ms"
+                    ),
+                    "avg_duration_ms": (stats.get(source) or {}).get("avg_duration_ms"),
+                }
+                for source in ("cache", "api", "mixed")
+            },
         }
 
     def _prompt_detail(entry: saved_library.SavedPrompt, favorites: set[str]) -> dict[str, Any]:
@@ -143,6 +185,9 @@ def create_app() -> FastAPI:
             "variables": entry.variables,
             "placeholders": placeholders,
             "recent_values": {k: history.get(k, []) for k in placeholders},
+            "comments": entry.comments,
+            "run_history": entry.run_history,
+            "stats": entry.stats or saved_library.empty_stats(),
         }
 
     def _studio_commands() -> dict[str, str]:
@@ -251,8 +296,127 @@ def create_app() -> FastAPI:
                         "(example profiles default to true)."
                     ),
                 },
+                {
+                    "title": "API logs",
+                    "body": (
+                        "Open the API logs view to browse DEBUG_MODE request logs "
+                        f"under {log_viewer.logs_dir()}.\n\n"
+                        "Files are named {profile}-{environment}.log. "
+                        "Enable DEBUG_MODE=true on the active CPQ profile so MCP "
+                        "writes these files. Passwords in curl lines are already "
+                        "redacted (user:***). Filter by method, status, path, and "
+                        "latency; copy curl, full blocks, or JSON; download the raw file."
+                    ),
+                },
+                {
+                    "title": "Profiles & Paths",
+                    "body": (
+                        "Open Profiles & Paths to inspect redacted profile YAML "
+                        "(credentials never shown) and copy workspace paths for "
+                        "the library, studio state, logs, local cache, and exports. "
+                        "Never edit username/password from Studio — you own credentials."
+                    ),
+                },
+                {
+                    "title": "Ratings & run telemetry",
+                    "body": (
+                        "Rate prompts 1–10 and leave comments on the prompt card. "
+                        "After an agent finishes a saved-prompt run, MCP "
+                        "record_prompt_use stores elapsed time with source "
+                        "cache|api|mixed. Averages stay separate per source."
+                    ),
+                },
             ],
         }
+
+    @app.get("/api/config/profiles")
+    def list_config_profiles() -> dict[str, Any]:
+        profiles = profile_config_viewer.list_config_profiles()
+        return {"count": len(profiles), "profiles": profiles}
+
+    @app.get("/api/config/profiles/example")
+    def get_config_profile_example() -> dict[str, Any]:
+        try:
+            return profile_config_viewer.load_profile_example()
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except profile_config_viewer.ConfigViewerError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/config/profiles/{customer_id}")
+    def get_config_profile(customer_id: str) -> dict[str, Any]:
+        try:
+            return profile_config_viewer.load_redacted_profile(customer_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except profile_config_viewer.ConfigViewerError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/workspace/paths")
+    def get_workspace_paths(
+        profile: str | None = Query(default=None),
+        environment: str | None = Query(default=None),
+    ) -> dict[str, Any]:
+        try:
+            return profile_config_viewer.workspace_paths(
+                profile=profile,
+                environment=environment,
+            )
+        except profile_config_viewer.ConfigViewerError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/logs")
+    def list_logs() -> dict[str, Any]:
+        files = log_viewer.list_log_files()
+        return {
+            "logs_dir": str(log_viewer.logs_dir().resolve()),
+            "files": files,
+            "count": len(files),
+        }
+
+    @app.get("/api/logs/{name}")
+    def get_log(
+        name: str,
+        q: str | None = Query(default=None),
+        method: str | None = Query(default=None),
+        status: str | None = Query(default=None),
+        path_contains: str | None = Query(default=None),
+        min_ms: float | None = Query(default=None, ge=0),
+        max_ms: float | None = Query(default=None, ge=0),
+        limit: int = Query(default=200, ge=1, le=1000),
+        offset: int = Query(default=0, ge=0),
+    ) -> dict[str, Any]:
+        try:
+            return log_viewer.load_log_payload(
+                name,
+                q=q,
+                method=method,
+                status=status,
+                path_contains=path_contains,
+                min_ms=min_ms,
+                max_ms=max_ms,
+                limit=limit,
+                offset=offset,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/api/logs/{name}/raw", response_model=None)
+    def get_log_raw(name: str) -> Response:
+        try:
+            path = log_viewer.resolve_log_path(name)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return FileResponse(
+            path,
+            media_type="text/plain; charset=utf-8",
+            filename=path.name,
+            headers={"Cache-Control": "no-cache"},
+        )
 
     @app.get("/api/prompts")
     def list_prompts(
@@ -436,27 +600,14 @@ def create_app() -> FastAPI:
             if not refined:
                 skipped_empty += 1
                 continue
-            title = str(raw.get("title") or "Untitled prompt").strip()[:120]
-            tags = [str(t) for t in (raw.get("tags") or []) if str(t).strip()]
-            tags = sorted(set(tags) | set(batch_tags))
-            tools = [str(t) for t in (raw.get("tools") or []) if str(t).strip()]
             try:
-                entry, created = saved_library.upsert_prompt(
-                    title=title or "Untitled prompt",
-                    original_user_prompt=str(raw.get("original_user_prompt") or ""),
-                    refined_prompt=refined,
-                    variables=raw.get("variables")
-                    if isinstance(raw.get("variables"), dict)
-                    else None,
-                    tags=tags,
-                    tools=tools,
-                    output_format=str(
-                        raw.get("output_format") or saved_library.DEFAULT_OUTPUT_FORMAT
-                    ),
-                    profile=raw.get("profile")
-                    if isinstance(raw.get("profile"), str) or raw.get("profile") is None
-                    else str(raw.get("profile")),
+                entry, created = saved_library.import_prompt(
+                    raw,
+                    extra_tags=batch_tags,
                 )
+            except saved_library.UpdatePromptError as exc:
+                errors.append(f"index {idx}: {exc}")
+                continue
             except Exception as exc:  # noqa: BLE001 — report per-row
                 errors.append(f"index {idx}: {exc}")
                 continue
@@ -582,6 +733,54 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Prompt not found")
         favorited = studio_store.toggle_favorite(prompt_id)
         return FavoriteOut(prompt_id=prompt_id, favorited=favorited)
+
+    @app.patch("/api/prompts/{prompt_id}/rating")
+    def patch_prompt_rating(prompt_id: str, body: RatingIn) -> dict[str, Any]:
+        try:
+            entry = saved_library.set_rating(prompt_id, body.rating)
+        except saved_library.UpdatePromptError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if entry is None:
+            raise HTTPException(status_code=404, detail="Prompt not found")
+        favorites = set(studio_store.load_store().get("favorites") or [])
+        return _prompt_detail(entry, favorites)
+
+    @app.post("/api/prompts/{prompt_id}/comments")
+    def post_prompt_comment(prompt_id: str, body: CommentIn) -> dict[str, Any]:
+        try:
+            entry = saved_library.add_comment(prompt_id, body.text)
+        except saved_library.UpdatePromptError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if entry is None:
+            raise HTTPException(status_code=404, detail="Prompt not found")
+        favorites = set(studio_store.load_store().get("favorites") or [])
+        return _prompt_detail(entry, favorites)
+
+    @app.patch("/api/prompts/{prompt_id}/comments/{comment_id}")
+    def patch_prompt_comment(
+        prompt_id: str,
+        comment_id: str,
+        body: CommentIn,
+    ) -> dict[str, Any]:
+        try:
+            entry = saved_library.update_comment(prompt_id, comment_id, body.text)
+        except saved_library.UpdatePromptError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if entry is None:
+            raise HTTPException(status_code=404, detail="Prompt not found")
+        favorites = set(studio_store.load_store().get("favorites") or [])
+        return _prompt_detail(entry, favorites)
+
+    @app.delete("/api/prompts/{prompt_id}/comments/{comment_id}")
+    def delete_prompt_comment(prompt_id: str, comment_id: str) -> dict[str, Any]:
+        try:
+            entry = saved_library.delete_comment(prompt_id, comment_id)
+        except saved_library.UpdatePromptError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if entry is None:
+            raise HTTPException(status_code=404, detail="Prompt not found")
+        favorites = set(studio_store.load_store().get("favorites") or [])
+        return _prompt_detail(entry, favorites)
 
     @app.delete("/api/prompts/{prompt_id}")
     def delete_prompt(prompt_id: str) -> dict[str, bool]:

@@ -67,22 +67,27 @@ MCP `ensure_prompt_studio` only **starts** Studio when `/api/health` is down; it
 | `CPQ_SAVED_PROMPTS_PATH` | Path to `saved_prompts.json` |
 | `CPQ_PROMPT_STUDIO_PATH` | Path to studio sidecar JSON |
 | `CPQ_CONFIG_DIR` | Config directory (auto-set to `<repo>/.config` on startup if unset) |
+| `CPQ_DEBUG_LOG_DIR` | Override directory for DEBUG_MODE `*.log` files (default `<repo>/logs`) |
 
 ## Features (v1)
 
 - Library browse with search and tag chips
 - **Cards / List** layout toggle (persisted in the browser)
-- Rich metadata: format, run count, last run, created, placeholders
+- Rich metadata: format, run count, last run, created, placeholders, **rating (1–10)**, comment count, last source + elapsed
 - Favorites (star toggle)
 - Suites (named ordered prompt lists; add from cards)
 - **New prompt** — create a prompt manually in the UI
-- **Import** — upload JSON (library / array / single), require an import name/tag, select/deselect rows; tags `imported` + `import:<slug>`
-- **Export all** / **Export selected** — download library JSON
-- **Help** — in-app docs for library path, start/restart commands, import/export
+- **Import** — upload JSON (library / array / single), require an import name/tag, select/deselect rows; tags `imported` + `import:<slug>`; preserves rating/comments/telemetry without bumping run counters
+- **Export all** / **Export selected** — download library JSON (includes feedback + per-source stats)
+- **Help** — in-app docs for library path, start/restart commands, import/export, API logs, Profiles & Paths
+- **API logs** (0.3.2+) — browse `logs/{profile}-{env}.log` from DEBUG_MODE: status donut, latency histogram + strip, filters (method/status/min ms/errors/search), multi-select copy curl / blocks / JSON, download raw. Slow requests (above p95) get a chip.
+- **Ratings & comments** (0.4.0+) — prompt-level 1–10 rating and comment thread in the Run modal
+- **Run telemetry** (0.4.0+) — separate Cached / API / Mixed last + average durations (never blended). MCP `record_prompt_use` records `duration_ms` + `source` after a completed saved-prompt run
+- **Profiles & Paths** (0.4.0+) — read-only redacted profile YAML (`.config/<id>.yaml` only; never `.env`) plus copyable paths for library, studio state, logs, local cache, and exports
 - Header shows the **absolute library file path** (click to copy)
 - Run / fill: detect `{{snake_case}}` placeholders, recent values, Generate + Copy; `{{output_format}}` uses a dropdown (Text / JSON / Excel download)
 - Run modal shows **expected response format** (Text by default; JSON / Excel download when set)
-- **Refresh** reloads `.prompts/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, disabled count, and library last write). Toolbar binds are null-safe; static assets are cache-busted from the Studio version (`0.3.1+`).
+- **Refresh** reloads `.prompts/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, disabled count, and library last write). Toolbar binds are null-safe; static assets are cache-busted from the Studio version (`0.4.0+`).
 - **Profile filter** — dropdown (All / Unscoped / each stamped profile). MCP `save_refined_prompt` stamps `profile` from the active CPQ customer profile; New prompt accepts an optional profile.
 - **Auto-reload banner** when the library file changes on disk (poll + window focus)
 - **Show disabled** toggle for prompts with `enabled=false`
@@ -106,8 +111,6 @@ Studio and MCP share the same `.prompts/saved_prompts.json` (override with `CPQ_
 ## Backlog
 
 - Export suite as one markdown / clipboard pack
-- Record “generated at” + bump `record_use` via MCP when tools available
-- Edit / soft-disable prompts from UI (**Edit** on cards + run modal; hard Remove still available)
 - Keyboard shortcuts (`/`, `f` favorite, `g` generate)
 - Deep-link `?prompt_id=` / `?suite=` (partially supported)
 - Dark-mode workspace toggle

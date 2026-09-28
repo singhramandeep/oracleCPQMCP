@@ -190,6 +190,12 @@ REFINED_PROMPT_CORE = (
     "(e.g. 45s or 2m 10s) or 'not available' if it cannot be estimated; "
     "'**Tokens:**' input/output/total only if the platform surfaces usage for this turn; "
     "otherwise 'not available'. Do not invent precise token counts. "
+    "(3c) When this turn used a saved prompt (picker / run_saved_prompt / known prompt id), "
+    "after the footer call record_prompt_use with that prompt_id, duration_ms "
+    "(best-effort wall-clock milliseconds for the turn), and source=cache|api|mixed "
+    "matching how site data was obtained (cache = local data/ only; api = live CPQ tools; "
+    "mixed = both). Do not invent durations; omit duration_ms+source only if elapsed "
+    "cannot be estimated. Cache/API averages are stored separately — never blend them. "
 )
 
 REFINED_PROMPT_SAVE_ASK = (
@@ -238,8 +244,9 @@ LOCAL_DATA_ASK = (
 )
 
 LOCAL_DATA_PREFER = (
-    " LOCAL_DATA_POLICY=prefer: use load_local_data when a snapshot exists unless the "
-    "user asks for fresh data. On miss, call sync_*_local (or the matching live export)."
+    " LOCAL_DATA_POLICY=prefer (recommended default): use load_local_data when a "
+    "snapshot exists unless the user asks for fresh data. On miss, call sync_*_local "
+    "(or the matching live export)."
 )
 
 LOCAL_DATA_NEVER = (
@@ -256,7 +263,7 @@ POST_RESPONSE_EXPORT_CORE = (
 )
 
 POST_RESPONSE_EXPORT_ASK = (
-    " POST_RESPONSE_EXPORT=ask (default): after the refined-prompt footer/save step "
+    " POST_RESPONSE_EXPORT=ask: after the refined-prompt footer/save step "
     "(when the gate is YES), "
     "call offer_export_response (omit choice) with title and the same sheets used in chat. "
     "Choices: excel / word / both / skip / always_excel / never. On excel/word/both/"
@@ -275,9 +282,9 @@ POST_RESPONSE_EXPORT_NEVER = (
 )
 
 POST_RESPONSE_EXPORT_ALWAYS_EXCEL = (
-    " POST_RESPONSE_EXPORT=always_excel: after YES-gate tabular answers (and after the "
-    "refined-prompt step), call export_response_excel with the structured sheets — "
-    "do not ask first. Skip when the refined-prompt gate is NO."
+    " POST_RESPONSE_EXPORT=always_excel (recommended default): after YES-gate tabular "
+    "answers (and after the refined-prompt step), call export_response_excel with the "
+    "structured sheets — do not ask first. Skip when the refined-prompt gate is NO."
 )
 
 ALIAS_INSTRUCTIONS_HEADER = (

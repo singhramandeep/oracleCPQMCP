@@ -88,7 +88,7 @@ For IDE use, the MCP host launches it via `scripts/mcp-server.cmd` (Windows) or 
 
 | Topic | Windows | macOS / Linux |
 |-------|---------|----------------|
-| Copy profile template | `copy .config\.env.example .config\mycompany.env` | `cp .config/.env.example .config/mycompany.env` |
+| Copy profile template | `copy .config\.profile.yaml.example .config\mycompany.yaml` | `cp .config/.profile.yaml.example .config/mycompany.yaml` |
 | MCP launcher | `scripts/mcp-server.cmd` | `scripts/mcp-server.sh` (+ `chmod +x`) |
 | Path style in Antigravity | Absolute Windows paths (`C:\\Users\\...`) | Absolute POSIX paths |
 
@@ -104,7 +104,7 @@ For IDE use, the MCP host launches it via `scripts/mcp-server.cmd` (Windows) or 
 python scripts/migrate_profile_yaml.py mycompany
 ```
 
-**Legacy (still supported):** `.config/<customer_id>.env` for secrets/flags, optionally plus `.config/<customer_id>.catalog.yaml` for catalog sections. If both `.yaml` and `.env` exist for the same id, **the unified `.yaml` wins**.
+**Legacy (still supported for upgrades):** `.config/<customer_id>.env` for secrets/flags, optionally plus `.config/<customer_id>.catalog.yaml`. Flat `.env` templates/backups may live under the gitignored `.config/archive/` folder. If both `.yaml` and `.env` exist for the same id, **the unified `.yaml` wins**. New setups should use YAML only ([QUICKSTART](QUICKSTART.md)); migration steps: [How do I migrate from a legacy `.env` to `.yaml`?](#how-do-i-migrate-from-a-legacy-env-to-yaml) and [README — Update from an older version](../README.md#update-from-an-older-version).
 
 ### How do I migrate from a legacy `.env` to `.yaml`?
 
@@ -376,6 +376,8 @@ Reload / restart MCP servers (or the IDE). Tool catalogs and descriptions are lo
 
 When `DEBUG_MODE=true` (default if omitted; override with host `CPQ_DEBUG_MODE`), every CPQ HTTP call through `CPQClient` appends a timestamped block to **`logs/{profile}-{environment}.log`** (for example `logs/focalpoint-dev.log`). Each block includes a redacted `curl` (password as `***`) and a per-parameter list. Response bodies are not written. Override the directory with `CPQ_DEBUG_LOG_DIR`. The `logs/` folder is gitignored — treat files as sensitive (usernames and business query strings). Reload MCP after changing the flag. This is separate from `CPQ_VERBOSE` (console/stderr curl traces).
 
+Browse, filter, and copy these logs in **Prompt Studio → API logs** (status/latency charts, curl / block / JSON copy, download raw). Restart Studio after upgrading so version **0.3.2+** is loaded.
+
 ### How do safe writes work when enabled?
 
 1. Call with `dry_run=true` (default) → preflight preview + `confirmation_token`.
@@ -398,7 +400,7 @@ Credentials and other sensitive fields are stripped/sanitized so they are not ec
 
 ### What should never be committed?
 
-- `.config/*.yaml` / `.config/*.env` (except `.profile.yaml.example`, `.env.example`, `.catalog.yaml.example`)
+- `.config/*.yaml` / `.config/*.env` / `.config/archive/` (except `.profile.yaml.example` and `.config/template/`)
 - `.agents/mcp_config.json`, `.cursor/mcp.json`, `.vscode/mcp.json` (local)
 - `.prompts/saved_prompts.json`, `.config/prompt_studio.json`
 - `data/`, `exports/`
@@ -515,8 +517,8 @@ Path pattern: `data/{profile}/{env}/…` (gitignored). Override root with `CPQ_L
 
 | Value | Behavior |
 |-------|----------|
-| `ask` (default) | Agent should offer cache vs fresh when a snapshot exists |
-| `prefer` | Use cache when present |
+| `prefer` (default) | Use cache when present |
+| `ask` | Agent should offer cache vs fresh when a snapshot exists |
 | `never` | Always fetch live |
 
 Tools: `list_local_data`, `get_local_data_status`, `offer_use_local_data`, `load_local_data`, `set_local_data_policy`, plus `sync_*_local` domain syncs.
@@ -532,7 +534,7 @@ Yes for flows such as `export_users_excel` and `get_all_bml_code` (zip + extract
 
 ### Can I export a tabular chat answer to Excel or Word?
 
-Yes. After a tabular answer, with `POST_RESPONSE_EXPORT=ask` (default), the agent calls `offer_export_response` (Excel / Word / both / skip / always_excel / never).
+Yes. After a tabular answer, with `POST_RESPONSE_EXPORT=always_excel` (default), the agent calls `export_response_excel` without asking. Set `ask` to offer Excel / Word / both / skip / always_excel / never, or `never` to skip.
 
 | Tool | Result |
 |------|--------|
@@ -606,9 +608,21 @@ with title, tags, output format, cached-data flag, prose with `{{placeholders}}`
 - Pick later: `/OracleCPQ_SavedPrompts` or “use a saved prompt” → `start_prompt_picker`
 - Library file: `.prompts/saved_prompts.json` (gitignored)
 
+### Why do I have `saved_prompts.json` under `.config`?
+
+That path is **legacy**. MCP and Prompt Studio use **`.prompts/saved_prompts.json`** only. If both files exist, the `.prompts` library wins (legacy `CPQ_SAVED_PROMPTS_PATH` under `.config` is ignored when the canonical file is present).
+
+Safe cleanup:
+
+1. Confirm Studio / MCP load prompts from `.prompts/saved_prompts.json`.
+2. If `.prompts` already has your library, delete `.config/saved_prompts.json` and any `.bak_*` copies.
+3. If `.prompts` is empty but `.config` still has rows, copy once to `.prompts/saved_prompts.json`, then delete the `.config` copy.
+
+`.config/prompt_studio.json` is unrelated — optional Studio favorites/suites/history. Delete it only if you want to reset those UI preferences.
+
 ### What is Prompt Studio?
 
-A **local** FastAPI UI to browse/search/favorite saved prompts and fill placeholders. It does **not** call Oracle CPQ.
+A **local** FastAPI UI to browse/search/favorite saved prompts, fill placeholders, and (from **0.3.2**) browse **API logs** under `logs/`. It does **not** call Oracle CPQ.
 
 After YES-gate site/cache CPQ work, agents call MCP tool **`ensure_prompt_studio`**, which probes `http://127.0.0.1:8765/api/health` and **auto-starts** Studio in the background if needed (then cites the URL). You can still start it manually:
 

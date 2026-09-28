@@ -1,4 +1,4 @@
-﻿# Oracle CPQ MCP Server
+# Oracle CPQ MCP Server
 
 MCP server for **Oracle CPQ** — **106 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
 
@@ -14,7 +14,7 @@ MCP server for **Oracle CPQ** — **106 MCP tools** for Users, Groups, Data Tabl
 
 **[docs/QUICKSTART.md](docs/QUICKSTART.md)** — download repo, create credential profile, smoke test, and connect **Antigravity** (recommended) step by step.
 
-**Already on an older checkout?** Jump to [Update from an older version](#update-from-an-older-version) — pull latest, reinstall, reload MCP (keep your `.env` and local MCP JSON).
+**Already on an older checkout?** Jump to [Update from an older version](#update-from-an-older-version) — pull latest, reinstall, migrate legacy flat profiles if needed, reload MCP (keep passwords and local MCP JSON).
 
 **What's new?** See **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** for changelog history (auto-updated from git; refresh with `python scripts/update_release_notes.py`).
 
@@ -30,10 +30,10 @@ pip install -e ".[dev]"
 
 | Shell | Copy credential template |
 |-------|--------------------------|
-| Windows PowerShell / CMD | `copy .config\.env.example .config\mycompany.env` |
-| macOS / Linux / Git Bash | `cp .config/.env.example .config/mycompany.env` |
+| Windows PowerShell / CMD | `copy .config\.profile.yaml.example .config\mycompany.yaml` |
+| macOS / Linux / Git Bash | `cp .config/.profile.yaml.example .config/mycompany.yaml` |
 
-Edit `.config/mycompany.env`, then:
+Edit `.config/mycompany.yaml` (see comments in the example), then:
 
 ```bash
 oracle-cpq-smoke --profile mycompany --env dev
@@ -65,31 +65,51 @@ pip install -e ".[prompt-studio]"   # Prompt Studio UI
 pip install -e ".[docs]"            # Word export (python-docx)
 ```
 
-3. **Refresh profile knobs (keep passwords).** Compare your `.config/<profile>.env` to [`.config/.env.example`](.config/.env.example) and add any new keys you care about (examples that appeared in recent releases):
+3. **Migrate legacy flat `.env` profiles to unified YAML (recommended).**  
+   New setups use `.config/<id>.yaml` only. Flat `.env` templates were moved to the local (gitignored) folder `.config/archive/` (including a copy of the old `.env.example` when present on your machine).
 
-| Key | Typical default | Purpose |
-|-----|-----------------|--------|
-| `DEBUG_MODE` | `true` | Redacted API traces → `logs/{profile}-{env}.log` |
-| `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
-| `AUTO_SAVE_REFINED_PROMPT` | `true` in example profile | Auto-save refined prompts (each customer YAML may override) |
-| `LOCAL_DATA_POLICY` | `ask` | Cache vs live CPQ before big lists |
-| `POST_RESPONSE_EXPORT` | `ask` | Offer Excel/Word after tabular answers |
-| `REST_API_VERSION` | site-specific | Prefer `v19` for metrics / collab / admin / saved searches if v18 404s |
+   If you still have `.config/<id>.env`:
 
-Do **not** overwrite your profile with `.env.example` — that would wipe URLs and passwords.
+```bash
+# Preview (may print passwords — keep output local)
+python scripts/migrate_profile_yaml.py mycompany --dry-run
 
-4. **Keep local MCP JSON as-is** (gitignored): `.agents/mcp_config.json`, `.cursor/mcp.json`, or `.vscode/mcp.json`. Paths and `CPQ_CUSTOMER_PROFILE` / `CPQ_CONFIG_DIR` usually stay the same. Only re-check the example files if a release note says launcher paths or required env vars changed.
+# Write .config/mycompany.yaml
+python scripts/migrate_profile_yaml.py mycompany
 
-5. **Reload the Oracle CPQ MCP server** in your IDE (or restart the IDE). New tools and updated **MCP server instructions** (refined-prompt turn metrics, document templates, etc.) will not apply until the process restarts.
+# Overwrite YAML if it already exists
+python scripts/migrate_profile_yaml.py mycompany --force
+```
 
-6. **Quick check** in Agent chat:
+   Smoke-test, reload MCP, then move the old file aside (for example into `.config/archive/`) and remove any `.catalog.yaml` sidecar. While both `.yaml` and `.env` exist, **YAML wins**.
+
+   Field mapping and troubleshooting: [FAQ — How do I migrate from a legacy `.env` to `.yaml`?](docs/FAQ.md#how-do-i-migrate-from-a-legacy-env-to-yaml).
+
+4. **Refresh profile knobs (keep passwords).** Prefer editing `.config/<profile>.yaml` and comparing flags to [`.config/.profile.yaml.example`](.config/.profile.yaml.example). If you have not migrated yet, you can still compare a legacy `.env` to `.config/archive/.env.example` (local archive only) for key names:
+
+| YAML key / legacy env key | Typical default | Purpose |
+|---------------------------|-----------------|--------|
+| `debug_mode` / `DEBUG_MODE` | `true` | Redacted API traces → `logs/{profile}-{env}.log` |
+| `refined_prompt` / `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
+| `auto_save_refined_prompt` / `AUTO_SAVE_REFINED_PROMPT` | `true` in example profile | Auto-save refined prompts |
+| `local_data_policy` / `LOCAL_DATA_POLICY` | `prefer` | Cache vs live CPQ before big lists (`ask` / `prefer` / `never`) |
+| `post_response_export` / `POST_RESPONSE_EXPORT` | `always_excel` | Post-response Excel (`ask` / `never` / `always_excel`) |
+| `rest_api_version` / `REST_API_VERSION` | site-specific | Prefer `v19` for metrics / collab / admin / saved searches if v18 404s |
+
+Do **not** overwrite a live profile with an example file — that would wipe URLs and passwords.
+
+5. **Keep local MCP JSON as-is** (gitignored): `.agents/mcp_config.json`, `.cursor/mcp.json`, or `.vscode/mcp.json`. Paths and `CPQ_CUSTOMER_PROFILE` / `CPQ_CONFIG_DIR` usually stay the same. Only re-check the example files if a release note says launcher paths or required env vars changed.
+
+6. **Reload the Oracle CPQ MCP server** in your IDE (or restart the IDE). New tools and updated **MCP server instructions** will not apply until the process restarts.
+
+7. **Quick check** in Agent chat:
 
 - *“Discover tools for domain admin”* or *“list saved searches”*
 - Optional: `oracle-cpq-smoke --profile <your-profile> --env dev`
 
-7. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.3.0**). Full first-time path remains [QUICKSTART](docs/QUICKSTART.md).
+8. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.3.0**). Full first-time path remains [QUICKSTART](docs/QUICKSTART.md).
 
-**Leave alone (local / secrets):** `.config/*.env`, `data/`, `logs/`, `.prompts/saved_prompts.json`, Prompt Studio sidecar, and your local MCP config — they are gitignored on purpose.
+**Leave alone (local / secrets):** `.config/*.yaml` profiles, `.config/archive/`, `data/`, `logs/`, `.prompts/saved_prompts.json`, Prompt Studio sidecar, and your local MCP config — they are gitignored on purpose.
 
 **Dual environments:** copy [`.cursor/mcp.json.dual.example.json`](.cursor/mcp.json.dual.example.json) or [`.agents/mcp_config.dual.example.json`](.agents/mcp_config.dual.example.json) — two MCP server entries (`CPQ_ENVIRONMENT=dev` and `test`). Tool envelopes include `profile` + `environment` so the agent can tell which site answered.
 
@@ -128,7 +148,7 @@ Antigravity is the **recommended** client for this server. Instructions are **pa
 }
 ```
 
-Replace the path with your real project folder. Set `CPQ_CUSTOMER_PROFILE` to your `.config/<name>.env` profile id. On macOS/Linux use `scripts/mcp-server.sh` and `chmod +x scripts/mcp-server.sh`.
+Replace the path with your real project folder. Set `CPQ_CUSTOMER_PROFILE` to your `.config/<name>.yaml` profile id. On macOS/Linux use `scripts/mcp-server.sh` and `chmod +x scripts/mcp-server.sh`.
 
 5. In Antigravity: Agent panel → **…** → **MCP Servers** → **Manage MCP Servers** (or edit `.agents/mcp_config.json` directly).
 6. Restart Antigravity or reload MCP servers. Agent behavior (refined prompts, turn metrics, branded Word/Excel) comes from **MCP instructions**, not from `.cursor/rules` — see [`AGENTS.md`](AGENTS.md).
@@ -166,7 +186,7 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 |----------|----------|
 | [AGENTS.md](AGENTS.md) | **All IDEs** — MCP instructions are SSOT; Cursor rules are mirrors only |
 | [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts, Prompt Studio |
-| [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, merge new `.env` keys, reload MCP |
+| [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, migrate legacy `.env` → YAML if needed, reload MCP |
 | [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, Antigravity vs Cursor rules |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
 | [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (106 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
@@ -179,7 +199,7 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 | [SECURITY.md](SECURITY.md) | Guardrails, confirmation tokens, audit |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Security test suite and CI |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | STRIDE / MCP threat analysis |
-| [.config/.env.example](.config/.env.example) | CPQ profile field reference |
+| [.config/.profile.yaml.example](.config/.profile.yaml.example) | CPQ unified profile field reference |
 | [.config/template/README.md](.config/template/README.md) | Branded Word / Excel / PowerPoint templates for exports |
 
 ## Features
@@ -237,29 +257,26 @@ Also: MCP resources `cpq://saved-prompts`, `cpq://local`, `cpq://local/bml/{path
 <details>
 <summary><strong>Configuration reference</strong></summary>
 
-### Profile env (`.config/<customer>.env`)
+### Profile YAML (`.config/<customer>.yaml`)
 
-| Variable | Description |
-|----------|-------------|
-| `CPQ_CUSTOMER_PROFILE` | Profile file name without `.env` (set in MCP config) |
-| `CPQ_ENVIRONMENT` | Override default: `dev`, `test`, `prod` |
-| `READ_ONLY` | Default `true` — blocks create/update/delete |
-| `DEBUG_MODE` | Default `true` — append redacted CPQ API traces to `logs/{profile}-{environment}.log` |
-| `REFINED_PROMPT` | Default `true` — append refined-prompt footer after CPQ site/cache work (includes Turn metrics) |
-| `AUTO_SAVE_REFINED_PROMPT` | Example profile default `true` — auto-save refined prompts; set `false` to ask each time |
-| `LOCAL_DATA_POLICY` | Default `ask` — `ask` / `prefer` / `never` for using `data/` snapshots before live CPQ |
-| `POST_RESPONSE_EXPORT` | Default `ask` — `ask` / `never` / `always_excel` for post-response Excel/Word export offers |
-| `CPQ_LOCAL_DATA_DIR` | Optional override for local snapshot root (default `<repo>/data`) |
-| `CPQ_SAVED_PROMPTS_PATH` | Optional override for saved refined-prompt library JSON |
-| `DEV_URL`, `DEV_USERNAME`, `DEV_PASSWORD` | Dev CPQ credentials |
-| `REST_API_VERSION` | e.g. `v18` |
-| `CUSTOM_DATA_TABLE_NAME` | Default table for smoke test / datatable tools |
-| `CUSTOM_DATA_TABLE_ALIAS` | Friendly name for the default table (pair with `_1` / `_2` as needed) |
-| `COMMERCE_PROCESS_VAR_NAME` | Commerce process variable for metadata tools (e.g. `oraclecpqo`) |
-| `COMMERCE_PROCESS_ALIAS` | Friendly name (e.g. `base commerce process`) mapped to the process var |
-| `CUSTOMER_KNOWLEDGE_FILE` | Basename under `knowledge/` (e.g. `focalpoint.md`); shared `CPQBaseKnowledge.md` always loads |
+| Setting | Description |
+|---------|-------------|
+| `CPQ_CUSTOMER_PROFILE` (host) | Profile file name without `.yaml` (set in MCP config) |
+| `CPQ_ENVIRONMENT` (host) | Override default: `dev`, `test`, `prod` |
+| `read_only` | Default `true` — blocks create/update/delete |
+| `debug_mode` | Default `true` — append redacted CPQ API traces to `logs/{profile}-{environment}.log` |
+| `refined_prompt` | Default `true` — append refined-prompt footer after CPQ site/cache work |
+| `auto_save_refined_prompt` | Example default `true` — auto-save refined prompts; set `false` to ask each time |
+| `local_data_policy` | Default `prefer` — `ask` / `prefer` / `never` for using `data/` snapshots before live CPQ |
+| `post_response_export` | Default `always_excel` — `ask` / `never` / `always_excel` for post-response Excel/Word export |
+| `environments.<env>.url` / `credentials` | Per-env CPQ URL and Basic Auth pairs |
+| `rest_api_version` | e.g. `v18` |
+| `data_tables` / `commerce_processes` | Catalog defaults + aliases |
+| `customer_knowledge_file` | Basename under `knowledge/` (e.g. `focalpoint.md`); shared `CPQBaseKnowledge.md` always loads |
 
-See [.config/.env.example](.config/.env.example) for all fields.
+See [`.config/.profile.yaml.example`](.config/.profile.yaml.example) for all fields (commented). Host overrides such as `CPQ_LOCAL_DATA_DIR` / `CPQ_SAVED_PROMPTS_PATH` remain process env vars.
+
+Legacy flat `.env` profiles: see [Update from an older version](#update-from-an-older-version).
 
 ### Host env (MCP JSON — not in profile file)
 
@@ -353,7 +370,7 @@ Use this when cutting a numbered release for GitHub (e.g. `0.2.0` → `0.3.0`). 
 4. **Commit** the version + docs (and code). Optionally **tag**: `git tag v0.y.z` then `git push origin v0.y.z`.
 5. Refresh the Unreleased git list anytime with `python scripts/update_release_notes.py` (pre-commit may do this for you — re-stage if it rewrites the file).
 
-Do **not** put CPQ passwords, profile `.env` files, or `data/` / `logs/` in the release commit.
+Do **not** put CPQ passwords, profile YAML files, or `data/` / `logs/` in the release commit.
 
 ### Prompt Studio (local)
 
@@ -387,7 +404,7 @@ mcp/oracle_cpq_mcp/   # MCP server package
   tools/              # MCP tool handlers
   registry/           # Tool catalog
 apps/prompt_studio/   # Local Prompt Studio (FastAPI + static UI)
-.config/              # Customer profiles (*.env gitignored)
+.config/              # Customer profiles (*.yaml gitignored; archive/ for legacy .env)
   template/           # Word / Excel / PPT branding templates (committed)
 scripts/              # mcp-server.cmd / mcp-server.sh launchers
 .agents/              # Antigravity MCP example (local mcp_config.json not committed)
@@ -399,7 +416,7 @@ tests/                # Unit + security tests
 
 ## Security & git
 
-- **Never commit** `.agents/mcp_config.json`, `.cursor/mcp.json`, `.config/*.env`, `.prompts/saved_prompts.json`, `prompt_studio.json`, or `data/` — see [.gitignore](.gitignore)
+- **Never commit** `.agents/mcp_config.json`, `.cursor/mcp.json`, `.config/*.yaml` profiles, `.config/archive/`, `.prompts/saved_prompts.json`, `prompt_studio.json`, or `data/` — see [.gitignore](.gitignore)
 - **Never put passwords** in MCP config JSON
 - Guardrails + HITL writes: [`docs/FEATURES.md`](docs/FEATURES.md#security-guardrails-and-human-in-the-loop) and [`SECURITY.md`](SECURITY.md)
 - Pre-commit checklist: [`docs/PRE_COMMIT_REVIEW.md`](docs/PRE_COMMIT_REVIEW.md)

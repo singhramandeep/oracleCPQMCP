@@ -105,7 +105,9 @@ def test_upsert_dedupes_by_hash(tmp_path: Path, monkeypatch) -> None:
     assert created1 is True
     assert created2 is False
     assert first.id == second.id
-    assert second.run_count == 2
+    # Saving/deduping is not a completed execution — run stats stay at zero.
+    assert second.run_count == 0
+    assert second.last_run_at == ""
     assert "audit" in second.tags
     assert "users" in second.tags
     assert len(list_entries(path)) == 1

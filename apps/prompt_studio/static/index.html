@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prompt Studio</title>
-  <link rel="stylesheet" href="/static/styles.css?v=0.3.1" />
+  <link rel="stylesheet" href="/static/styles.css?v=0.4.0" />
 </head>
 <body>
   <div class="app-shell">
@@ -29,6 +29,8 @@
         <button type="button" class="nav-item active" data-view="all">All prompts</button>
         <button type="button" class="nav-item" data-view="favorites">Favorites</button>
         <button type="button" class="nav-item" data-view="suites">Suites</button>
+        <button type="button" class="nav-item" data-view="logs">API logs</button>
+        <button type="button" class="nav-item" data-view="config">Profiles &amp; Paths</button>
         <button type="button" class="nav-item" data-view="help">Help</button>
       </nav>
       <div class="nav-section tags-section">
@@ -87,6 +89,106 @@
         <div id="suiteDetail" class="suite-detail hidden"></div>
       </section>
 
+      <section id="logsView" class="view hidden">
+        <div class="toolbar logs-toolbar">
+          <h1>API logs</h1>
+          <span id="logsResultCount" class="muted"></span>
+          <div class="toolbar-spacer"></div>
+          <label class="filter-label" for="logsFileSelect">
+            File
+            <select id="logsFileSelect"></select>
+          </label>
+          <label class="filter-label" for="logsMethodFilter">
+            Method
+            <select id="logsMethodFilter">
+              <option value="">All</option>
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+          </label>
+          <label class="filter-label" for="logsStatusFilter">
+            Status
+            <select id="logsStatusFilter">
+              <option value="">All</option>
+              <option value="2xx">2xx</option>
+              <option value="4xx">4xx</option>
+              <option value="5xx">5xx</option>
+              <option value="error">Errors (4xx/5xx)</option>
+            </select>
+          </label>
+          <label class="filter-label" for="logsMinMs">
+            Min ms
+            <input id="logsMinMs" type="number" min="0" step="1" placeholder="0" class="logs-num-input" />
+          </label>
+          <label class="toggle-label" title="Show only 4xx / 5xx / error">
+            <input type="checkbox" id="logsErrorsOnly" />
+            Errors only
+          </label>
+          <button type="button" class="btn-secondary" id="logsRefreshBtn">Refresh</button>
+          <button type="button" class="btn-secondary" id="logsDownloadRawBtn" title="Download raw .log">Download raw</button>
+          <button type="button" class="btn-secondary" id="logsCopyCurlBtn" disabled>Copy curls</button>
+          <button type="button" class="btn-secondary" id="logsCopyBlocksBtn" disabled>Copy blocks</button>
+          <button type="button" class="btn-secondary" id="logsCopyJsonBtn" disabled>Copy JSON</button>
+        </div>
+        <p id="logsDirHint" class="muted logs-dir-hint"></p>
+        <p id="logsTruncated" class="library-banner hidden" role="status">
+          Showing the last ~8 MiB of this file (truncated).
+        </p>
+        <div id="logsCharts" class="logs-charts hidden">
+          <div class="logs-chart-card">
+            <div class="logs-chart-title">Status mix</div>
+            <div id="logsStatusChart" class="logs-status-chart"></div>
+          </div>
+          <div class="logs-chart-card">
+            <div class="logs-chart-title">Latency histogram</div>
+            <div id="logsHistChart" class="logs-hist-chart"></div>
+          </div>
+          <div class="logs-chart-card logs-chart-wide">
+            <div class="logs-chart-title">Recent latency strip <span id="logsP95Hint" class="muted"></span></div>
+            <div id="logsLatencyStrip" class="logs-latency-strip" aria-label="Latency sparkline"></div>
+          </div>
+        </div>
+        <div id="logsTimeline" class="logs-timeline"></div>
+        <p id="logsEmpty" class="empty hidden">No log entries match.</p>
+      </section>
+
+      <section id="configView" class="view hidden">
+        <div class="toolbar">
+          <h1>Profiles &amp; Paths</h1>
+          <span id="configResultCount" class="muted"></span>
+          <div class="toolbar-spacer"></div>
+          <label class="filter-label" for="configProfileSelect">
+            Profile
+            <select id="configProfileSelect"></select>
+          </label>
+          <label class="filter-label" for="configEnvSelect">
+            Environment
+            <select id="configEnvSelect">
+              <option value="dev">dev</option>
+              <option value="test">test</option>
+              <option value="prod">prod</option>
+            </select>
+          </label>
+          <button type="button" class="btn-secondary" id="configRefreshBtn">Refresh</button>
+          <button type="button" class="btn-secondary" id="configOpenLogsBtn" title="Open matching API log">Open logs</button>
+        </div>
+        <p class="muted config-hint">
+          Read-only view. Credentials and secrets are redacted. Profile YAML under
+          <code>.config/</code> is never written by Prompt Studio.
+        </p>
+        <div id="configPathCards" class="config-path-grid"></div>
+        <div class="config-yaml-panel">
+          <div class="field-head">
+            <label class="field-label">Redacted profile YAML</label>
+            <button type="button" class="btn-secondary btn-sm" id="configCopyYamlBtn">Copy YAML</button>
+          </div>
+          <pre id="configYamlOut" class="code-block config-yaml" aria-live="polite"></pre>
+        </div>
+      </section>
+
       <section id="helpView" class="view hidden">
         <div class="toolbar">
           <h1>Help</h1>
@@ -95,6 +197,7 @@
       </section>
     </main>
   </div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <dialog id="runModal" class="modal">
     <form method="dialog" id="runForm" class="modal-panel">
@@ -111,6 +214,41 @@
         </div>
         <div class="meta-row" id="modalMeta"></div>
         <div class="stats-row" id="modalStats"></div>
+        <section id="modalFeedback" class="modal-section">
+          <h3 class="modal-section-title">Feedback</h3>
+          <div class="feedback-row">
+            <label class="filter-label" for="modalRatingSelect">
+              Rating
+              <select id="modalRatingSelect" aria-label="Prompt rating 1 to 10">
+                <option value="">—</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+              </select>
+            </label>
+            <button type="button" class="btn-secondary btn-sm" id="modalSaveRatingBtn">Save rating</button>
+          </div>
+          <div id="modalComments" class="comment-list"></div>
+          <div class="comment-compose">
+            <textarea id="modalCommentText" rows="2" maxlength="2000" placeholder="Add a comment…"></textarea>
+            <button type="button" class="btn-secondary btn-sm" id="modalAddCommentBtn">Add comment</button>
+          </div>
+        </section>
+        <section id="modalSourceStats" class="modal-section">
+          <h3 class="modal-section-title">Run telemetry</h3>
+          <div id="modalSourceStatsGrid" class="source-stats-grid"></div>
+        </section>
+        <section id="modalResources" class="modal-section">
+          <h3 class="modal-section-title">Resources</h3>
+          <div id="modalResourcePaths" class="resource-path-list muted"></div>
+        </section>
         <div class="field-head">
           <label class="field-label">Original user prompt</label>
           <div class="field-head-actions">
@@ -227,6 +365,6 @@
 
   <input type="file" id="importFileHidden" class="hidden" accept=".json,application/json" />
 
-  <script src="/static/app.js?v=0.3.1"></script>
+  <script src="/static/app.js?v=0.4.0"></script>
 </body>
 </html>

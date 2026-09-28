@@ -509,3 +509,51 @@ def test_import_batch_slug_helpers():
         {"title": "t", "refined_prompt": "r"}
     )
     assert len(single) == 1
+
+
+def test_api_rating_and_comments(studio_client):
+    client, entry = studio_client
+    rated = client.patch(
+        f"/api/prompts/{entry.id}/rating",
+        json={"rating": 7},
+    )
+    assert rated.status_code == 200
+    assert rated.json()["rating"] == 7
+
+    bad = client.patch(
+        f"/api/prompts/{entry.id}/rating",
+        json={"rating": 99},
+    )
+    assert bad.status_code == 400
+
+    added = client.post(
+        f"/api/prompts/{entry.id}/comments",
+        json={"text": "Works well for audits"},
+    )
+    assert added.status_code == 200
+    comments = added.json()["comments"]
+    assert len(comments) == 1
+    comment_id = comments[0]["id"]
+
+    listed = client.get("/api/prompts").json()
+    match = next(p for p in listed["prompts"] if p["id"] == entry.id)
+    assert match["rating"] == 7
+    assert match["comment_count"] == 1
+
+    deleted = client.delete(f"/api/prompts/{entry.id}/comments/{comment_id}")
+    assert deleted.status_code == 200
+    assert deleted.json()["comments"] == []
+
+
+def test_api_export_includes_rating_and_stats(studio_client):
+    client, entry = studio_client
+    saved_library.set_rating(entry.id, 6)
+    saved_library.add_comment(entry.id, "Keep this")
+    saved_library.record_use(entry.id, duration_ms=1500, source="cache")
+    export = client.post("/api/prompts/export", json={"ids": [entry.id]})
+    assert export.status_code == 200
+    prompt = export.json()["prompts"][0]
+    assert prompt["rating"] == 6
+    assert prompt["comments"][0]["text"] == "Keep this"
+    assert prompt["stats"]["cache"]["count"] == 1
+    assert prompt["stats"]["cache"]["avg_duration_ms"] == 1500.0

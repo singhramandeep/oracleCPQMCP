@@ -33,7 +33,12 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 
 - Branded Word/Excel/PPT exports via `.config/template/` + Mermaid diagrams in analytical Word exports (local `mmdc`, center-aligned, structured `notes`).
 - Prompt Studio **0.3.1**: fixed Refresh cache-bust / event binds; **Profile** filter on saved prompts (stamped from active CPQ customer).
+- Prompt Studio **0.3.2**: **API logs** view — parse `logs/{profile}-{env}.log`, status/latency charts, filters, copy curl/blocks/JSON, download raw.
+- Prompt Studio **0.4.0**: prompt ratings (1–10) + comments; per-source cache/api/mixed run telemetry via `record_prompt_use`; read-only **Profiles & Paths** (redacted YAML + workspace path map); import/export preserves feedback/telemetry without double-counting runs.
 - Unified customer profile: prefer one gitignored `.config/<id>.yaml` (secrets + catalog); legacy `.env` / `.catalog.yaml` still load when no full YAML exists.
+- Removed committed `.config/.catalog.yaml.example` (use `.profile.yaml.example` only; legacy sidecars still load for `.env` upgrades).
+- Installable maintainer CLI: `oracle-cpq` (`migrate-yaml`, `migrate-catalog`, `lint-schemas`, `generate-tool-catalog`); `scripts/*.py` are thin wrappers.
+- Profile defaults: `local_data_policy=prefer`, `post_response_export=always_excel` (aliases `true`/`yes`/`on` accepted); example includes a commented setup prompt to sync `product_families` from live CPQ.
 - Slim profile config / unified YAML migrate docs: FAQ “How do I migrate from a legacy `.env` to `.yaml`?”; QUICKSTART §3.1b; SETUP Configure section prefers `.profile.yaml.example`.
 - Agents call `ensure_prompt_studio` after YES-gate CPQ work (auto-start local UI on port 8765 when down).
 
@@ -47,14 +52,18 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 - MCP tool `ensure_prompt_studio` — probe/auto-start local Prompt Studio after YES-gate site/cache turns (catalog **106** tools).
 - [`mcp/oracle_cpq_mcp/core/profile_yaml.py`](../mcp/oracle_cpq_mcp/core/profile_yaml.py) full-document loader; [`scripts/migrate_profile_yaml.py`](../scripts/migrate_profile_yaml.py); [`.config/.profile.yaml.example`](../.config/.profile.yaml.example).
 - `PyYAML` dependency and [`mcp/oracle_cpq_mcp/core/catalog.py`](../mcp/oracle_cpq_mcp/core/catalog.py) loader (`load_catalog`, flat `PRODUCT_FAMILY_*` parser).
-- [`scripts/migrate_profile_catalog.py`](../scripts/migrate_profile_catalog.py) (deprecated sidecar helper) and [`.config/.catalog.yaml.example`](../.config/.catalog.yaml.example).
+- [`scripts/migrate_profile_catalog.py`](../scripts/migrate_profile_catalog.py) (deprecated sidecar helper; prefer `migrate_profile_yaml.py` / `oracle-cpq migrate-yaml`).
 - Product family / line / model aliases injected into MCP server instructions.
+- Prompt Studio ratings/comments APIs (`PATCH /api/prompts/{id}/rating`, comment CRUD) and per-source stats on prompt summaries.
+- Read-only `GET /api/config/profiles`, `GET /api/config/profiles/{id}`, `GET /api/workspace/paths` (redacted YAML; never `.env`).
+- `record_prompt_use` **1.1.0** optional `duration_ms` + `source=cache|api|mixed` (averages never blended).
 
 ### Changed
 
 - Prompt Studio static assets cache-bust via regex on served HTML (Studio app **0.3.1**); Refresh/toolbar binds are null-safe.
 - Saved-prompt dedupe is per **content hash + profile** (same template under different profiles = separate rows).
 - Example profiles default `AUTO_SAVE_REFINED_PROMPT=true` (user owns live profile flags).
+- Saved-prompt upsert/import no longer treat save/import as completed runs; import preserves rating/comments/telemetry.
 
 ### Git commits (auto-generated)
 

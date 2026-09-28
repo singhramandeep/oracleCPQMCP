@@ -3,14 +3,18 @@
 # ==============================================================================
 # COMMIT:  source code, tests, scripts/mcp-server.*, .cursor/mcp.json.example,
 #          .cursor/mcp.json.unix.example, .vscode/mcp.json.example, docs/
-# NEVER:   .config/* (credentials, profiles, studio state) except .env.example /
-#          .profile.yaml.example / .catalog.yaml.example / template/; .prompts/;
+# NEVER:   .config/* (credentials, profiles, studio state, archive/) except
+#          .profile.yaml.example / template/; .prompts/;
 #          .venv/; exports/; .cursor/mcp.json
+# Legacy flat .env templates live under .config/archive/ (gitignored).
 # ==============================================================================
 
 # --- Generated outputs ---
 .prompts
 .knowledge/
+# Customer-specific knowledge (local only; keep CPQBaseKnowledge.md tracked)
+knowledge/focalpoint.md
+knowledge/keste.md
 exports/
 dat/
 data/
@@ -34,10 +38,9 @@ venv/
 
 # --- Secrets & credentials (CRITICAL) ---
 # Ignore everything under .config/ except committed templates (examples only).
+# .config/archive/ (legacy .env templates/backups) stays ignored — do not un-ignore.
 .config/*
-!.config/.env.example
 !.config/.profile.yaml.example
-!.config/.catalog.yaml.example
 !.config/template/
 !.config/template/**
 # Global *.xlsx ignore would hide branded templates — re-include them.

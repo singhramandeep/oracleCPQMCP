@@ -1,79 +1,218 @@
-# Example unified customer profile (safe to commit).
-# Copy to .config/<customer_id>.yaml and edit. Gitignored when named *.yaml
-# (except this example). Prefer this over legacy .env + .catalog.yaml.
+# =============================================================================
+# Unified customer profile EXAMPLE (safe to commit).
+# =============================================================================
+# Copy to .config/<customer_id>.yaml (e.g. .config/acme.yaml) and edit.
+# Real *.yaml profiles are gitignored — only this *.example file is committed.
 #
-# Host overrides still win: CPQ_ENVIRONMENT, CPQ_READ_ONLY, CPQ_HTTP_TIMEOUT, etc.
+# Prefer this single file over legacy .env + .catalog.yaml.
 # Migrate an existing .env with:
 #   python scripts/migrate_profile_yaml.py <customer_id>
+#
+# Host process env still wins when set, e.g.:
+#   CPQ_CUSTOMER_PROFILE, CPQ_ENVIRONMENT, CPQ_READ_ONLY, CPQ_HTTP_TIMEOUT
+# Reload / restart the Oracle CPQ MCP server after editing a live profile.
+#
+# NEVER commit real passwords. Placeholders below are examples only.
+# Agents must never create/edit/delete username or password fields — you own credentials.
+# =============================================================================
 
+# Document schema version for the profile YAML loader (currently 1).
 version: 1
-customer_name: Acme Corporation
-default_environment: dev
-rest_api_version: v18
-company_login_name: _host
-read_only: true
-debug_mode: true
-refined_prompt: true
-auto_save_refined_prompt: true
-local_data_policy: ask
-post_response_export: ask
-# http_timeout: 60
-customer_knowledge_file: acme.md
 
+# Human-readable customer / engagement label (shown in tooling summaries).
+customer_name: Acme Corporation
+
+# Which environment to use when the host does not set CPQ_ENVIRONMENT.
+# Allowed: dev | test | prod. Must match a key under environments: below.
+default_environment: dev
+
+# Oracle CPQ REST API path version segment (e.g. v18, v19).
+# Some admin/metrics/saved-search APIs prefer v19 — see docs/LIVE_SMOKE_MATRIX.md.
+rest_api_version: v18
+
+# Company login name used for host-company group APIs. Usually _host.
+company_login_name: _host
+
+# When true (recommended default), all create/update/deploy mutations are blocked.
+# Set false only when you intentionally allow writes (still requires dry-run + confirmation).
+read_only: true
+
+# When true, append redacted CPQ request traces to logs/{profile}-{environment}.log.
+# Independent of host CPQ_VERBOSE. Override with CPQ_DEBUG_MODE / CPQ_DEBUG_LOG_DIR.
+debug_mode: true
+
+# When true, agents emit the refined-prompt footer after YES-gate CPQ site/cache work.
+# Set false (or host REFINED_PROMPT=false) to skip that footer.
+refined_prompt: true
+
+# When true, agents call save_refined_prompt automatically after the footer (no ask).
+# When false, agents call offer_save_refined_prompt (save once / save+always / skip).
+# Example default is true; each live customer profile may set false.
+auto_save_refined_prompt: true
+
+# Before large list/export (users, groups, BML, commerce metadata, datatables):
+#   ask    — if a local snapshot exists, offer use_cache / fetch_fresh / prefer / never
+#   prefer — load local data/{profile}/{env}/ when present (recommended default)
+#   never  — always hit live CPQ (or sync fresh)
+# User phrases “use cached data” / “fresh data” override for that turn.
+# Aliases true/yes/on are accepted and map to prefer.
+local_data_policy: prefer
+
+# After YES-gate tabular answers:
+#   ask           — offer excel / word / both / skip / always_excel / never
+#   never         — do not offer or auto-export
+#   always_excel  — call export_response_excel without asking (recommended default)
+# Aliases true/yes/on are accepted and map to always_excel.
+post_response_export: always_excel
+
+# Optional HTTP timeout in seconds for CPQ REST calls (typical range 5–3600).
+# Uncomment to override the server default (often 60). Host CPQ_HTTP_TIMEOUT can also override.
+# http_timeout: 60
+
+# Optional basename of a markdown file under knowledge/ (e.g. mycustomer.md → knowledge/mycustomer.md).
+# Injected into MCP server instructions with shared CPQBaseKnowledge.md. Leave blank if unused.
+# Customer knowledge files may be gitignored — keep them local when they contain site specifics.
+customer_knowledge_file:
+
+# -----------------------------------------------------------------------------
+# environments: one block per CPQ site (dev / test / prod).
+# Keys must be exactly: dev | test | prod (as supported by the loader).
+# -----------------------------------------------------------------------------
 environments:
+  # Development CPQ site.
   dev:
+    # Base site URL (no trailing slash required; loader strips it).
     url: https://acme-dev.bigmachines.com
+    # When false, credentials may remain in the file but this env cannot be selected.
     enabled: true
+    # Basic Auth pairs for this environment (at least one). Placeholders only.
     credentials:
+      # Integration / API user login name.
       - username: integration_user
+        # Password for that user — replace with a real secret locally; never commit real values.
         password: DevSecretPassword123!
+  # Test / UAT CPQ site.
   test:
     url: https://acme-test.bigmachines.com
     enabled: true
     credentials:
       - username: integration_user
         password: TestSecretPassword123!
+  # Production CPQ site.
   prod:
     url: https://acme.bigmachines.com
-    # Keep credentials in the file but block selection:
+    # Example: keep credentials on disk but block selection until you enable it.
+    # Host must also allow prod (CPQ_ALLOW_PROD) when intentionally using prod.
     enabled: false
     credentials:
       - username: read_only_admin
         password: ProdSecretPassword123!
 
+# -----------------------------------------------------------------------------
+# commerce_processes: defaults + friendly aliases for commerce / transaction tools.
+# First enabled entry is often used as the default process when tools omit process_var_name.
+# Alias phrases are injected into MCP “Property aliases” (case-insensitive match).
+# -----------------------------------------------------------------------------
 commerce_processes:
-  - var_name: oraclecpqo_bmClone_2
+  # CPQ commerce process variable name (as in the site admin / REST).
+  - var_name: oraclecpqo
+    # Friendly phrase users may say (e.g. “base commerce process”).
     alias: base commerce process
+    # When false, omit from defaults/aliases but you may keep the row for reference.
     enabled: true
 
+# -----------------------------------------------------------------------------
+# data_tables: named tables + aliases for datatable tools (list/get/rows/fields).
+# -----------------------------------------------------------------------------
 data_tables:
+  # Exact CPQ data table name.
   - name: PricingMatrix
+    # Friendly alias phrase for agents (e.g. “pricing matrix”).
     alias: pricing matrix
     enabled: true
   - name: DiscountMatrix
     alias: discount matrix
     enabled: true
+  # Example disabled row (kept for documentation; not exposed as default/alias):
   # - name: LegacyTable
   #   alias: legacy table
   #   enabled: false
 
+# -----------------------------------------------------------------------------
+# metrics: map of metric codes → short descriptions (used with list_metrics tooling).
+# Keys are normalized to UPPERCASE by the loader.
+# -----------------------------------------------------------------------------
 metrics:
   QUOTES: Total number of quotes
+  APILICENSES: Total number of API licences
+  ECOMMERCEINTERACTIONS: Total number of ecommerce interactions
+  PERCENTPARTNERUSERSLOGGEDIN: Percentage of partner users logged in
+  PARTNERUSERSLOGGEDIN: Total number of partner users logged in
+  PARTNERUSERS: Total number of partner users
+  PERCENTINTERNALUSERSLOGGEDIN: Percentage of internal users logged in
+  INTERNALUSERSLOGGEDIN: Total number of internal users logged in
+  REMAININGINTERNALLICENSES: Remaining internal licenses
   INTERNALUSERS: Total number of internal users
+  PARTNERQUOTES: Total number of partner quotes
+  INTERNALQUOTES: Total number of internal quotes
   DISKSPACE: Disk space used
 
+# -----------------------------------------------------------------------------
+# product_families: nested catalog for configuration tools (family → line → model).
+# var_name values are what REST/configuration tools expect; name is display;
+# alias is the friendly phrase injected into MCP property aliases.
+# -----------------------------------------------------------------------------
 product_families:
+  # Product family variable name.
   - var_name: dummy
+    # Display name in CPQ.
     name: Dummy
+    # Friendly alias (e.g. “this is just dummy model”).
     alias: This is just dummy model
     enabled: true
     lines:
+      # Product line under this family.
       - var_name: pneumaticCylinders
         name: Something
         alias: Something
         enabled: true
         models:
+          # Model under this line.
           - var_name: nFPA
             name: NFPA
             alias: NFPA
             enabled: true
+
+# =============================================================================
+# SETUP PROMPT — sync product_families from live CPQ into THIS profile YAML
+# =============================================================================
+# After credentials work and MCP is connected with this profile active, copy the
+# prompt below into your IDE agent chat. When it finishes, reload/restart MCP so
+# property aliases refresh from the updated product_families tree.
+#
+# The agent must:
+#   - Call list_product_hierarchy_table (page until complete) and list_product_families
+#     as needed (Oracle CPQ MCP tools only — no direct REST with profile passwords).
+#   - Rewrite ONLY the product_families: section of .config/<this_profile_id>.yaml
+#     from live data (var_name, name/display, alias from display name, enabled: true,
+#     nested lines → models). Replace the dummy sample tree above.
+#   - Preserve every other key (environments, credentials, commerce_processes, etc.).
+#   - NEVER create/edit/delete username or password fields.
+#
+# ----- copy from here -----
+# Sync product configuration into my active CPQ profile YAML.
+#
+# Using Oracle CPQ MCP for the active profile/environment:
+# 1. Call list_product_hierarchy_table (and list_product_families if helpful); page
+#    until the full family → line → model hierarchy is retrieved.
+# 2. Update ONLY the product_families: section in .config/<active_customer_id>.yaml
+#    so it matches live CPQ. For each family/line/model set:
+#      - var_name: CPQ variable name
+#      - name: display name from CPQ
+#      - alias: friendly phrase derived from the display name (for MCP property aliases)
+#      - enabled: true
+#    Nest lines under families and models under lines.
+# 3. Do not change any other YAML keys. Never touch username/password credentials.
+# 4. Summarize what you wrote (counts of families/lines/models) and remind me to
+#    reload the Oracle CPQ MCP server.
+# ----- copy to here -----

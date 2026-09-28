@@ -375,6 +375,43 @@ class RecordPromptUseInput(_StrictModel):
         max_length=64,
         description="Saved prompt UUID to mark as used.",
     )
+    duration_ms: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Wall-clock duration of the completed agent run in milliseconds. "
+            "Required together with source when recording timed telemetry."
+        ),
+    )
+    source: Literal["cache", "api", "mixed"] | None = Field(
+        default=None,
+        description=(
+            "How site/cache data was obtained for this run: "
+            "cache (local data/ only), api (live CPQ tools), or mixed. "
+            "Averages are tracked separately per source and never blended. "
+            "Required together with duration_ms when recording timed telemetry."
+        ),
+    )
+    profile: str | None = Field(
+        default=None,
+        max_length=80,
+        description="Optional CPQ customer profile for the run (informational).",
+    )
+    environment: Literal["dev", "test", "prod"] | None = Field(
+        default=None,
+        description="Optional CPQ environment for the run (informational).",
+    )
+
+    @model_validator(mode="after")
+    def _duration_and_source_together(self) -> RecordPromptUseInput:
+        has_duration = self.duration_ms is not None
+        has_source = self.source is not None
+        if has_duration != has_source:
+            raise ValueError(
+                "duration_ms and source must be provided together "
+                "(or both omitted for a legacy run-count bump)."
+            )
+        return self
 
 
 class SaveRefinedPromptInput(_StrictModel):

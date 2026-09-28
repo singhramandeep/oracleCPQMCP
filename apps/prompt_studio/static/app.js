@@ -5,6 +5,8 @@
   const LIBRARY_POLL_MS = 30000;
   const UNSCOPED_PROFILE = "__unscoped__";
 
+  const LOGS_FILE_KEY = "promptStudio.logsFile";
+
   const state = {
     view: "all",
     tag: null,
@@ -27,6 +29,22 @@
     modalDetail: null,
     importPrompts: [],
     importCandidates: [],
+    logsFiles: [],
+    logsDir: "",
+    logsFile: localStorage.getItem(LOGS_FILE_KEY) || "",
+    logsEntries: [],
+    logsSummary: null,
+    logsSelected: new Set(),
+    logsMethod: "",
+    logsStatus: "",
+    logsMinMs: "",
+    logsErrorsOnly: false,
+    logsP95: null,
+    configProfiles: [],
+    configProfile: localStorage.getItem("promptStudio.configProfile") || "",
+    configEnv: localStorage.getItem("promptStudio.configEnv") || "dev",
+    configYaml: "",
+    configPaths: null,
   };
 
   const $ = (id) => document.getElementById(id);
@@ -102,6 +120,17 @@
     });
   }
 
+  function formatDurationMs(ms) {
+    if (ms == null || ms === "") return "—";
+    const n = Number(ms);
+    if (!Number.isFinite(n) || n < 0) return "—";
+    if (n < 1000) return `${Math.round(n)}ms`;
+    if (n < 60000) return `${(n / 1000).toFixed(n < 10000 ? 1 : 0)}s`;
+    const mins = Math.floor(n / 60000);
+    const secs = Math.round((n % 60000) / 1000);
+    return `${mins}m ${secs}s`;
+  }
+
   function escapeHtml(s) {
     return String(s)
       .replace(/&/g, "&amp;")
@@ -131,17 +160,35 @@
     return `<span class="profile-badge" title="CPQ profile">${escapeHtml(p.profile)}</span>`;
   }
 
+  function ratingBadgeHtml(p) {
+    if (p.rating == null) {
+      return `<span class="rating-badge muted" title="No rating">—/10</span>`;
+    }
+    return `<span class="rating-badge" title="Rating">${escapeHtml(String(p.rating))}/10</span>`;
+  }
+
   function cardMetaHtml(p) {
     const fmt = formatLabel(p.output_format);
     const runs = p.run_count || 0;
+    const comments = p.comment_count || 0;
     const profileBit = p.profile
       ? `<span class="profile-badge">${escapeHtml(p.profile)}</span>`
+      : "";
+    const source = p.last_source
+      ? `<span class="source-badge source-${escapeAttr(p.last_source)}">${escapeHtml(p.last_source)}</span>`
+      : "";
+    const elapsed = p.last_duration_ms != null
+      ? `<span title="Last elapsed">${escapeHtml(formatDurationMs(p.last_duration_ms))}</span>`
       : "";
     return `
       <div class="card-meta-line">
         ${profileBit}
+        ${ratingBadgeHtml(p)}
+        <span class="comment-count" title="Comments">${comments} comment${comments === 1 ? "" : "s"}</span>
         <span class="format-badge">${escapeHtml(fmt)}</span>
         <span>${runs} run${runs === 1 ? "" : "s"}</span>
+        ${source}
+        ${elapsed}
         <span class="meta-sep">·</span>
         <span>${escapeHtml(formatWhen(p.last_run_at))}</span>
       </div>`;
@@ -314,6 +361,7 @@
       head.innerHTML = `
         <span></span>
         <span>Title</span>
+        <span>Rating</span>
         <span>Format</span>
         <span>Runs</span>
         <span>Last run</span>
@@ -327,6 +375,12 @@
       if (state.layout === "list") {
         const row = document.createElement("article");
         row.className = "prompt-list-row" + (p.enabled === false ? " is-disabled" : "");
+        const sourceBit = p.last_source
+          ? ` <span class="source-badge source-${escapeAttr(p.last_source)}">${escapeHtml(p.last_source)}</span>`
+          : "";
+        const elapsedBit = p.last_duration_ms != null
+          ? ` · ${escapeHtml(formatDurationMs(p.last_duration_ms))}`
+          : "";
         row.innerHTML = `
           ${selectHtml}
           <div class="list-title-cell">
@@ -336,9 +390,10 @@
             <div class="original-preview muted">${escapeHtml(p.original_preview || p.original_user_prompt || "(no original prompt recorded)")}</div>
             <div class="chip-row compact">${chipHtml(p)}</div>
           </div>
+          <span>${ratingBadgeHtml(p)} <span class="muted">${p.comment_count || 0}c</span></span>
           <span class="format-badge">${escapeHtml(formatLabel(p.output_format))}</span>
-          <span>${p.run_count || 0}</span>
-          <span class="muted">${escapeHtml(formatWhen(p.last_run_at))}</span>
+          <span>${p.run_count || 0}${sourceBit}</span>
+          <span class="muted">${escapeHtml(formatWhen(p.last_run_at))}${elapsedBit}</span>
           <div class="list-actions">
             <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
             <button type="button" class="btn-secondary" data-edit="${p.id}">Edit</button>
@@ -381,6 +436,8 @@
       all: "All prompts",
       favorites: "Favorites",
       suites: "Suites",
+      logs: "API logs",
+      config: "Profiles & Paths",
       help: "Help",
     };
     const viewTitle = optional("viewTitle");
@@ -390,7 +447,488 @@
     const isLibrary = state.view === "all" || state.view === "favorites";
     $("libraryView").classList.toggle("hidden", !isLibrary);
     $("suitesView").classList.toggle("hidden", state.view !== "suites");
+    optional("logsView")?.classList.toggle("hidden", state.view !== "logs");
+    optional("configView")?.classList.toggle("hidden", state.view !== "config");
     optional("helpView")?.classList.toggle("hidden", state.view !== "help");
+    const search = optional("searchInput");
+    if (search) {
+      search.placeholder =
+        state.view === "logs" ? "Search method, path, URL, curl…" : "Search prompts…";
+    }
+  }
+
+  function renderSourceStats(stats) {
+    const grid = optional("modalSourceStatsGrid");
+    if (!grid) return;
+    const buckets = stats || {};
+    const labels = {
+      cache: "Cached runs",
+      api: "API runs",
+      mixed: "Mixed runs",
+    };
+    grid.innerHTML = ["cache", "api", "mixed"]
+      .map((source) => {
+        const b = buckets[source] || {};
+        const count = b.count || 0;
+        return `
+          <div class="source-stat-card source-${source}">
+            <div class="source-stat-title">${labels[source]}</div>
+            <div class="source-stat-line"><span>Count</span><strong>${count}</strong></div>
+            <div class="source-stat-line"><span>Last</span><strong>${escapeHtml(formatDurationMs(b.last_duration_ms))}</strong></div>
+            <div class="source-stat-line"><span>Average</span><strong>${escapeHtml(formatDurationMs(b.avg_duration_ms))}</strong></div>
+            <div class="source-stat-line muted"><span>Last at</span><span>${escapeHtml(formatWhen(b.last_at))}</span></div>
+          </div>`;
+      })
+      .join("");
+  }
+
+  function renderComments(detail) {
+    const list = optional("modalComments");
+    if (!list) return;
+    const comments = detail.comments || [];
+    if (!comments.length) {
+      list.innerHTML = `<p class="muted">No comments yet.</p>`;
+      return;
+    }
+    list.innerHTML = comments
+      .map((c) => {
+        const edited = c.updated_at
+          ? ` · edited ${escapeHtml(formatWhen(c.updated_at))}`
+          : "";
+        return `
+          <div class="comment-item" data-comment-id="${escapeAttr(c.id)}">
+            <div class="comment-meta muted">${escapeHtml(formatWhen(c.created_at))}${edited}</div>
+            <p class="comment-text">${escapeHtml(c.text)}</p>
+            <div class="comment-actions">
+              <button type="button" class="btn-ghost btn-sm" data-comment-edit="${escapeAttr(c.id)}">Edit</button>
+              <button type="button" class="btn-ghost btn-sm danger" data-comment-delete="${escapeAttr(c.id)}">Delete</button>
+            </div>
+          </div>`;
+      })
+      .join("");
+  }
+
+  async function refreshModalDetail(detail) {
+    state.modalDetail = detail;
+    populateRunModal(detail);
+  }
+
+  async function saveRating() {
+    if (!state.activePromptId) return;
+    const select = optional("modalRatingSelect");
+    const raw = select ? select.value : "";
+    const rating = raw === "" ? null : Number(raw);
+    const detail = await api(`/api/prompts/${state.activePromptId}/rating`, {
+      method: "PATCH",
+      body: JSON.stringify({ rating }),
+    });
+    await refreshModalDetail(detail);
+    showToast(rating == null ? "Rating cleared" : `Rated ${rating}/10`);
+    await loadPrompts().catch(() => {});
+  }
+
+  async function addComment() {
+    if (!state.activePromptId) return;
+    const box = optional("modalCommentText");
+    const text = (box?.value || "").trim();
+    if (!text) {
+      showError(new Error("Comment text is required"));
+      return;
+    }
+    const detail = await api(`/api/prompts/${state.activePromptId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    if (box) box.value = "";
+    await refreshModalDetail(detail);
+    showToast("Comment added");
+    await loadPrompts().catch(() => {});
+  }
+
+  async function deleteComment(commentId) {
+    if (!state.activePromptId || !commentId) return;
+    if (!window.confirm("Delete this comment?")) return;
+    const detail = await api(
+      `/api/prompts/${state.activePromptId}/comments/${encodeURIComponent(commentId)}`,
+      { method: "DELETE" }
+    );
+    await refreshModalDetail(detail);
+    showToast("Comment deleted");
+    await loadPrompts().catch(() => {});
+  }
+
+  async function editComment(commentId) {
+    if (!state.activePromptId || !commentId) return;
+    const existing = (state.modalDetail?.comments || []).find((c) => c.id === commentId);
+    const next = window.prompt("Edit comment", existing?.text || "");
+    if (next == null) return;
+    const text = next.trim();
+    if (!text) {
+      showError(new Error("Comment text is required"));
+      return;
+    }
+    const detail = await api(
+      `/api/prompts/${state.activePromptId}/comments/${encodeURIComponent(commentId)}`,
+      { method: "PATCH", body: JSON.stringify({ text }) }
+    );
+    await refreshModalDetail(detail);
+    showToast("Comment updated");
+  }
+
+  async function loadConfigProfiles() {
+    const data = await api("/api/config/profiles");
+    state.configProfiles = data.profiles || [];
+    const select = optional("configProfileSelect");
+    if (!select) return;
+    const previous = state.configProfile;
+    select.innerHTML = "";
+    if (!state.configProfiles.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No profile YAML found";
+      select.appendChild(opt);
+      state.configProfile = "";
+    } else {
+      state.configProfiles.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.customer_id;
+        opt.textContent = p.customer_id + (p.has_catalog ? " (+catalog)" : "");
+        select.appendChild(opt);
+      });
+      if (!previous || !state.configProfiles.some((p) => p.customer_id === previous)) {
+        state.configProfile = state.configProfiles[0].customer_id;
+      }
+      select.value = state.configProfile;
+    }
+    const envSelect = optional("configEnvSelect");
+    if (envSelect) envSelect.value = state.configEnv || "dev";
+    const count = optional("configResultCount");
+    if (count) {
+      count.textContent = `${state.configProfiles.length} profile${
+        state.configProfiles.length === 1 ? "" : "s"
+      }`;
+    }
+    await loadConfigDetail();
+  }
+
+  function renderConfigPaths(paths) {
+    const grid = optional("configPathCards");
+    if (!grid) return;
+    const order = [
+      ["profile_yaml", "Profile YAML"],
+      ["catalog_yaml", "Catalog YAML"],
+      ["saved_prompts", "Saved prompts"],
+      ["studio_state", "Studio state"],
+      ["logs_dir", "Logs directory"],
+      ["debug_log", "Debug log"],
+      ["local_data_root", "Local cache"],
+      ["exports_dir", "Exports"],
+      ["config_dir", "Config directory"],
+      ["example_profile_yaml", "Example profile"],
+    ];
+    grid.innerHTML = order
+      .filter(([key]) => paths && paths[key])
+      .map(([key, label]) => {
+        const info = paths[key];
+        const exists = info.exists ? "exists" : "missing";
+        return `
+          <div class="config-path-card">
+            <div class="config-path-title">${escapeHtml(label)}</div>
+            <div class="config-path-status ${exists}">${exists}</div>
+            <code class="config-path-value" title="${escapeAttr(info.path)}">${escapeHtml(info.path)}</code>
+            <button type="button" class="btn-secondary btn-sm" data-copy-path="${escapeAttr(info.path)}">Copy path</button>
+          </div>`;
+      })
+      .join("");
+  }
+
+  async function loadConfigDetail() {
+    const yamlOut = optional("configYamlOut");
+    if (!state.configProfile) {
+      state.configYaml = "";
+      if (yamlOut) yamlOut.textContent = "Select a profile to view redacted YAML.";
+      renderConfigPaths(null);
+      return;
+    }
+    localStorage.setItem("promptStudio.configProfile", state.configProfile);
+    localStorage.setItem("promptStudio.configEnv", state.configEnv || "dev");
+    const [profile, pathsBody] = await Promise.all([
+      api(`/api/config/profiles/${encodeURIComponent(state.configProfile)}`),
+      api(
+        `/api/workspace/paths?profile=${encodeURIComponent(state.configProfile)}&environment=${encodeURIComponent(state.configEnv || "dev")}`
+      ),
+    ]);
+    state.configYaml = profile.yaml_redacted || "";
+    if (yamlOut) yamlOut.textContent = state.configYaml || "(empty)";
+    state.configPaths = pathsBody.paths || null;
+    renderConfigPaths(state.configPaths);
+  }
+
+  function showToast(message) {
+    const el = optional("toast");
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove("hidden");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => el.classList.add("hidden"), 1800);
+  }
+
+  function statusClassOf(status) {
+    if (status == null) return "other";
+    if (typeof status === "string") {
+      const lower = status.toLowerCase();
+      if (lower === "error" || lower === "timeout" || lower === "exception") return "error";
+      const n = Number(status);
+      if (!Number.isFinite(n)) return "other";
+      status = n;
+    }
+    if (status >= 200 && status < 300) return "2xx";
+    if (status >= 300 && status < 400) return "3xx";
+    if (status >= 400 && status < 500) return "4xx";
+    if (status >= 500 && status < 600) return "5xx";
+    return "other";
+  }
+
+  async function loadLogsFileList() {
+    const data = await api("/api/logs");
+    state.logsFiles = data.files || [];
+    state.logsDir = data.logs_dir || "";
+    const hint = optional("logsDirHint");
+    if (hint) {
+      hint.textContent = state.logsDir
+        ? `Directory: ${state.logsDir} (DEBUG_MODE writes {profile}-{env}.log)`
+        : "";
+    }
+    const select = optional("logsFileSelect");
+    if (!select) return;
+    const prev = state.logsFile;
+    select.innerHTML = "";
+    if (!state.logsFiles.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "(no .log files)";
+      select.appendChild(opt);
+      state.logsFile = "";
+      return;
+    }
+    state.logsFiles.forEach((f) => {
+      const opt = document.createElement("option");
+      opt.value = f.name;
+      const kb = Math.max(1, Math.round((f.size_bytes || 0) / 1024));
+      opt.textContent = `${f.name} (${kb} KB)`;
+      select.appendChild(opt);
+    });
+    const names = new Set(state.logsFiles.map((f) => f.name));
+    if (prev && names.has(prev)) {
+      state.logsFile = prev;
+    } else {
+      state.logsFile = state.logsFiles[0].name;
+    }
+    select.value = state.logsFile;
+    localStorage.setItem(LOGS_FILE_KEY, state.logsFile);
+  }
+
+  function syncLogsCopyButtons() {
+    const n = state.logsSelected.size;
+    ["logsCopyCurlBtn", "logsCopyBlocksBtn", "logsCopyJsonBtn"].forEach((id) => {
+      const btn = optional(id);
+      if (btn) btn.disabled = n === 0;
+    });
+  }
+
+  function renderLogsCharts() {
+    const charts = optional("logsCharts");
+    const summary = state.logsSummary;
+    if (!charts) return;
+    if (!summary || !state.logsEntries.length) {
+      charts.classList.add("hidden");
+      return;
+    }
+    charts.classList.remove("hidden");
+
+    const buckets = summary.status_buckets || {};
+    const colors = {
+      "2xx": "#2e7d32",
+      "3xx": "#1565c0",
+      "4xx": "#ef6c00",
+      "5xx": "#c62828",
+      error: "#c62828",
+      other: "#757575",
+    };
+    const order = ["2xx", "3xx", "4xx", "5xx", "error", "other"];
+    const parts = order
+      .map((k) => ({ key: k, count: buckets[k] || 0, color: colors[k] }))
+      .filter((p) => p.count > 0);
+    const total = parts.reduce((s, p) => s + p.count, 0) || 1;
+    let acc = 0;
+    const arcs = parts.map((p) => {
+      const start = (acc / total) * 360;
+      acc += p.count;
+      const end = (acc / total) * 360;
+      return `${p.color} ${start}deg ${end}deg`;
+    });
+    const statusEl = optional("logsStatusChart");
+    if (statusEl) {
+      const legend = parts
+        .map(
+          (p) =>
+            `<li><span class="logs-swatch s${p.key}"></span>${escapeHtml(p.key)} · ${p.count}</li>`
+        )
+        .join("");
+      statusEl.innerHTML = `
+        <div style="width:88px;height:88px;border-radius:50%;background:conic-gradient(${
+          arcs.length ? arcs.join(",") : "#eee 0deg 360deg"
+        });"></div>
+        <ul class="logs-status-legend">${legend || "<li class='muted'>No data</li>"}</ul>`;
+    }
+
+    const hist = summary.latency_histogram || [];
+    const maxH = Math.max(1, ...hist.map((h) => h.count || 0));
+    const histEl = optional("logsHistChart");
+    if (histEl) {
+      histEl.innerHTML = hist
+        .map((h) => {
+          const pct = Math.round(((h.count || 0) / maxH) * 100);
+          return `<div class="logs-hist-bar-wrap" title="${escapeHtml(h.label)}: ${h.count}">
+            <div class="logs-hist-bar" style="height:${Math.max(2, pct)}%"></div>
+            <div class="logs-hist-label">${escapeHtml(h.label)}<br>${h.count}</div>
+          </div>`;
+        })
+        .join("");
+    }
+
+    const p95 = summary.p95_ms;
+    state.logsP95 = p95;
+    const p95Hint = optional("logsP95Hint");
+    if (p95Hint) {
+      const p50 = summary.p50_ms;
+      p95Hint.textContent =
+        p50 != null
+          ? `(p50 ${Math.round(p50)} ms · p95 ${Math.round(p95)} ms)`
+          : "";
+    }
+    const strip = optional("logsLatencyStrip");
+    if (strip) {
+      const recent = state.logsEntries.slice(0, 80).reverse();
+      const maxMs = Math.max(1, ...recent.map((e) => e.duration_ms || 0));
+      strip.innerHTML = recent
+        .map((e) => {
+          const sc = statusClassOf(e.status);
+          const ms = e.duration_ms || 0;
+          const h = Math.max(4, Math.round((ms / maxMs) * 100));
+          const slow = p95 != null && ms > p95 ? " is-slow" : "";
+          return `<div class="logs-latency-bar s${sc}${slow}" style="height:${h}%" title="${escapeHtml(
+            `${e.method} ${e.path} · ${e.status} · ${ms}ms`
+          )}"></div>`;
+        })
+        .join("");
+    }
+  }
+
+  function renderLogsTimeline() {
+    const root = optional("logsTimeline");
+    const empty = optional("logsEmpty");
+    if (!root) return;
+    root.innerHTML = "";
+    const entries = state.logsEntries;
+    if (empty) empty.classList.toggle("hidden", entries.length > 0);
+    const p95 = state.logsP95;
+    entries.forEach((e) => {
+      const sc = statusClassOf(e.status);
+      const slow = p95 != null && e.duration_ms != null && e.duration_ms > p95;
+      const checked = state.logsSelected.has(String(e.index)) ? "checked" : "";
+      const article = document.createElement("article");
+      article.className =
+        "logs-entry" + (slow ? " is-slow" : "") + (sc === "4xx" || sc === "5xx" || sc === "error" ? " is-error" : "");
+      article.dataset.logIndex = String(e.index);
+      const ms = e.duration_ms != null ? `${Math.round(e.duration_ms)} ms` : "—";
+      article.innerHTML = `
+        <div class="logs-entry-top">
+          <input type="checkbox" data-log-select="${e.index}" ${checked} aria-label="Select request" />
+          <span class="method-badge ${escapeHtml(e.method || "")}">${escapeHtml(e.method || "?")}</span>
+          <span class="logs-path">${escapeHtml(e.path || "")}</span>
+          <span class="status-pill s${sc}">${escapeHtml(String(e.status ?? "—"))}</span>
+          <span class="logs-entry-meta">${escapeHtml(ms)}</span>
+          ${slow ? '<span class="slow-chip">slow</span>' : ""}
+          <span class="logs-entry-meta">${escapeHtml(e.timestamp || "")}</span>
+          <div class="logs-entry-actions">
+            <button type="button" class="btn-secondary btn-sm" data-log-copy-curl="${e.index}">Copy curl</button>
+            <button type="button" class="btn-secondary btn-sm" data-log-copy-block="${e.index}">Copy block</button>
+          </div>
+        </div>
+        <details>
+          <summary>URL, parameters, curl</summary>
+          <pre class="logs-pre">${escapeHtml(e.url || "")}</pre>
+          <pre class="logs-pre">${escapeHtml((e.parameters || []).join("\n") || "(no parameters)")}</pre>
+          <pre class="logs-pre">${escapeHtml(e.curl || "(no curl)")}</pre>
+        </details>`;
+      root.appendChild(article);
+    });
+    syncLogsCopyButtons();
+  }
+
+  async function loadLogEntries() {
+    if (!state.logsFile) {
+      state.logsEntries = [];
+      state.logsSummary = null;
+      optional("logsCharts")?.classList.add("hidden");
+      const timeline = optional("logsTimeline");
+      if (timeline) timeline.innerHTML = "";
+      optional("logsEmpty")?.classList.remove("hidden");
+      const countEl = optional("logsResultCount");
+      if (countEl) countEl.textContent = "No log file";
+      optional("logsTruncated")?.classList.add("hidden");
+      return;
+    }
+    const params = new URLSearchParams();
+    if (state.q) params.set("q", state.q);
+    if (state.logsMethod) params.set("method", state.logsMethod);
+    const status = state.logsErrorsOnly ? "error" : state.logsStatus;
+    if (status) params.set("status", status);
+    if (state.logsMinMs !== "" && state.logsMinMs != null) {
+      params.set("min_ms", String(state.logsMinMs));
+    }
+    params.set("limit", "300");
+    const data = await api(`/api/logs/${encodeURIComponent(state.logsFile)}?${params}`);
+    state.logsEntries = data.entries || [];
+    state.logsSummary = data.summary || null;
+    state.logsSelected = new Set(
+      [...state.logsSelected].filter((id) =>
+        state.logsEntries.some((e) => String(e.index) === id)
+      )
+    );
+    const countEl = optional("logsResultCount");
+    if (countEl) {
+      countEl.textContent = `${data.total_matched ?? 0} matched · ${data.total_parsed ?? 0} parsed`;
+    }
+    optional("logsTruncated")?.classList.toggle("hidden", !data.truncated);
+    renderLogsCharts();
+    renderLogsTimeline();
+  }
+
+  async function refreshLogs() {
+    await loadLogsFileList();
+    await loadLogEntries();
+  }
+
+  function selectedLogEntries() {
+    return state.logsEntries.filter((e) => state.logsSelected.has(String(e.index)));
+  }
+
+  async function copyLogsPayload(kind) {
+    const rows = selectedLogEntries();
+    if (!rows.length) throw new Error("Select one or more requests");
+    let text = "";
+    if (kind === "curl") {
+      text = rows.map((e) => e.curl).filter(Boolean).join("\n\n");
+    } else if (kind === "blocks") {
+      text = rows.map((e) => e.raw).join("\n");
+    } else {
+      text = JSON.stringify(rows, null, 2);
+    }
+    if (!text.trim()) throw new Error("Nothing to copy");
+    await navigator.clipboard.writeText(text);
+    showToast(`Copied ${rows.length} ${kind === "json" ? "JSON" : kind}`);
   }
 
   function updateLibraryPathDisplay(path) {
@@ -660,7 +1198,25 @@
       <span><strong>Runs:</strong> ${detail.run_count || 0}</span>
       <span><strong>Last run:</strong> ${escapeHtml(formatWhen(detail.last_run_at))}</span>
       <span><strong>Created:</strong> ${escapeHtml(formatWhen(detail.created_at))}</span>
-      <span><strong>Placeholders:</strong> ${extractPlaceholdersFromDetail(detail).length}</span>`;
+      <span><strong>Placeholders:</strong> ${extractPlaceholdersFromDetail(detail).length}</span>
+      <span><strong>Last source:</strong> ${escapeHtml(detail.last_source || "—")}</span>
+      <span><strong>Last elapsed:</strong> ${escapeHtml(formatDurationMs(detail.last_duration_ms))}</span>`;
+
+    const ratingSelect = optional("modalRatingSelect");
+    if (ratingSelect) {
+      ratingSelect.value = detail.rating == null ? "" : String(detail.rating);
+    }
+    renderComments(detail);
+    renderSourceStats(detail.stats);
+
+    const resources = optional("modalResourcePaths");
+    if (resources) {
+      const profile = detail.profile || "(unscoped)";
+      resources.innerHTML = `
+        <div>Prompt id: <code>${escapeHtml(detail.id)}</code></div>
+        <div>Profile stamp: <code>${escapeHtml(profile)}</code></div>
+        <div class="muted">Open Profiles &amp; Paths for YAML and workspace directories.</div>`;
+    }
 
     renderVarFields(detail, false);
   }
@@ -915,6 +1471,10 @@
           $("suiteDetail").classList.add("hidden");
         } else if (state.view === "help") {
           await loadHelp().catch(showError);
+        } else if (state.view === "logs") {
+          await refreshLogs().catch(showError);
+        } else if (state.view === "config") {
+          await loadConfigProfiles().catch(showError);
         } else {
           await loadPrompts();
           await loadTags();
@@ -926,10 +1486,155 @@
       "input",
       debounce(() => {
         state.q = $("searchInput").value.trim();
-        if (state.view === "suites" || state.view === "help") return;
+        if (state.view === "suites" || state.view === "help" || state.view === "config") {
+          return;
+        }
+        if (state.view === "logs") {
+          loadLogEntries().catch(showError);
+          return;
+        }
         loadPrompts();
       }, 200)
     );
+
+    optional("logsTimeline")?.addEventListener("change", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || !t.dataset.logSelect) return;
+      const id = t.dataset.logSelect;
+      if (t.checked) state.logsSelected.add(id);
+      else state.logsSelected.delete(id);
+      syncLogsCopyButtons();
+    });
+
+    optional("logsTimeline")?.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const curlBtn = t.closest("[data-log-copy-curl]");
+      if (curlBtn instanceof HTMLElement && curlBtn.dataset.logCopyCurl) {
+        const entry = state.logsEntries.find(
+          (x) => String(x.index) === curlBtn.dataset.logCopyCurl
+        );
+        if (entry?.curl) {
+          navigator.clipboard.writeText(entry.curl).then(() => showToast("Curl copied"));
+        }
+        return;
+      }
+      const blockBtn = t.closest("[data-log-copy-block]");
+      if (blockBtn instanceof HTMLElement && blockBtn.dataset.logCopyBlock) {
+        const entry = state.logsEntries.find(
+          (x) => String(x.index) === blockBtn.dataset.logCopyBlock
+        );
+        if (entry?.raw) {
+          navigator.clipboard.writeText(entry.raw).then(() => showToast("Block copied"));
+        }
+      }
+    });
+
+    bindClick("logsRefreshBtn", () => refreshLogs().catch(showError));
+    bindClick("logsDownloadRawBtn", () => {
+      if (!state.logsFile) {
+        showError(new Error("No log file selected"));
+        return;
+      }
+      window.location.href = `/api/logs/${encodeURIComponent(state.logsFile)}/raw`;
+    });
+    bindClick("logsCopyCurlBtn", () => copyLogsPayload("curl").catch(showError));
+    bindClick("logsCopyBlocksBtn", () => copyLogsPayload("blocks").catch(showError));
+    bindClick("logsCopyJsonBtn", () => copyLogsPayload("json").catch(showError));
+
+    bindClick("configRefreshBtn", () => loadConfigProfiles().catch(showError));
+    bindClick("configCopyYamlBtn", () => {
+      if (!state.configYaml) {
+        showError(new Error("No YAML loaded"));
+        return;
+      }
+      navigator.clipboard.writeText(state.configYaml).then(() => showToast("YAML copied"));
+    });
+    bindClick("configOpenLogsBtn", () => {
+      if (!state.configProfile) {
+        showError(new Error("Select a profile first"));
+        return;
+      }
+      const name = `${state.configProfile}-${state.configEnv || "dev"}.log`;
+      state.logsFile = name;
+      localStorage.setItem(LOGS_FILE_KEY, name);
+      state.view = "logs";
+      syncNav();
+      refreshLogs().catch(showError);
+    });
+    optional("configProfileSelect")?.addEventListener("change", (e) => {
+      state.configProfile = e.target.value || "";
+      loadConfigDetail().catch(showError);
+    });
+    optional("configEnvSelect")?.addEventListener("change", (e) => {
+      state.configEnv = e.target.value || "dev";
+      loadConfigDetail().catch(showError);
+    });
+    optional("configPathCards")?.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const btn = t.closest("[data-copy-path]");
+      if (!(btn instanceof HTMLElement) || !btn.dataset.copyPath) return;
+      navigator.clipboard.writeText(btn.dataset.copyPath).then(() => showToast("Path copied"));
+    });
+
+    bindClick("modalSaveRatingBtn", () => saveRating().catch(showError));
+    bindClick("modalAddCommentBtn", () => addComment().catch(showError));
+    optional("modalComments")?.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLElement)) return;
+      const del = t.closest("[data-comment-delete]");
+      if (del instanceof HTMLElement && del.dataset.commentDelete) {
+        deleteComment(del.dataset.commentDelete).catch(showError);
+        return;
+      }
+      const ed = t.closest("[data-comment-edit]");
+      if (ed instanceof HTMLElement && ed.dataset.commentEdit) {
+        editComment(ed.dataset.commentEdit).catch(showError);
+      }
+    });
+
+    const logsFileSelect = optional("logsFileSelect");
+    if (logsFileSelect) {
+      logsFileSelect.addEventListener("change", () => {
+        state.logsFile = logsFileSelect.value;
+        localStorage.setItem(LOGS_FILE_KEY, state.logsFile);
+        state.logsSelected = new Set();
+        loadLogEntries().catch(showError);
+      });
+    }
+    const logsMethod = optional("logsMethodFilter");
+    if (logsMethod) {
+      logsMethod.addEventListener("change", () => {
+        state.logsMethod = logsMethod.value;
+        loadLogEntries().catch(showError);
+      });
+    }
+    const logsStatus = optional("logsStatusFilter");
+    if (logsStatus) {
+      logsStatus.addEventListener("change", () => {
+        state.logsStatus = logsStatus.value;
+        loadLogEntries().catch(showError);
+      });
+    }
+    const logsMinMs = optional("logsMinMs");
+    if (logsMinMs) {
+      logsMinMs.addEventListener(
+        "input",
+        debounce(() => {
+          state.logsMinMs = logsMinMs.value;
+          loadLogEntries().catch(showError);
+        }, 250)
+      );
+    }
+    const logsErrorsOnly = optional("logsErrorsOnly");
+    if (logsErrorsOnly) {
+      logsErrorsOnly.addEventListener("change", () => {
+        state.logsErrorsOnly = logsErrorsOnly.checked;
+        if (logsStatus) logsStatus.disabled = logsErrorsOnly.checked;
+        loadLogEntries().catch(showError);
+      });
+    }
 
     $("promptGrid").addEventListener("change", (e) => {
       const t = e.target;

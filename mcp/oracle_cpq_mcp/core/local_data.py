@@ -242,7 +242,7 @@ def get_snapshot_status(
         "domain": domain,
         "snapshot_dir": str(directory),
         "manifest": manifest,
-        "local_data_policy": getattr(profile, "local_data_policy", "ask"),
+        "local_data_policy": getattr(profile, "local_data_policy", "prefer"),
     }
 
 
@@ -451,9 +451,26 @@ def _safe_zip_member_path(member: str, dest_root: Path) -> Path | None:
     return target
 
 
+def _fs_path(path: Path) -> str | Path:
+    """Return a filesystem path that supports Windows paths longer than MAX_PATH.
+
+    Commerce BML site trees often nest past the classic 260-character limit.
+    Extended-length paths (``\\\\?\\`` / ``\\\\?\\UNC\\``) allow extract/open
+    without requiring the process-wide long-path registry flag.
+    """
+    if os.name != "nt":
+        return path
+    raw = os.path.abspath(str(path))
+    if raw.startswith("\\\\?\\"):
+        return raw
+    if raw.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + raw.lstrip("\\")
+    return "\\\\?\\" + raw
+
+
 def _extract_zip_bytes(zip_bytes: bytes, dest_root: Path) -> int:
     """Extract zip bytes into dest_root. Returns number of files written."""
-    dest_root.mkdir(parents=True, exist_ok=True)
+    os.makedirs(_fs_path(dest_root), exist_ok=True)
     written = 0
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         for info in zf.infolist():
@@ -463,8 +480,8 @@ def _extract_zip_bytes(zip_bytes: bytes, dest_root: Path) -> int:
             if target is None:
                 logger.warning("Skipping unsafe zip member: %s", info.filename)
                 continue
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(info, "r") as src, open(target, "wb") as dst:
+            os.makedirs(_fs_path(target.parent), exist_ok=True)
+            with zf.open(info, "r") as src, open(_fs_path(target), "wb") as dst:
                 shutil.copyfileobj(src, dst)
             written += 1
     return written
@@ -603,14 +620,19 @@ def persist_datatable_snapshot(
     }
 
 
-def parse_local_data_policy(value: str | None, *, default: LocalDataPolicy = "ask") -> LocalDataPolicy:
+def parse_local_data_policy(
+    value: str | None, *, default: LocalDataPolicy = "prefer"
+) -> LocalDataPolicy:
     if value is None or value.strip() == "":
         return default
     normalized = value.strip().lower()
+    if normalized in ("true", "yes", "on", "1"):
+        return "prefer"
     if normalized in ("ask", "prefer", "never"):
         return normalized  # type: ignore[return-value]
     raise ValueError(
-        f"Invalid LOCAL_DATA_POLICY '{value}'. Use ask, prefer, or never."
+        f"Invalid LOCAL_DATA_POLICY '{value}'. Use ask, prefer, or never "
+        "(aliases: true/yes/on → prefer)."
     )
 
 

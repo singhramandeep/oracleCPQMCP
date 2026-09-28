@@ -17,7 +17,7 @@ from oracle_cpq_mcp.core.config import find_project_root
 
 logger = logging.getLogger(__name__)
 
-LIBRARY_VERSION = 1
+LIBRARY_VERSION = 2
 DEFAULT_FILENAME = "saved_prompts.json"
 DEFAULT_DIRNAME = ".prompts"
 
@@ -31,6 +31,150 @@ OUTPUT_FORMATS = frozenset({"chat_text", "json", "excel_download"})
 DEFAULT_OUTPUT_FORMAT = "chat_text"
 # Query/filter token for prompts with no profile stamped.
 UNSCOPED_PROFILE_FILTER = "__unscoped__"
+
+DATA_SOURCES = frozenset({"cache", "api", "mixed"})
+MAX_RUN_HISTORY = 50
+MAX_COMMENTS = 100
+MAX_COMMENT_LEN = 2000
+
+
+class UpdatePromptError(ValueError):
+    """Raised when update_prompt / rating / run validation fails."""
+
+
+def empty_source_stats() -> dict[str, Any]:
+    """Empty per-source timing bucket (cache/api/mixed stay independent)."""
+    return {
+        "count": 0,
+        "last_duration_ms": None,
+        "last_at": "",
+        "total_duration_ms": 0,
+        "avg_duration_ms": None,
+    }
+
+
+def empty_stats() -> dict[str, Any]:
+    return {source: empty_source_stats() for source in ("cache", "api", "mixed")}
+
+
+def normalize_data_source(value: str | None) -> str:
+    """Return cache|api|mixed or raise UpdatePromptError."""
+    source = (value or "").strip().lower()
+    if source not in DATA_SOURCES:
+        raise UpdatePromptError(
+            f"source must be one of {sorted(DATA_SOURCES)}; got {value!r}"
+        )
+    return source
+
+
+def normalize_rating(value: Any) -> int | None:
+    """Validate rating 1–10 or None to clear."""
+    if value is None or value == "":
+        return None
+    try:
+        rating = int(value)
+    except (TypeError, ValueError) as exc:
+        raise UpdatePromptError("rating must be an integer 1–10 or null") from exc
+    if rating < 1 or rating > 10:
+        raise UpdatePromptError("rating must be between 1 and 10 inclusive")
+    return rating
+
+
+def _normalize_comments(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw[:MAX_COMMENTS]:
+        if not isinstance(item, dict):
+            continue
+        text = str(item.get("text") or "").strip()
+        if not text:
+            continue
+        out.append(
+            {
+                "id": str(item.get("id") or uuid.uuid4()),
+                "text": text[:MAX_COMMENT_LEN],
+                "created_at": str(item.get("created_at") or ""),
+                "updated_at": str(item.get("updated_at") or ""),
+            }
+        )
+    return out
+
+
+def _normalize_run_history(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in raw[-MAX_RUN_HISTORY:]:
+        if not isinstance(item, dict):
+            continue
+        try:
+            source = normalize_data_source(str(item.get("source") or ""))
+        except UpdatePromptError:
+            continue
+        try:
+            duration_ms = int(item.get("duration_ms"))
+        except (TypeError, ValueError):
+            continue
+        if duration_ms < 0:
+            continue
+        out.append(
+            {
+                "run_id": str(item.get("run_id") or uuid.uuid4()),
+                "duration_ms": duration_ms,
+                "source": source,
+                "recorded_at": str(item.get("recorded_at") or ""),
+                "profile": normalize_profile(item.get("profile")),
+                "environment": normalize_profile(item.get("environment")),
+            }
+        )
+    return out
+
+
+def _normalize_stats(raw: Any) -> dict[str, Any]:
+    base = empty_stats()
+    if not isinstance(raw, dict):
+        return base
+    for source in ("cache", "api", "mixed"):
+        bucket = raw.get(source)
+        if not isinstance(bucket, dict):
+            continue
+        count = max(0, int(bucket.get("count") or 0))
+        total = max(0, int(bucket.get("total_duration_ms") or 0))
+        last_ms = bucket.get("last_duration_ms")
+        try:
+            last_duration = int(last_ms) if last_ms is not None else None
+        except (TypeError, ValueError):
+            last_duration = None
+        avg = float(total) / count if count else None
+        # Prefer stored avg when consistent; always recompute from total/count.
+        base[source] = {
+            "count": count,
+            "last_duration_ms": last_duration,
+            "last_at": str(bucket.get("last_at") or ""),
+            "total_duration_ms": total,
+            "avg_duration_ms": avg,
+        }
+    return base
+
+
+def _apply_run_to_stats(
+    stats: dict[str, Any],
+    *,
+    duration_ms: int,
+    source: str,
+    recorded_at: str,
+) -> dict[str, Any]:
+    """Update one source bucket; never mix cache/api/mixed averages."""
+    updated = _normalize_stats(stats)
+    bucket = dict(updated[source])
+    bucket["count"] = int(bucket["count"]) + 1
+    bucket["last_duration_ms"] = int(duration_ms)
+    bucket["last_at"] = recorded_at
+    bucket["total_duration_ms"] = int(bucket["total_duration_ms"]) + int(duration_ms)
+    bucket["avg_duration_ms"] = float(bucket["total_duration_ms"]) / bucket["count"]
+    updated[source] = bucket
+    return updated
 
 
 def normalize_profile(value: str | None) -> str | None:
@@ -64,6 +208,10 @@ class SavedPrompt:
     enabled: bool = True
     output_format: str = DEFAULT_OUTPUT_FORMAT
     profile: str | None = None
+    rating: int | None = None
+    comments: list[dict[str, Any]] = field(default_factory=list)
+    run_history: list[dict[str, Any]] = field(default_factory=list)
+    stats: dict[str, Any] = field(default_factory=empty_stats)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -79,6 +227,11 @@ class SavedPrompt:
         fmt = str(data.get("output_format") or DEFAULT_OUTPUT_FORMAT).strip().lower()
         if fmt not in OUTPUT_FORMATS:
             fmt = DEFAULT_OUTPUT_FORMAT
+        rating_raw = data.get("rating", None)
+        try:
+            rating = normalize_rating(rating_raw) if rating_raw is not None else None
+        except UpdatePromptError:
+            rating = None
         return cls(
             id=str(data.get("id") or ""),
             title=str(data.get("title") or ""),
@@ -94,11 +247,11 @@ class SavedPrompt:
             enabled=enabled,
             output_format=fmt,
             profile=normalize_profile(data.get("profile")),
+            rating=rating,
+            comments=_normalize_comments(data.get("comments")),
+            run_history=_normalize_run_history(data.get("run_history")),
+            stats=_normalize_stats(data.get("stats")),
         )
-
-
-class UpdatePromptError(ValueError):
-    """Raised when update_prompt validation fails."""
 
 
 def _utc_now() -> str:
@@ -303,11 +456,9 @@ def upsert_prompt(
             existing.content_hash = digest
             if profile_norm is not None:
                 existing.profile = profile_norm
-            existing.last_run_at = now
-            existing.run_count = max(existing.run_count, 0) + 1
             if not existing.created_at:
                 existing.created_at = now
-            # Preserve existing.enabled
+            # Preserve enabled, rating, comments, run stats — saving is not a run.
             prompts[idx] = existing.to_dict()
             data["prompts"] = prompts
             save_library(data, path)
@@ -322,12 +473,16 @@ def upsert_prompt(
         tags=tags_list,
         tools=tools_list,
         created_at=now,
-        last_run_at=now,
-        run_count=1,
+        last_run_at="",
+        run_count=0,
         content_hash=digest,
         enabled=True,
         output_format=fmt,
         profile=profile_norm,
+        rating=None,
+        comments=[],
+        run_history=[],
+        stats=empty_stats(),
     )
     prompts.append(entry.to_dict())
     data["prompts"] = prompts
@@ -492,7 +647,21 @@ def delete_prompt(prompt_id: str, path: Path | None = None) -> bool:
     return True
 
 
-def record_use(prompt_id: str, path: Path | None = None) -> SavedPrompt | None:
+def record_use(
+    prompt_id: str,
+    *,
+    duration_ms: int | None = None,
+    source: str | None = None,
+    profile: str | None = None,
+    environment: str | None = None,
+    path: Path | None = None,
+) -> SavedPrompt | None:
+    """Record a completed prompt execution.
+
+    When *duration_ms* and *source* are provided, update the matching
+    cache/api/mixed bucket only (averages are never blended across sources).
+    Legacy callers that omit both still bump run_count / last_run_at.
+    """
     data = load_library(path)
     prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
     now = _utc_now()
@@ -504,11 +673,268 @@ def record_use(prompt_id: str, path: Path | None = None) -> SavedPrompt | None:
         entry = SavedPrompt.from_dict(raw)
         entry.last_run_at = now
         entry.run_count = max(entry.run_count, 0) + 1
+        if duration_ms is not None or source is not None:
+            if duration_ms is None:
+                raise UpdatePromptError("duration_ms is required when source is set")
+            if source is None:
+                raise UpdatePromptError("source is required when duration_ms is set")
+            try:
+                duration_int = int(duration_ms)
+            except (TypeError, ValueError) as exc:
+                raise UpdatePromptError("duration_ms must be an integer") from exc
+            if duration_int < 0:
+                raise UpdatePromptError("duration_ms must be >= 0")
+            source_norm = normalize_data_source(source)
+            entry.stats = _apply_run_to_stats(
+                entry.stats,
+                duration_ms=duration_int,
+                source=source_norm,
+                recorded_at=now,
+            )
+            history = list(entry.run_history)
+            history.append(
+                {
+                    "run_id": str(uuid.uuid4()),
+                    "duration_ms": duration_int,
+                    "source": source_norm,
+                    "recorded_at": now,
+                    "profile": normalize_profile(profile),
+                    "environment": normalize_profile(environment),
+                }
+            )
+            entry.run_history = history[-MAX_RUN_HISTORY:]
         prompts[idx] = entry.to_dict()
         data["prompts"] = prompts
         save_library(data, path)
         return entry
     return None
+
+
+def set_rating(
+    prompt_id: str,
+    rating: int | None,
+    path: Path | None = None,
+) -> SavedPrompt | None:
+    """Set or clear the prompt-level 1–10 rating."""
+    rating_norm = normalize_rating(rating)
+    data = load_library(path)
+    prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
+    for idx, raw in enumerate(prompts):
+        if not isinstance(raw, dict) or raw.get("id") != prompt_id:
+            continue
+        entry = SavedPrompt.from_dict(raw)
+        entry.rating = rating_norm
+        prompts[idx] = entry.to_dict()
+        data["prompts"] = prompts
+        save_library(data, path)
+        return entry
+    return None
+
+
+def add_comment(
+    prompt_id: str,
+    text: str,
+    path: Path | None = None,
+) -> SavedPrompt | None:
+    """Append a prompt-level comment."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        raise UpdatePromptError("comment text is required")
+    if len(cleaned) > MAX_COMMENT_LEN:
+        raise UpdatePromptError(f"comment text exceeds {MAX_COMMENT_LEN} characters")
+    data = load_library(path)
+    prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
+    now = _utc_now()
+    for idx, raw in enumerate(prompts):
+        if not isinstance(raw, dict) or raw.get("id") != prompt_id:
+            continue
+        entry = SavedPrompt.from_dict(raw)
+        comments = list(entry.comments)
+        if len(comments) >= MAX_COMMENTS:
+            raise UpdatePromptError(f"comment limit ({MAX_COMMENTS}) reached")
+        comments.append(
+            {
+                "id": str(uuid.uuid4()),
+                "text": cleaned,
+                "created_at": now,
+                "updated_at": "",
+            }
+        )
+        entry.comments = comments
+        prompts[idx] = entry.to_dict()
+        data["prompts"] = prompts
+        save_library(data, path)
+        return entry
+    return None
+
+
+def update_comment(
+    prompt_id: str,
+    comment_id: str,
+    text: str,
+    path: Path | None = None,
+) -> SavedPrompt | None:
+    cleaned = (text or "").strip()
+    if not cleaned:
+        raise UpdatePromptError("comment text is required")
+    if len(cleaned) > MAX_COMMENT_LEN:
+        raise UpdatePromptError(f"comment text exceeds {MAX_COMMENT_LEN} characters")
+    data = load_library(path)
+    prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
+    now = _utc_now()
+    for idx, raw in enumerate(prompts):
+        if not isinstance(raw, dict) or raw.get("id") != prompt_id:
+            continue
+        entry = SavedPrompt.from_dict(raw)
+        found = False
+        comments: list[dict[str, Any]] = []
+        for comment in entry.comments:
+            if comment.get("id") == comment_id:
+                comments.append(
+                    {
+                        **comment,
+                        "text": cleaned,
+                        "updated_at": now,
+                    }
+                )
+                found = True
+            else:
+                comments.append(comment)
+        if not found:
+            raise UpdatePromptError(f"comment not found: {comment_id}")
+        entry.comments = comments
+        prompts[idx] = entry.to_dict()
+        data["prompts"] = prompts
+        save_library(data, path)
+        return entry
+    return None
+
+
+def delete_comment(
+    prompt_id: str,
+    comment_id: str,
+    path: Path | None = None,
+) -> SavedPrompt | None:
+    data = load_library(path)
+    prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
+    for idx, raw in enumerate(prompts):
+        if not isinstance(raw, dict) or raw.get("id") != prompt_id:
+            continue
+        entry = SavedPrompt.from_dict(raw)
+        before = len(entry.comments)
+        entry.comments = [c for c in entry.comments if c.get("id") != comment_id]
+        if len(entry.comments) == before:
+            raise UpdatePromptError(f"comment not found: {comment_id}")
+        prompts[idx] = entry.to_dict()
+        data["prompts"] = prompts
+        save_library(data, path)
+        return entry
+    return None
+
+
+def import_prompt(
+    raw: dict[str, Any],
+    *,
+    path: Path | None = None,
+    extra_tags: list[str] | None = None,
+) -> tuple[SavedPrompt, bool]:
+    """Import one prompt dict preserving rating/comments/stats without bumping runs."""
+    if not isinstance(raw, dict):
+        raise UpdatePromptError("import prompt must be an object")
+    refined = str(raw.get("refined_prompt") or "").strip()
+    if not refined:
+        raise UpdatePromptError("refined_prompt is required")
+    tools_list = [str(t) for t in (raw.get("tools") or []) if str(t).strip()]
+    tags_list = sorted(
+        set(str(t) for t in (raw.get("tags") or []) if str(t).strip())
+        | set(extra_tags or [])
+    )
+    fmt = normalize_output_format(str(raw.get("output_format") or ""))
+    profile_norm = normalize_profile(raw.get("profile"))
+    digest = content_hash_for(refined, tools_list, fmt)
+    now = _utc_now()
+    data = load_library(path)
+    prompts: list[dict[str, Any]] = list(data.get("prompts") or [])
+
+    imported_rating = None
+    if raw.get("rating") is not None:
+        imported_rating = normalize_rating(raw.get("rating"))
+    imported_comments = _normalize_comments(raw.get("comments"))
+    imported_history = _normalize_run_history(raw.get("run_history"))
+    imported_stats = _normalize_stats(raw.get("stats"))
+    imported_run_count = max(0, int(raw.get("run_count") or 0))
+    imported_last_run = str(raw.get("last_run_at") or "")
+    imported_created = str(raw.get("created_at") or now)
+
+    for idx, existing_raw in enumerate(prompts):
+        if not isinstance(existing_raw, dict):
+            continue
+        existing = SavedPrompt.from_dict(existing_raw)
+        existing_hash = existing.content_hash or content_hash_for(
+            existing.refined_prompt,
+            existing.tools,
+            existing.output_format,
+        )
+        if existing_hash == digest and profiles_equal(existing.profile, profile_norm):
+            existing.title = str(raw.get("title") or existing.title).strip()[:120] or existing.title
+            existing.original_user_prompt = str(
+                raw.get("original_user_prompt") or existing.original_user_prompt
+            )
+            existing.refined_prompt = refined
+            existing.variables = sanitize_variables(
+                raw.get("variables") if isinstance(raw.get("variables"), dict) else existing.variables
+            )
+            existing.tags = sorted(set(existing.tags) | set(tags_list))
+            existing.tools = tools_list or existing.tools
+            existing.output_format = fmt
+            existing.content_hash = digest
+            if profile_norm is not None:
+                existing.profile = profile_norm
+            # Preserve imported engagement/telemetry without bumping runs.
+            if imported_rating is not None:
+                existing.rating = imported_rating
+            if imported_comments:
+                existing.comments = imported_comments
+            if imported_history:
+                existing.run_history = imported_history
+            if any(imported_stats[s]["count"] for s in imported_stats):
+                existing.stats = imported_stats
+                existing.run_count = imported_run_count
+                existing.last_run_at = imported_last_run or existing.last_run_at
+            prompts[idx] = existing.to_dict()
+            data["prompts"] = prompts
+            save_library(data, path)
+            return existing, False
+
+    entry = SavedPrompt(
+        id=str(raw.get("id") or uuid.uuid4()),
+        title=str(raw.get("title") or "Untitled prompt").strip()[:120] or "Untitled prompt",
+        original_user_prompt=str(raw.get("original_user_prompt") or ""),
+        refined_prompt=refined,
+        variables=sanitize_variables(
+            raw.get("variables") if isinstance(raw.get("variables"), dict) else None
+        ),
+        tags=tags_list,
+        tools=tools_list,
+        created_at=imported_created,
+        last_run_at=imported_last_run,
+        run_count=imported_run_count,
+        content_hash=digest,
+        enabled=bool(raw.get("enabled", True)),
+        output_format=fmt,
+        profile=profile_norm,
+        rating=imported_rating,
+        comments=imported_comments,
+        run_history=imported_history,
+        stats=imported_stats,
+    )
+    # Avoid id collisions with an unrelated row.
+    if any(isinstance(p, dict) and p.get("id") == entry.id for p in prompts):
+        entry.id = str(uuid.uuid4())
+    prompts.append(entry.to_dict())
+    data["prompts"] = prompts
+    save_library(data, path)
+    return entry, True
 
 
 def search_entries(

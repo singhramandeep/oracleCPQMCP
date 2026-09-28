@@ -6,7 +6,7 @@ Use this before committing large batches (Prompt Studio, local data, saved promp
 
 Confirm these stay **untracked / ignored**:
 
-- [ ] `.config/*.yaml` / `.config/*.env` (real credentials) — only `.profile.yaml.example`, `.env.example`, `.catalog.yaml.example` are OK
+- [ ] `.config/*.yaml` / `.config/*.env` (real credentials) — only `.profile.yaml.example` and `.config/template/` are OK to commit
 - [ ] `.prompts/saved_prompts.json` and `.config/prompt_studio.json`
 - [ ] `data/`, `dat/`, `exports/`, `*.xlsx` under exports
 - [ ] `.venv/`, `__pycache__/`, `.pytest_cache/`

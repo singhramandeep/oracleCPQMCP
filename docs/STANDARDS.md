@@ -1,4 +1,4 @@
-﻿# Oracle CPQ MCP — Tool Authoring Standards
+# Oracle CPQ MCP — Tool Authoring Standards
 
 Day-to-day checklist for adding or changing MCP tools. Historical findings live in [`others/AUDIT_REPORT.md`](others/AUDIT_REPORT.md). After any tool change, run the compliance prompt: [`prompts/compliance_check.md`](../prompts/compliance_check.md).
 
@@ -19,14 +19,34 @@ Day-to-day checklist for adding or changing MCP tools. Historical findings live 
 
 Copy [`templates/NEW_TOOL.md`](templates/NEW_TOOL.md) and [`templates/tool_scaffold.py.example`](templates/tool_scaffold.py.example).
 
+## Prefer MCP and shared CLIs (no one-off scripts)
+
+For customer/site work in any IDE:
+
+- **CPQ data** — Oracle CPQ MCP tools only (`list_*`, `get_*`, `sync_*_local`, `load_local_data`, …). Never ad-hoc REST with profile credentials.
+- **Tabular / branded exports** — `export_response_excel` / `export_response_word` (and post-response export policy). Do not write new `tmp/.../write_*.py` helpers when MCP export already applies.
+- **Scratch** — intermediate JSON/MD under `tmp/{profile}/{env}/` only when a tool cannot express the step; reuse `oracle_cpq_mcp.exporters` if you must script locally.
+- **Maintainer tasks** — installable CLI after `pip install -e .`:
+
+```bash
+oracle-cpq migrate-yaml <id>
+oracle-cpq lint-schemas
+oracle-cpq generate-tool-catalog
+# wrappers still work: python scripts/lint_tool_schemas.py …
+```
+
+`utilities/` one-offs (`lookup_user`, email compares) are optional; prefer MCP `list_users` / `get_user` in the IDE.
+
 ## Automated gates
 
 ```bash
 # Schema lint (Field descriptions, catalog ↔ input model parity)
-python scripts/lint_tool_schemas.py
+oracle-cpq lint-schemas
+# or: python scripts/lint_tool_schemas.py
 
 # Formal per-tool catalog for GitHub (docs/TOOL_CATALOG.md)
-python scripts/generate_tool_catalog.py
+oracle-cpq generate-tool-catalog
+# or: python scripts/generate_tool_catalog.py
 
 # Unit + contract + offline evals (skip live sandbox)
 pytest tests/ -q -m "not live_eval"
