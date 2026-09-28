@@ -560,7 +560,7 @@ Set `REFINED_PROMPT=false` to disable the footer.
 
 ### Prompt Studio (local UI for saved prompts)
 
-Browse, favorite, suite, and fill `{{placeholders}}` from `.prompts/saved_prompts.json` without calling CPQ. App **0.4.0+** also includes **API logs**, **ratings/comments**, per-source **run telemetry**, and **Profiles & Paths** (redacted YAML). After YES-gate site/cache work, the agent calls **`ensure_prompt_studio`** (auto-starts if down and cites the URL). Manual start:
+Browse, favorite, suite, and fill `{{placeholders}}` from `.prompts/saved_prompts.json` without calling CPQ. App **0.4.3+** includes **API logs**, **ratings/comments** (with rating filter), per-source **run telemetry**, **Profiles & Paths**, and a permanent **version badge** in the header. After YES-gate site/cache work, the agent calls **`ensure_prompt_studio`** (auto-starts if down and cites the URL). Manual start:
 
 1. Install optional deps (project venv):
 

@@ -35,6 +35,9 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 - Prompt Studio **0.3.1**: fixed Refresh cache-bust / event binds; **Profile** filter on saved prompts (stamped from active CPQ customer).
 - Prompt Studio **0.3.2**: **API logs** view — parse `logs/{profile}-{env}.log`, status/latency charts, filters, copy curl/blocks/JSON, download raw.
 - Prompt Studio **0.4.0**: prompt ratings (1–10) + comments; per-source cache/api/mixed run telemetry via `record_prompt_use`; read-only **Profiles & Paths** (redacted YAML + workspace path map); import/export preserves feedback/telemetry without double-counting runs.
+- Prompt Studio **0.4.1**: aligned list columns; rating badge on cards by default; toolbar rating filter (`rating_filter` / `min_rating` on `GET /api/prompts`).
+- Prompt Studio **0.4.2**: edit-mode Original / Refined textareas auto-grow to content (manual vertical resize kept; max-height cap).
+- Prompt Studio **0.4.3**: header always shows Studio version; expanded in-app Help + README; Word Mermaid guidance prefers pie / xychart-beta / flowchart by content type.
 - Unified customer profile: prefer one gitignored `.config/<id>.yaml` (secrets + catalog); legacy `.env` / `.catalog.yaml` still load when no full YAML exists.
 - Removed committed `.config/.catalog.yaml.example` (use `example.yaml` only; legacy sidecars still load for `.env` upgrades).
 - Installable maintainer CLI: `oracle-cpq` (`migrate-yaml`, `migrate-catalog`, `lint-schemas`, `generate-tool-catalog`); `scripts/*.py` are thin wrappers.

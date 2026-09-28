@@ -376,7 +376,7 @@ Reload / restart MCP servers (or the IDE). Tool catalogs and descriptions are lo
 
 When `DEBUG_MODE=true` (default if omitted; override with host `CPQ_DEBUG_MODE`), every CPQ HTTP call through `CPQClient` appends a timestamped block to **`logs/{profile}-{environment}.log`** (for example `logs/focalpoint-dev.log`). Each block includes a redacted `curl` (password as `***`) and a per-parameter list. Response bodies are not written. Override the directory with `CPQ_DEBUG_LOG_DIR`. The `logs/` folder is gitignored — treat files as sensitive (usernames and business query strings). Reload MCP after changing the flag. This is separate from `CPQ_VERBOSE` (console/stderr curl traces).
 
-Browse, filter, and copy these logs in **Prompt Studio → API logs** (status/latency charts, curl / block / JSON copy, download raw). Restart Studio after upgrading so app version **0.4.0+** is loaded (API logs shipped in **0.3.2**).
+Browse, filter, and copy these logs in **Prompt Studio → API logs** (status/latency charts, curl / block / JSON copy, download raw). Restart Studio after upgrading so app version **0.4.3+** is loaded (API logs shipped in **0.3.2**; version badge is always in the header).
 
 ### How do safe writes work when enabled?
 
@@ -622,7 +622,7 @@ Safe cleanup:
 
 ### What is Prompt Studio?
 
-A **local** FastAPI UI (app **0.4.0+**) to browse/search/favorite saved prompts, fill placeholders, browse **API logs** under `logs/`, rate/comment on prompts, view per-source **run telemetry** (cache|api|mixed), and inspect **Profiles & Paths** (redacted profile YAML + workspace paths). It does **not** call Oracle CPQ and never edits credentials.
+A **local** FastAPI UI (app **0.4.3+**) to browse/search/favorite saved prompts, fill placeholders, browse **API logs** under `logs/`, rate/comment on prompts, view per-source **run telemetry** (cache|api|mixed), and inspect **Profiles & Paths** (redacted profile YAML + workspace paths). The header always shows the Studio version. It does **not** call Oracle CPQ and never edits credentials. Full guide: [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) and in-app Help.
 
 After YES-gate site/cache CPQ work, agents call MCP tool **`ensure_prompt_studio`**, which probes `http://127.0.0.1:8765/api/health` and **auto-starts** Studio in the background if needed (then cites the URL). You can still start it manually:
 

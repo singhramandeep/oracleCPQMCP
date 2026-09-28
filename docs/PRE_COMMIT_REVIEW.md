@@ -44,7 +44,7 @@ Confirm these stay **untracked / ignored**:
 ## Product / ops checks
 
 - [ ] Reload MCP after pull so new tools (`*_local`, saved prompts, `ensure_prompt_studio`, `record_prompt_use` 1.1.0) appear
-- [ ] Prompt Studio: agents may auto-start via `ensure_prompt_studio`, or `pip install '.[prompt-studio]'` then `python -m apps.prompt_studio` (hard-refresh for **0.4.0+** UI)
+- [ ] Prompt Studio: agents may auto-start via `ensure_prompt_studio`, or `pip install '.[prompt-studio]'` then `python -m apps.prompt_studio` (hard-refresh for **0.4.3+** UI; version badge in header)
 - [ ] Writes still default `dry_run=true`; `READ_ONLY=true` in example profile
 - [ ] Document live **untested** domains honestly (tasks, configuration, some BML/datatable writes)
 

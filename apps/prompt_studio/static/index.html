@@ -12,6 +12,7 @@
       <div class="brand">
         <span class="brand-mark"></span>
         <span class="brand-name">Prompt Studio</span>
+        <span class="brand-version" id="studioVersion" title="Prompt Studio version">v?</span>
       </div>
       <div class="header-search">
         <input id="searchInput" type="search" placeholder="Search prompts…" autocomplete="off" />
@@ -70,6 +71,18 @@
             <select id="profileFilter">
               <option value="">All profiles</option>
               <option value="__unscoped__">Unscoped</option>
+            </select>
+          </label>
+          <label class="filter-label" for="ratingFilter" title="Filter by prompt rating">
+            Rating
+            <select id="ratingFilter">
+              <option value="">All ratings</option>
+              <option value="unrated">Unrated</option>
+              <option value="rated">Rated</option>
+              <option value="7">7+</option>
+              <option value="8">8+</option>
+              <option value="9">9+</option>
+              <option value="10">10</option>
             </select>
           </label>
           <button type="button" class="btn-secondary" id="refreshBtn" title="Reload from saved_prompts.json">Refresh</button>
@@ -258,7 +271,7 @@
           </div>
         </div>
         <pre id="modalOriginal" class="code-block code-block-original is-collapsed"></pre>
-        <textarea id="modalOriginalEdit" class="code-edit hidden" rows="4"></textarea>
+        <textarea id="modalOriginalEdit" class="code-edit hidden" rows="6"></textarea>
         <div class="field-head">
           <label class="field-label">Refined template</label>
           <div class="field-head-actions">
@@ -268,7 +281,7 @@
           </div>
         </div>
         <pre id="modalTemplate" class="code-block is-collapsed"></pre>
-        <textarea id="modalTemplateEdit" class="code-edit hidden" rows="8"></textarea>
+        <textarea id="modalTemplateEdit" class="code-edit hidden" rows="12"></textarea>
         <label class="toggle-label hidden" id="enabledToggleWrap">
           <input type="checkbox" id="modalEnabledToggle" checked />
           Enabled in library

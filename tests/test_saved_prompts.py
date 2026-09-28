@@ -16,6 +16,7 @@ from oracle_cpq_mcp.prompts.saved_library import (
     saved_prompts_path,
     search_entries,
     set_enabled,
+    set_rating,
     upsert_prompt,
 )
 from oracle_cpq_mcp.prompts.tags import tags_for_tools
@@ -379,3 +380,35 @@ def test_search_entries_by_profile(tmp_path: Path, monkeypatch) -> None:
     names = list_profile_names(path=path)
     assert names["profiles"] == ["drees"]
     assert names["unscoped_count"] == 1
+
+
+def test_search_entries_by_rating(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "saved_prompts.json"
+    monkeypatch.setenv("CPQ_SAVED_PROMPTS_PATH", str(path))
+    a, _ = upsert_prompt(
+        title="A",
+        original_user_prompt="a",
+        refined_prompt="body a",
+        path=path,
+    )
+    b, _ = upsert_prompt(
+        title="B",
+        original_user_prompt="b",
+        refined_prompt="body b",
+        path=path,
+    )
+    c, _ = upsert_prompt(
+        title="C",
+        original_user_prompt="c",
+        refined_prompt="body c",
+        path=path,
+    )
+    set_rating(a.id, 5, path=path)
+    set_rating(b.id, 9, path=path)
+
+    unrated = search_entries(rating_filter="unrated", path=path)
+    assert [e.id for e in unrated] == [c.id]
+    rated = search_entries(rating_filter="rated", path=path)
+    assert {e.id for e in rated} == {a.id, b.id}
+    high = search_entries(min_rating=8, path=path)
+    assert [e.id for e in high] == [b.id]

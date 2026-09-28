@@ -944,10 +944,12 @@ def search_entries(
     tool_domain: str | None = None,
     tool: str | None = None,
     profile: str | None = None,
+    rating_filter: str | None = None,
+    min_rating: int | None = None,
     path: Path | None = None,
     include_disabled: bool = False,
 ) -> list[SavedPrompt]:
-    """Filter saved prompts by title substring, tag, tool, domain, and/or profile."""
+    """Filter saved prompts by title substring, tag, tool, domain, profile, and/or rating."""
     from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 
     results = list_entries(path, include_disabled=include_disabled)
@@ -988,6 +990,23 @@ def search_entries(
             results = [
                 e for e in results if profiles_equal(e.profile, want)
             ]
+    rf = (rating_filter or "").strip().lower() or None
+    if rf == "unrated":
+        results = [e for e in results if e.rating is None]
+    elif rf == "rated":
+        results = [e for e in results if e.rating is not None]
+    elif rf is not None:
+        raise UpdatePromptError("rating_filter must be 'unrated', 'rated', or omitted")
+    if min_rating is not None:
+        try:
+            floor = int(min_rating)
+        except (TypeError, ValueError) as exc:
+            raise UpdatePromptError("min_rating must be an integer 1–10") from exc
+        if floor < 1 or floor > 10:
+            raise UpdatePromptError("min_rating must be between 1 and 10 inclusive")
+        results = [
+            e for e in results if e.rating is not None and e.rating >= floor
+        ]
     return results
 
 

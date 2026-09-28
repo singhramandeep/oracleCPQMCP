@@ -1,66 +1,74 @@
 # Prompt Studio
 
-Lightweight local UI to browse and fill saved refined prompts from `.prompts/saved_prompts.json`.
+Local UI (app **0.4.3+**) to browse, edit, rate, and fill saved refined prompts from `.prompts/saved_prompts.json`.
+
+Does **not** call Oracle CPQ. Never edits profile passwords. The header always shows the running version badge (e.g. `v0.4.3`).
+
+In-app **Help** (sidebar) mirrors this guide and uses live paths/commands from the server.
+
+## Contents
+
+1. [Stack](#stack)
+2. [Install](#install)
+3. [Run / restart / stop](#run--restart--stop)
+4. [Env overrides](#env-overrides)
+5. [Library & MCP](#library--mcp)
+6. [Browse & filters](#browse--filters)
+7. [New / Import / Export](#new--import--export)
+8. [Run, edit, ratings](#run-edit-ratings)
+9. [Suites & favorites](#suites--favorites)
+10. [API logs](#api-logs)
+11. [Profiles & Paths](#profiles--paths)
+12. [Troubleshooting](#troubleshooting)
+13. [Backlog / out of scope](#backlog--out-of-scope)
 
 ## Stack
 
 - FastAPI + uvicorn (optional extra `prompt-studio`)
 - Static HTML/CSS/JS (no React build)
-- Prompt bodies: MCP library (`saved_library`) — **editable in Studio** (title, template, variables, enable/disable)
+- Prompt bodies: MCP library (`saved_library`) — **editable in Studio**
 - Studio state: `.config/prompt_studio.json` (favorites, suites, variable history; gitignored)
 
 ## Install
 
-Use the **project venv** (system Python often lacks deps and may hit a non-writable site-packages):
+Use the **project venv**:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install '.[prompt-studio]'
 ```
 
-Or install only the runtime deps into the venv:
+Or runtime deps only:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install 'fastapi>=0.115.0' 'uvicorn[standard]>=0.30.0'
 ```
 
-Running from repo root puts `mcp/` on `sys.path` automatically (no editable install required for Studio).
+Running from repo root puts `mcp/` on `sys.path` automatically.
 
-## Run
+## Run / restart / stop
 
 ```powershell
 .\.venv\Scripts\python.exe -m apps.prompt_studio
 ```
 
-Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Bound to localhost only; no auth in v1.
+Open [http://127.0.0.1:8765](http://127.0.0.1:8765) (localhost only; no auth in v1). Confirm the header badge matches the package version after upgrades.
 
-After updating Studio, **hard-refresh once** (Ctrl+F5) if buttons look stale; static assets use version cache-busting automatically on later loads.
-
-## Restart
-
-One command (repo root, project venv) — stops listeners on port **8765** (or `CPQ_PROMPT_STUDIO_PORT`), then starts Studio in the foreground:
+**Restart** (stops port **8765** / `CPQ_PROMPT_STUDIO_PORT`, then starts):
 
 ```powershell
 .\.venv\Scripts\python.exe -m apps.prompt_studio restart
-```
-
-```powershell
 .\scripts\restart-prompt-studio.cmd
 ```
 
 ```bash
 ./scripts/restart-prompt-studio.sh
-# or: ./.venv/bin/python -m apps.prompt_studio restart
 ```
 
-Stop only:
+**Stop only:** `python -m apps.prompt_studio stop`
 
-```powershell
-.\.venv\Scripts\python.exe -m apps.prompt_studio stop
-```
+MCP `ensure_prompt_studio` only **starts** Studio when `/api/health` is down; it does **not** restart a live process. After restart or upgrade, hard-refresh (**Ctrl+F5**). Static assets are cache-busted with `?v=<studio version>`.
 
-MCP `ensure_prompt_studio` only **starts** Studio when `/api/health` is down; it does **not** restart a live process. After restart, hard-refresh the browser (**Ctrl+F5**).
-
-### Env overrides
+## Env overrides
 
 | Variable | Purpose |
 |----------|---------|
@@ -68,58 +76,59 @@ MCP `ensure_prompt_studio` only **starts** Studio when `/api/health` is down; it
 | `CPQ_PROMPT_STUDIO_PATH` | Path to studio sidecar JSON |
 | `CPQ_CONFIG_DIR` | Config directory (auto-set to `<repo>/.config` on startup if unset) |
 | `CPQ_DEBUG_LOG_DIR` | Override directory for DEBUG_MODE `*.log` files (default `<repo>/logs`) |
+| `CPQ_PROMPT_STUDIO_PORT` | Listen port (default `8765`) |
 
-## Features (v1)
+On startup, Studio pins `CPQ_CONFIG_DIR` and `CPQ_SAVED_PROMPTS_PATH` to repo defaults when unset — matching MCP.
 
-- Library browse with search and tag chips
-- **Cards / List** layout toggle (persisted in the browser)
-- Rich metadata: format, run count, last run, created, placeholders, **rating (1–10)**, comment count, last source + elapsed
-- Favorites (star toggle)
-- Suites (named ordered prompt lists; add from cards)
-- **New prompt** — create a prompt manually in the UI
-- **Import** — upload JSON (library / array / single), require an import name/tag, select/deselect rows; tags `imported` + `import:<slug>`; preserves rating/comments/telemetry without bumping run counters
-- **Export all** / **Export selected** — download library JSON (includes feedback + per-source stats)
-- **Help** — in-app docs for library path, start/restart commands, import/export, API logs, Profiles & Paths
-- **API logs** (0.3.2+) — browse `logs/{profile}-{env}.log` from DEBUG_MODE: status donut, latency histogram + strip, filters (method/status/min ms/errors/search), multi-select copy curl / blocks / JSON, download raw. Slow requests (above p95) get a chip.
-- **Ratings & comments** (0.4.0+) — prompt-level 1–10 rating and comment thread in the Run modal
-- **Run telemetry** (0.4.0+) — separate Cached / API / Mixed last + average durations (never blended). MCP `record_prompt_use` records `duration_ms` + `source` after a completed saved-prompt run
-- **Profiles & Paths** (0.4.0+) — read-only redacted profile YAML (`.config/<id>.yaml` only; never `.env`) plus copyable paths for library, studio state, logs, local cache, and exports
-- Header shows the **absolute library file path** (click to copy)
-- Run / fill: detect `{{snake_case}}` placeholders, recent values, Generate + Copy; `{{output_format}}` uses a dropdown (Text / JSON / Excel download)
-- Run modal shows **expected response format** (Text by default; JSON / Excel download when set)
-- **Refresh** reloads `.prompts/saved_prompts.json` after Cursor/MCP saves a refined prompt (status shows absolute path, counts, disabled count, and library last write). Toolbar binds are null-safe; static assets are cache-busted from the Studio version (`0.4.0+`).
-- **Profile filter** — dropdown (All / Unscoped / each stamped profile). MCP `save_refined_prompt` stamps `profile` from the active CPQ customer profile; New prompt accepts an optional profile.
-- **Auto-reload banner** when the library file changes on disk (poll + window focus)
-- **Show disabled** toggle for prompts with `enabled=false`
-- **Edit prompt** — change title, original/refined text, enable/disable; **Make variable** wraps selected text as `{{snake_case}}`
-- Sorted by **most recent** (`last_run_at` / `created_at`) like MCP `list_saved_prompts`
-- **Export all** downloads the full library JSON (`GET /api/prompts/download`; includes disabled prompts by default)
-- Run modal shows **original user prompt** and refined template
-- **Remove** on cards/list permanently deletes a prompt from the shared library after **two** confirms; also clears favorites/suite references
+## Library & MCP
 
-Studio and MCP share the same `.prompts/saved_prompts.json` (override with `CPQ_SAVED_PROMPTS_PATH`). On startup, Studio pins `CPQ_CONFIG_DIR` to `<repo>/.config/` and `CPQ_SAVED_PROMPTS_PATH` to `<repo>/.prompts/saved_prompts.json` when unset — matching MCP defaults.
+Studio and MCP share `.prompts/saved_prompts.json`. Agents save via `save_refined_prompt` when `AUTO_SAVE_REFINED_PROMPT=true` on the active profile. The header shows the absolute library path (click to copy), prompt counts, and **version badge**.
 
-**Prompts not appearing?**
+## Browse & filters
+
+- **Cards / List** layout toggle (persisted). List columns: title, rating, format, runs, last run, actions.
+- Search, sidebar **tags**, **Profile** (All / Unscoped / stamped), **Rating** (All / Unrated / Rated / 7+ / 8+ / 9+ / 10), Favorites, **Show disabled**.
+- Sorted by most recent (`last_run_at` / `created_at`).
+- Auto-reload **banner** when the library file changes on disk (poll + window focus); **Refresh** reloads manually.
+
+## New / Import / Export
+
+- **New** — create a prompt (optional profile stamp, output format).
+- **Import** — JSON library / array / single; require import name/tag; tags `imported` + `import:<slug>`; preserves rating/comments/telemetry without bumping runs.
+- **Export all** / **Export selected** — download library JSON (includes feedback + per-source stats). Full download: `GET /api/prompts/download`.
+
+## Run, edit, ratings
+
+- **Run** — fill `{{snake_case}}` placeholders (recent values, Generate + Copy); `{{output_format}}` dropdown (Text / JSON / Excel download).
+- **Edit** — title, original user prompt, refined template, enabled. **Make variable** wraps selection. Edit textareas **auto-grow** (still vertically resizable; capped for very long prompts).
+- **Ratings (1–10)** + comments in the Run modal; rating badge on cards and list; toolbar rating filter.
+- **Run telemetry** — Cached / API / Mixed last + average durations (never blended). MCP `record_prompt_use` records `duration_ms` + `source`.
+- **Remove** — two confirms; clears favorites/suite references.
+
+## Suites & favorites
+
+Star for Favorites. Suites are named ordered lists (Suites view or card menu → Add to suite).
+
+## API logs
+
+Browse `logs/{profile}-{env}.log` from DEBUG_MODE: charts, filters, copy curl/blocks/JSON, download raw. Enable `DEBUG_MODE=true` on the CPQ profile. Curl passwords are redacted (`user:***`).
+
+## Profiles & Paths
+
+Read-only redacted profile YAML (`.config/<id>.yaml` only; never `.env`) plus copyable paths for library, studio state, logs, local cache, and exports. You own credentials — do not edit passwords in Studio.
+
+## Troubleshooting
 
 1. Hover the status line — confirm the **absolute path** matches where MCP writes.
-2. Check **library last write** — if it never changes, the agent did not call `save_refined_prompt` (set `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP).
-3. Similar tasks **dedupe** by content hash **and profile** — you may see one updated row instead of a new card (same content under a different profile is a separate row).
-4. Toggle **Show disabled** if a prompt was soft-disabled.
-5. Click **Refresh** or use the **Reload** banner when the file changes on disk.
-6. Use the **Profile** filter if you only want prompts stamped for one customer profile (leave **All profiles** to see everything; **Unscoped** shows rows with no profile).
+2. If **library last write** never changes, the agent did not call `save_refined_prompt` (set `AUTO_SAVE_REFINED_PROMPT=true`, reload MCP).
+3. Similar tasks **dedupe** by content hash **and profile**.
+4. Toggle **Show disabled** for soft-disabled prompts.
+5. Use **Refresh** / the Reload banner after disk updates.
+6. Use the **Profile** filter (or leave All) if prompts seem missing.
+7. Header still shows `v?` → `/api/health` failed; restart Studio and hard-refresh.
 
-## Backlog
+## Backlog / out of scope
 
-- Export suite as one markdown / clipboard pack
-- Keyboard shortcuts (`/`, `f` favorite, `g` generate)
-- Deep-link `?prompt_id=` / `?suite=` (partially supported)
-- Dark-mode workspace toggle
-- Shareable filled-prompt file under `exports/`
-- Duplicate prompt / clone into suite
-- Suite “Run all” (v1 opens one-by-one)
+**Backlog:** suite markdown pack, keyboard shortcuts, deep-links, dark mode, duplicate into suite, suite “Run all”.
 
-## Out of scope
-
-- Multi-user auth, cloud sync, calling Oracle CPQ from the studio
-- Creating, editing, or “fixing” profile `username` / `password` (or raw `.env`) — Profiles & Paths is redacted read-only only
-- Replacing Cursor MCP saved-prompt tools
+**Out of scope:** multi-user auth, cloud sync, calling Oracle CPQ from Studio, editing profile credentials, replacing Cursor MCP saved-prompt tools.

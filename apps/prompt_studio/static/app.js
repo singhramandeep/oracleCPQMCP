@@ -2,16 +2,29 @@
   const LAYOUT_KEY = "promptStudio.layout";
   const SHOW_DISABLED_KEY = "promptStudio.showDisabled";
   const PROFILE_FILTER_KEY = "promptStudio.profileFilter";
+  const RATING_FILTER_KEY = "promptStudio.ratingFilter";
   const LIBRARY_POLL_MS = 30000;
   const UNSCOPED_PROFILE = "__unscoped__";
 
   const LOGS_FILE_KEY = "promptStudio.logsFile";
+
+  /** @returns {{ ratingFilter: string, minRating: number|null }} */
+  function parseRatingFilterValue(raw) {
+    const v = (raw || "").trim();
+    if (v === "unrated") return { ratingFilter: "unrated", minRating: null };
+    if (v === "rated") return { ratingFilter: "rated", minRating: null };
+    if (v === "7" || v === "8" || v === "9" || v === "10") {
+      return { ratingFilter: "", minRating: Number(v) };
+    }
+    return { ratingFilter: "", minRating: null };
+  }
 
   const state = {
     view: "all",
     tag: null,
     q: "",
     profile: localStorage.getItem(PROFILE_FILTER_KEY) || "",
+    ratingFilterValue: localStorage.getItem(RATING_FILTER_KEY) || "",
     layout: localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "cards",
     showDisabled: localStorage.getItem(SHOW_DISABLED_KEY) === "true",
     prompts: [],
@@ -20,6 +33,7 @@
     libraryTotal: 0,
     libraryPath: null,
     libraryHelp: "",
+    studioVersion: null,
     lastSeenModified: null,
     activePromptId: null,
     suitePickPromptId: null,
@@ -183,7 +197,6 @@
     return `
       <div class="card-meta-line">
         ${profileBit}
-        ${ratingBadgeHtml(p)}
         <span class="comment-count" title="Comments">${comments} comment${comments === 1 ? "" : "s"}</span>
         <span class="format-badge">${escapeHtml(fmt)}</span>
         <span>${runs} run${runs === 1 ? "" : "s"}</span>
@@ -261,6 +274,9 @@
     if (state.q) params.set("q", state.q);
     if (state.tag) params.set("tag", state.tag);
     if (state.profile) params.set("profile", state.profile);
+    const ratingParts = parseRatingFilterValue(state.ratingFilterValue);
+    if (ratingParts.ratingFilter) params.set("rating_filter", ratingParts.ratingFilter);
+    if (ratingParts.minRating != null) params.set("min_rating", String(ratingParts.minRating));
     if (state.view === "favorites") params.set("favorites_only", "true");
     if (state.showDisabled) params.set("include_disabled", "true");
     params.set("sort", "recent");
@@ -316,7 +332,11 @@
     const el = $("resultCount");
     const n = state.prompts.length;
     const filtered = Boolean(
-      state.q || state.tag || state.profile || state.view === "favorites"
+      state.q ||
+        state.tag ||
+        state.profile ||
+        state.ratingFilterValue ||
+        state.view === "favorites"
     );
     if (!filtered) {
       el.textContent = "";
@@ -375,25 +395,34 @@
       if (state.layout === "list") {
         const row = document.createElement("article");
         row.className = "prompt-list-row" + (p.enabled === false ? " is-disabled" : "");
-        const sourceBit = p.last_source
-          ? ` <span class="source-badge source-${escapeAttr(p.last_source)}">${escapeHtml(p.last_source)}</span>`
+        const comments = p.comment_count || 0;
+        const lastRunTitleParts = [];
+        if (p.last_source) lastRunTitleParts.push(`source: ${p.last_source}`);
+        if (p.last_duration_ms != null) {
+          lastRunTitleParts.push(`elapsed: ${formatDurationMs(p.last_duration_ms)}`);
+        }
+        const lastRunTitle = lastRunTitleParts.length
+          ? ` title="${escapeAttr(lastRunTitleParts.join(" · "))}"`
           : "";
-        const elapsedBit = p.last_duration_ms != null
-          ? ` · ${escapeHtml(formatDurationMs(p.last_duration_ms))}`
+        const runsTitle = p.last_source
+          ? ` title="Last source: ${escapeAttr(p.last_source)}"`
           : "";
         row.innerHTML = `
           ${selectHtml}
           <div class="list-title-cell">
-            <strong>${escapeHtml(p.title)}</strong>
-            ${disabledBadgeHtml(p)}
-            ${profileBadgeHtml(p)}
+            <strong title="${escapeAttr(p.title)}">${escapeHtml(p.title)}</strong>
             <div class="original-preview muted">${escapeHtml(p.original_preview || p.original_user_prompt || "(no original prompt recorded)")}</div>
-            <div class="chip-row compact">${chipHtml(p)}</div>
+            <div class="list-title-meta">
+              ${disabledBadgeHtml(p)}
+              ${profileBadgeHtml(p)}
+              <span class="comment-count muted" title="Comments">${comments}c</span>
+              <div class="chip-row compact">${chipHtml(p)}</div>
+            </div>
           </div>
-          <span>${ratingBadgeHtml(p)} <span class="muted">${p.comment_count || 0}c</span></span>
-          <span class="format-badge">${escapeHtml(formatLabel(p.output_format))}</span>
-          <span>${p.run_count || 0}${sourceBit}</span>
-          <span class="muted">${escapeHtml(formatWhen(p.last_run_at))}${elapsedBit}</span>
+          <span class="list-cell list-cell-rating">${ratingBadgeHtml(p)}</span>
+          <span class="list-cell"><span class="format-badge">${escapeHtml(formatLabel(p.output_format))}</span></span>
+          <span class="list-cell list-cell-runs"${runsTitle}>${p.run_count || 0}</span>
+          <span class="list-cell muted"${lastRunTitle}>${escapeHtml(formatWhen(p.last_run_at))}</span>
           <div class="list-actions">
             <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
             <button type="button" class="btn-secondary" data-edit="${p.id}">Edit</button>
@@ -411,6 +440,7 @@
           ${selectHtml}
           <h3 class="card-title">${escapeHtml(p.title)}</h3>
           <div class="card-top-actions">
+            ${ratingBadgeHtml(p)}
             ${disabledBadgeHtml(p)}
             <button type="button" class="icon-btn ${p.favorite ? "starred" : ""}" data-fav="${p.id}" title="Favorite">★</button>
           </div>
@@ -944,6 +974,23 @@
     btn.title = "Click to copy: " + path;
   }
 
+  function updateStudioVersion(info) {
+    const el = optional("studioVersion");
+    if (!el) return;
+    const raw =
+      (info && info.version) ||
+      state.studioVersion ||
+      "";
+    if (raw) {
+      state.studioVersion = String(raw);
+      el.textContent = `v${state.studioVersion}`;
+      el.title = `Prompt Studio ${el.textContent}`;
+    } else {
+      el.textContent = "v?";
+      el.title = "Prompt Studio version unavailable";
+    }
+  }
+
   function stampUpdated(info) {
     const el = $("statusLine");
     const t = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
@@ -969,6 +1016,7 @@
     el.title = lines.join("\n");
     if (info && info.path) state.libraryPath = info.path;
     if (info && info.help) state.libraryHelp = info.help;
+    updateStudioVersion(info);
     updateLibraryPathDisplay(path);
     if (mtime) {
       if (state.lastSeenModified && mtime > state.lastSeenModified && !state.editMode) {
@@ -1121,6 +1169,20 @@
     return ordered;
   }
 
+  function autosizeCodeEdit(el) {
+    if (!el || el.classList.contains("hidden")) return;
+    el.style.height = "auto";
+    const cs = window.getComputedStyle(el);
+    const borderY =
+      (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+    el.style.height = `${Math.ceil(el.scrollHeight + borderY)}px`;
+  }
+
+  function autosizeEditFields() {
+    autosizeCodeEdit(optional("modalOriginalEdit"));
+    autosizeCodeEdit(optional("modalTemplateEdit"));
+  }
+
   function setEditMode(enabled) {
     state.editMode = enabled;
     optional("modalTitleDisplay")?.classList.toggle("hidden", enabled);
@@ -1150,6 +1212,7 @@
       if (templateEdit) templateEdit.value = state.editDraft.refined_prompt || "";
       if (enabledToggle) enabledToggle.checked = state.editDraft.enabled !== false;
       renderVarFields(state.editDraft, true);
+      requestAnimationFrame(() => autosizeEditFields());
     }
   }
 
@@ -1341,6 +1404,7 @@
     state.editDraft.variables = result.variables || {};
     state.editDraft.placeholders = result.placeholders || [];
     renderVarFields(state.editDraft, true);
+    requestAnimationFrame(() => autosizeEditFields());
   }
 
   async function generate() {
@@ -1709,6 +1773,15 @@
         loadPrompts().catch(showError);
       });
     }
+    const ratingFilter = optional("ratingFilter");
+    if (ratingFilter) {
+      ratingFilter.value = state.ratingFilterValue || "";
+      ratingFilter.addEventListener("change", () => {
+        state.ratingFilterValue = ratingFilter.value || "";
+        localStorage.setItem(RATING_FILTER_KEY, state.ratingFilterValue);
+        loadPrompts().catch(showError);
+      });
+    }
     const showDisabledToggle = optional("showDisabledToggle");
     if (showDisabledToggle) {
       showDisabledToggle.checked = state.showDisabled;
@@ -1766,6 +1839,14 @@
     bindClick("makeVarTemplateBtn", () =>
       makeVariableFromField("refined_prompt").catch(showError)
     );
+    const originalEditEl = optional("modalOriginalEdit");
+    const templateEditEl = optional("modalTemplateEdit");
+    if (originalEditEl) {
+      originalEditEl.addEventListener("input", () => autosizeCodeEdit(originalEditEl));
+    }
+    if (templateEditEl) {
+      templateEditEl.addEventListener("input", () => autosizeCodeEdit(templateEditEl));
+    }
     $("toggleOriginal").addEventListener("click", () => {
       const pre = $("modalOriginal");
       const btn = $("toggleOriginal");
@@ -2010,6 +2091,15 @@
     URL.revokeObjectURL(url);
   }
 
+  async function loadStudioVersion() {
+    try {
+      const health = await api("/api/health");
+      updateStudioVersion(health);
+    } catch {
+      updateStudioVersion(null);
+    }
+  }
+
   async function init() {
     bindEvents();
     optional("importLabel")?.addEventListener("input", () => syncApplyImportBtn());
@@ -2017,6 +2107,7 @@
     syncNav();
     syncLayoutButtons();
     syncExportSelectedBtn();
+    await loadStudioVersion();
     await refreshLibrary();
     window.addEventListener("focus", () => pollLibraryInfo());
     setInterval(() => pollLibraryInfo(), LIBRARY_POLL_MS);
@@ -2025,5 +2116,6 @@
   init().catch((err) => {
     console.error(err);
     $("statusLine").textContent = "Error loading library";
+    loadStudioVersion().catch(() => updateStudioVersion(null));
   });
 })();

@@ -1,5 +1,5 @@
 {
-  "tool_definitions_sha256": "73bab412bc8c6ae5c6ae156571de1c895f753886b4d896873df65494fcf15983",
+  "tool_definitions_sha256": "8a0afbbe3f79f6263146b582e9e86358010d77187dbdc2af06d042791871abfd",
   "tool_count": 122,
   "tools": [
     "add_from_favorites",
@@ -211,8 +211,8 @@
       "definition_sha256": "7bada64445560f2a132cb02f22473bbe933c7911f5121f693daa467685babede"
     },
     "export_response_word": {
-      "version": "1.1.0",
-      "definition_sha256": "d8bf38eedb9980abdd6d410d3bb2a6260d961d68a632bbc006c6b86141e17fba"
+      "version": "1.2.0",
+      "definition_sha256": "8b7a494584f4eb97574e44595883b4eaffe6cf9cefbd4b796877e603e0eeb9f3"
     },
     "export_users_excel": {
       "version": "1.2.0",

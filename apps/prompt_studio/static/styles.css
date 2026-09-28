@@ -87,6 +87,20 @@ body {
   letter-spacing: -0.02em;
 }
 
+.brand-version {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  flex-shrink: 0;
+}
+
 .header-search {
   flex: 1;
   max-width: 420px;
@@ -329,7 +343,8 @@ body {
 .prompt-list-head,
 .prompt-list-row {
   display: grid;
-  grid-template-columns: 28px minmax(180px, 2fr) 72px 110px 72px minmax(120px, 1fr) auto;
+  /* Select | Title | Rating | Format | Runs | Last run | Actions — fixed tracks so rows align */
+  grid-template-columns: 28px minmax(0, 2.4fr) 3.25rem 5.5rem 3rem minmax(0, 8.5rem) 11rem;
   gap: 12px;
   align-items: center;
   padding: 12px 16px;
@@ -352,22 +367,71 @@ body {
   background: #faf8f5;
 }
 
+.list-title-cell {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .list-title-cell strong {
   display: block;
   font-size: 0.95rem;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.list-title-cell .original-preview {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0 0 2px;
+  font-size: 0.75rem;
+}
+
+.list-title-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 2px;
+}
+
+.list-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-cell-rating {
+  justify-self: start;
+}
+
+.list-cell-runs {
+  font-variant-numeric: tabular-nums;
 }
 
 .chip-row.compact {
   gap: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .list-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   justify-content: flex-end;
   align-items: center;
+  min-width: 0;
+}
+
+.list-actions .btn-secondary,
+.list-actions .btn-primary {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .stat-grid {
@@ -485,10 +549,22 @@ body {
 
 .card-title {
   flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 1.125rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.card-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.card-top-actions .rating-badge {
+  font-size: 0.7rem;
 }
 
 .icon-btn {
@@ -1061,6 +1137,7 @@ body {
 
 .code-edit {
   width: 100%;
+  box-sizing: border-box;
   font-family: var(--mono);
   font-size: 0.8125rem;
   line-height: 1.45;
@@ -1070,6 +1147,17 @@ body {
   background: var(--surface-elevated);
   resize: vertical;
   min-height: 80px;
+  max-height: min(45vh, 420px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+#modalOriginalEdit {
+  min-height: 6rem;
+}
+
+#modalTemplateEdit {
+  min-height: 10rem;
 }
 
 .disabled-badge {
@@ -1087,12 +1175,6 @@ body {
 .prompt-card.is-disabled,
 .prompt-list-row.is-disabled {
   opacity: 0.72;
-}
-
-.card-top-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .header-meta-block {

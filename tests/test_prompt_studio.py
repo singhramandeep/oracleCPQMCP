@@ -136,7 +136,11 @@ def test_api_list_search_favorite_generate(studio_client):
 
 def test_api_health(studio_client):
     client, _ = studio_client
-    assert client.get("/api/health").json()["status"] == "ok"
+    body = client.get("/api/health").json()
+    assert body["status"] == "ok"
+    from apps.prompt_studio import __version__ as studio_version
+
+    assert body["version"] == studio_version
 
 
 def test_api_list_includes_original_preview(studio_client):
@@ -159,6 +163,9 @@ def test_api_library_info(studio_client, tmp_path: Path):
     assert "disabled_count" in info
     assert "help" in info
     assert "config_dir" in info
+    from apps.prompt_studio import __version__ as studio_version
+
+    assert info["version"] == studio_version
 
 
 def test_api_sort_recent_first(studio_client, tmp_path: Path):
@@ -419,7 +426,12 @@ def test_api_create_import_export_help(studio_client):
     assert help_resp.status_code == 200
     help_body = help_resp.json()
     assert help_body["library_path"]
-    assert len(help_body["sections"]) >= 4
+    assert help_body["version"]
+    titles = {s["title"] for s in help_body["sections"]}
+    assert "What is Prompt Studio?" in titles
+    assert "Browse: cards, list, filters" in titles
+    assert "Ratings & run telemetry" in titles
+    assert len(help_body["sections"]) >= 8
     assert "restart" in help_body["commands"]
 
     created = client.post(
@@ -543,6 +555,77 @@ def test_api_rating_and_comments(studio_client):
     deleted = client.delete(f"/api/prompts/{entry.id}/comments/{comment_id}")
     assert deleted.status_code == 200
     assert deleted.json()["comments"] == []
+
+
+def test_api_list_prompts_rating_filter(studio_client):
+    client, entry = studio_client
+    saved_library.set_rating(entry.id, 5)
+
+    low = client.post(
+        "/api/prompts",
+        json={
+            "title": "Low rated",
+            "refined_prompt": "body low",
+            "original_user_prompt": "orig low",
+        },
+    ).json()
+    saved_library.set_rating(low["id"], 5)
+
+    mid = client.post(
+        "/api/prompts",
+        json={
+            "title": "High rated",
+            "refined_prompt": "body high",
+            "original_user_prompt": "orig high",
+        },
+    ).json()
+    saved_library.set_rating(mid["id"], 8)
+
+    top = client.post(
+        "/api/prompts",
+        json={
+            "title": "Top rated",
+            "refined_prompt": "body top",
+            "original_user_prompt": "orig top",
+        },
+    ).json()
+    saved_library.set_rating(top["id"], 10)
+
+    unrated = client.post(
+        "/api/prompts",
+        json={
+            "title": "No rating yet",
+            "refined_prompt": "body none",
+            "original_user_prompt": "orig none",
+        },
+    ).json()
+
+    unrated_list = client.get("/api/prompts", params={"rating_filter": "unrated"}).json()
+    unrated_ids = {p["id"] for p in unrated_list["prompts"]}
+    assert unrated["id"] in unrated_ids
+    assert entry.id not in unrated_ids
+    assert mid["id"] not in unrated_ids
+
+    rated_list = client.get("/api/prompts", params={"rating_filter": "rated"}).json()
+    rated_ids = {p["id"] for p in rated_list["prompts"]}
+    assert unrated["id"] not in rated_ids
+    assert entry.id in rated_ids
+    assert mid["id"] in rated_ids
+    assert top["id"] in rated_ids
+
+    min8 = client.get("/api/prompts", params={"min_rating": 8}).json()
+    min8_ids = {p["id"] for p in min8["prompts"]}
+    assert mid["id"] in min8_ids
+    assert top["id"] in min8_ids
+    assert entry.id not in min8_ids
+    assert low["id"] not in min8_ids
+    assert unrated["id"] not in min8_ids
+
+    only10 = client.get("/api/prompts", params={"min_rating": 10}).json()
+    assert {p["id"] for p in only10["prompts"]} == {top["id"]}
+
+    bad = client.get("/api/prompts", params={"min_rating": 99})
+    assert bad.status_code == 422
 
 
 def test_api_export_includes_rating_and_stats(studio_client):

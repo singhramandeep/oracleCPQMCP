@@ -76,7 +76,7 @@ python scripts/generate_tool_catalog.py
 
 ### Prompt Studio (local UI)
 
-Lightweight FastAPI + static UI (**app 0.4.0+**) to browse/fill saved prompts, inspect **DEBUG_MODE API logs**, and view **redacted profile YAML / workspace paths**. Does **not** call Oracle CPQ. Supports **New**, **Import** (with batch tag; preserves ratings/comments/telemetry), **Export all/selected**, in-app **Help**, **Refresh**, a **Profile** filter, **API logs**, **1–10 ratings + comments**, per-source **cache/api/mixed** run telemetry, and **Profiles & Paths**. MCP `save_refined_prompt` stamps `profile` from the active customer; `record_prompt_use` records timed completions. See [Prompt Studio](#prompt-studio-enable-and-run) below and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
+Lightweight FastAPI + static UI (**app 0.4.3+**) to browse/fill saved prompts, inspect **DEBUG_MODE API logs**, and view **redacted profile YAML / workspace paths**. Does **not** call Oracle CPQ. Supports **New**, **Import** (with batch tag; preserves ratings/comments/telemetry), **Export all/selected**, in-app **Help**, **Refresh**, **Profile** and **Rating** filters, **API logs**, **1–10 ratings + comments**, per-source **cache/api/mixed** run telemetry, and **Profiles & Paths**. Header always shows the Studio version. MCP `save_refined_prompt` stamps `profile` from the active customer; `record_prompt_use` records timed completions. See [Prompt Studio](#prompt-studio-enable-and-run) below and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
 
 ### Profiles and environments
 

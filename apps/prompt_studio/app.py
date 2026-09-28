@@ -205,7 +205,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "version": STUDIO_VERSION}
 
     @app.get("/api/library_info")
     def library_info() -> dict[str, Any]:
@@ -230,6 +230,7 @@ def create_app() -> FastAPI:
             "total_count": len(all_entries),
             "disabled_count": disabled_count,
             "last_modified": last_modified,
+            "version": STUDIO_VERSION,
             "commands": _studio_commands(),
             "help": (
                 "Prompts live in the library file shown in the header. "
@@ -246,84 +247,111 @@ def create_app() -> FastAPI:
         return {
             "library_path": str(path.resolve()),
             "commands": cmds,
+            "version": STUDIO_VERSION,
             "sections": [
+                {
+                    "title": "What is Prompt Studio?",
+                    "body": (
+                        f"Prompt Studio v{STUDIO_VERSION} is a local UI for browsing, editing, "
+                        "rating, and filling saved refined prompts. It does NOT call Oracle CPQ "
+                        "and never edits profile passwords. Agents and Studio share the same "
+                        "library file. The app version is always shown in the header badge."
+                    ),
+                },
                 {
                     "title": "Library file",
                     "body": (
                         f"All prompts are stored in:\n{path.resolve()}\n\n"
-                        "Override with CPQ_SAVED_PROMPTS_PATH. MCP and Studio share this file."
+                        "Override with CPQ_SAVED_PROMPTS_PATH. MCP and Studio share this file. "
+                        "Header shows the absolute path (click to copy) and live prompt counts."
                     ),
                 },
                 {
-                    "title": "Start Prompt Studio",
+                    "title": "Start / restart / stop",
                     "body": (
                         "From the repo root:\n"
-                        f"{cmds.get('start', '')}\n\n"
-                        f"Then open {cmds.get('url', 'http://127.0.0.1:8765')}."
+                        f"Start: {cmds.get('start', '')}\n"
+                        f"Restart: {cmds.get('restart', '')}\n"
+                        f"Or script: {cmds.get('restart_script', '')}\n"
+                        f"Stop: {cmds.get('stop', '')}\n\n"
+                        f"Open {cmds.get('url', 'http://127.0.0.1:8765')}. "
+                        "After upgrades, hard-refresh the browser (Ctrl+F5) so static assets "
+                        "match the version badge."
                     ),
                 },
                 {
-                    "title": "Restart Prompt Studio",
+                    "title": "Browse: cards, list, filters",
                     "body": (
-                        "One command (stops port listeners, then starts):\n"
-                        f"{cmds.get('restart', '')}\n\n"
-                        f"Or: {cmds.get('restart_script', '')}\n\n"
-                        f"Stop only: {cmds.get('stop', '')}"
+                        "Toggle Cards / List in the toolbar (persisted). List columns: title, "
+                        "rating, format, runs, last run, actions.\n\n"
+                        "Filters: search box, sidebar tags, Profile (All / Unscoped / stamped), "
+                        "Rating (All / Unrated / Rated / 7+ / 8+ / 9+ / 10), Favorites, "
+                        "Show disabled. Result count shows when any filter is active."
                     ),
                 },
                 {
-                    "title": "Import prompts",
+                    "title": "New / Import / Export",
                     "body": (
-                        "Use Import in the toolbar. Choose a JSON file exported from this "
-                        "app (library object, prompt array, or single prompt). Enter an "
-                        "import name/tag, select which prompts to import, then Import. "
-                        "Each imported prompt is tagged imported and import:<slug>."
+                        "New prompt creates a row in the library.\n"
+                        "Import: upload JSON (library object, array, or single prompt), enter an "
+                        "import name/tag, select rows, Import. Tags: imported + import:<slug>. "
+                        "Ratings/comments/telemetry are preserved without bumping run counts.\n"
+                        "Export all / Export selected download library JSON."
                     ),
                 },
                 {
-                    "title": "Export prompts",
+                    "title": "Run, edit, and variables",
                     "body": (
-                        "Export all downloads the full library JSON. "
-                        "Select prompts with checkboxes and use Export selected for a subset."
-                    ),
-                },
-                {
-                    "title": "New prompt / MCP auto-save",
-                    "body": (
-                        "New prompt creates a row directly in the library. "
-                        "Agents also save via save_refined_prompt when "
-                        "AUTO_SAVE_REFINED_PROMPT=true on the active profile "
-                        "(example profiles default to true)."
-                    ),
-                },
-                {
-                    "title": "API logs",
-                    "body": (
-                        "Open the API logs view to browse DEBUG_MODE request logs "
-                        f"under {log_viewer.logs_dir()}.\n\n"
-                        "Files are named {profile}-{environment}.log. "
-                        "Enable DEBUG_MODE=true on the active CPQ profile so MCP "
-                        "writes these files. Passwords in curl lines are already "
-                        "redacted (user:***). Filter by method, status, path, and "
-                        "latency; copy curl, full blocks, or JSON; download the raw file."
-                    ),
-                },
-                {
-                    "title": "Profiles & Paths",
-                    "body": (
-                        "Open Profiles & Paths to inspect redacted profile YAML "
-                        "(credentials never shown) and copy workspace paths for "
-                        "the library, studio state, logs, local cache, and exports. "
-                        "Never edit username/password from Studio — you own credentials."
+                        "Open a prompt to Run (fill {{placeholders}}, Generate + Copy) or Edit "
+                        "(title, original, refined template, enabled). Make variable wraps a "
+                        "selection as {{snake_case}}. Edit textareas auto-grow with content "
+                        "(still vertically resizable; long prompts are capped)."
                     ),
                 },
                 {
                     "title": "Ratings & run telemetry",
                     "body": (
-                        "Rate prompts 1–10 and leave comments on the prompt card. "
-                        "After an agent finishes a saved-prompt run, MCP "
-                        "record_prompt_use stores elapsed time with source "
-                        "cache|api|mixed. Averages stay separate per source."
+                        "Rate prompts 1–10 and leave comments in the Run modal. Rating shows on "
+                        "cards and in the list Rating column; filter via the Rating toolbar.\n"
+                        "After an agent finishes a saved-prompt run, MCP record_prompt_use stores "
+                        "elapsed time with source cache|api|mixed. Averages stay separate per source."
+                    ),
+                },
+                {
+                    "title": "Suites & favorites",
+                    "body": (
+                        "Star a prompt for Favorites. Suites are named ordered lists — create from "
+                        "the Suites view or Add to suite from a card menu."
+                    ),
+                },
+                {
+                    "title": "API logs",
+                    "body": (
+                        "Open API logs to browse DEBUG_MODE request logs "
+                        f"under {log_viewer.logs_dir()}.\n\n"
+                        "Files are named {profile}-{environment}.log. "
+                        "Enable DEBUG_MODE=true on the active CPQ profile so MCP writes these "
+                        "files. Passwords in curl lines are redacted (user:***). Filter by "
+                        "method, status, path, and latency; copy curl, blocks, or JSON; "
+                        "download the raw file."
+                    ),
+                },
+                {
+                    "title": "Profiles & Paths",
+                    "body": (
+                        "Inspect redacted profile YAML (credentials never shown) and copy "
+                        "workspace paths for the library, studio state, logs, local cache, and "
+                        "exports. Never edit username/password from Studio — you own credentials."
+                    ),
+                },
+                {
+                    "title": "MCP auto-save",
+                    "body": (
+                        "Agents also save via save_refined_prompt when "
+                        "AUTO_SAVE_REFINED_PROMPT=true on the active profile "
+                        "(example profiles often default to true). "
+                        "ensure_prompt_studio only starts Studio when down — it does not restart "
+                        "a live process."
                     ),
                 },
             ],
@@ -423,18 +451,26 @@ def create_app() -> FastAPI:
         q: str | None = Query(default=None),
         tag: str | None = Query(default=None),
         profile: str | None = Query(default=None),
+        rating_filter: Literal["unrated", "rated"] | None = Query(default=None),
+        min_rating: int | None = Query(default=None, ge=1, le=10),
         favorites_only: bool = Query(default=False),
         include_disabled: bool = Query(default=False),
         sort: Literal["recent", "title"] = Query(default="recent"),
     ) -> dict[str, Any]:
         favorites = set(studio_store.load_store().get("favorites") or [])
-        if q or tag or profile:
-            entries = saved_library.search_entries(
-                query=q,
-                tag=tag,
-                profile=profile,
-                include_disabled=include_disabled,
-            )
+        use_search = bool(q or tag or profile or rating_filter or min_rating is not None)
+        if use_search:
+            try:
+                entries = saved_library.search_entries(
+                    query=q,
+                    tag=tag,
+                    profile=profile,
+                    rating_filter=rating_filter,
+                    min_rating=min_rating,
+                    include_disabled=include_disabled,
+                )
+            except saved_library.UpdatePromptError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
         else:
             entries = saved_library.list_entries(include_disabled=include_disabled)
         if favorites_only:
@@ -453,6 +489,17 @@ def create_app() -> FastAPI:
                     )
                     allowed = {x.id for x in filtered}
                     if e.id not in allowed:
+                        continue
+                if rating_filter or min_rating is not None:
+                    try:
+                        rating_ok = saved_library.search_entries(
+                            rating_filter=rating_filter,
+                            min_rating=min_rating,
+                            include_disabled=include_disabled,
+                        )
+                    except saved_library.UpdatePromptError as exc:
+                        raise HTTPException(status_code=400, detail=str(exc)) from exc
+                    if e.id not in {x.id for x in rating_ok}:
                         continue
                 hay = " ".join(e.tags + e.tools).lower()
                 if needle in hay:

@@ -1731,6 +1731,9 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "(@mermaid-js/mermaid-cli) when on PATH, or via a pre-rendered PNG at "
             "image_path under tmp/{profile}/{env}/; skipped diagrams keep source as "
             "prose and are listed in diagrams_skipped (export still succeeds). "
+            "Prefer Mermaid kinds by content: flowchart/graph for flows; pie for shares; "
+            "xychart-beta bar/line for numeric comparisons (no dedicated pictograph engine — "
+            "optional PNG via image_path). "
             "Returns attachment lead with path + file:// URI plus File bytes. "
             "Requires optional dependency python-docx "
             '(pip install python-docx or pip install -e ".[docs]"). '
@@ -1738,7 +1741,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"export"},
         read_only=True,
-        version="1.1.0",
+        version="1.2.0",
     ),
     "set_post_response_export": _spec(
         "set_post_response_export",
