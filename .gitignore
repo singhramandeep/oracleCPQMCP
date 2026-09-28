@@ -4,7 +4,7 @@
 # COMMIT:  source code, tests, scripts/mcp-server.*, .cursor/mcp.json.example,
 #          .cursor/mcp.json.unix.example, .vscode/mcp.json.example, docs/
 # NEVER:   .config/* (credentials, profiles, studio state, archive/) except
-#          .profile.yaml.example / template/; .prompts/;
+#          example.yaml / template/; .prompts/;
 #          .venv/; exports/; .cursor/mcp.json
 # Legacy flat .env templates live under .config/archive/ (gitignored).
 # ==============================================================================
@@ -40,7 +40,7 @@ venv/
 # Ignore everything under .config/ except committed templates (examples only).
 # .config/archive/ (legacy .env templates/backups) stays ignored — do not un-ignore.
 .config/*
-!.config/.profile.yaml.example
+!.config/example.yaml
 !.config/template/
 !.config/template/**
 # Global *.xlsx ignore would hide branded templates — re-include them.

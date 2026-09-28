@@ -26,13 +26,14 @@ _SECRET_KEY_RE = re.compile(
     re.I,
 )
 _SAFE_CUSTOMER_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
-_EXAMPLE_NAME = ".profile.yaml.example"
+_EXAMPLE_NAME = "example.yaml"
 _BLOCKED_STEMS = frozenset(
     {
         "prompt_studio",
         ".catalog",
         ".env",
         ".profile",
+        "example",
     }
 )
 
@@ -202,7 +203,7 @@ def load_redacted_profile(customer_id: str) -> dict[str, Any]:
 
 
 def load_profile_example() -> dict[str, Any]:
-    """Return the committed ``.profile.yaml.example`` (redacted for consistency)."""
+    """Return the committed ``example.yaml`` (redacted for consistency)."""
     path = _resolve_under_config(config_dir() / _EXAMPLE_NAME)
     if not path.is_file():
         raise FileNotFoundError(_EXAMPLE_NAME)

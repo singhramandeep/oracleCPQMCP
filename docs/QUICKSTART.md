@@ -1,6 +1,8 @@
-﻿# Quickstart — Download, Configure, and Connect
+﻿# Full setup guide
 
-Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials, verify connectivity, and connect an IDE.
+Detailed walkthrough: clone the Oracle CPQ MCP server, add CPQ credentials, verify connectivity, and connect an IDE (multi-OS shells, dual MCP, troubleshooting, sample prompts).
+
+**Quick path (8 steps):** follow **[SETUP.md](SETUP.md)** first. Use this file when you need OS-specific activation, deeper profile/MCP detail, or samples.
 
 **Recommended IDE:** [Google Antigravity](https://antigravity.google/) — instructions below are **partially tested**. Cursor and VS Code setup steps are provided but **still need testing** on this project.
 
@@ -8,46 +10,20 @@ Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials,
 
 ## What you need
 
+Prerequisites and install links (IDE, Python 3.11+, Node.js, Git, Mermaid CLI): **[SETUP.md — Step 1](SETUP.md#step-1--prerequisites)**.
 
-| Requirement       | Details                                                                                                                                                                                                                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Python            | 3.11 or newer                                                                                                                                                                                                                                                                                 |
-| Node.js / npm     | Optional but **recommended** — needed for Mermaid diagrams in Word exports (`mmdc`). See [Step 2.1](#21-optional--mermaid-cli-for-word-diagrams).                                                                                                                                              |
-| Oracle CPQ access | REST API enabled; integration user with Basic Auth                                                                                                                                                                                                                                            |
-| Network           | CPQ site should be publically accessible                                                                                                                                                                                                                                                      |
-| IDE               | **Google Antigravity IDE(recommended)**; Cursor or VS Code Copilot Agent also supported The quickstart guide is tested for Antigravity IDE. The tool should work for other supported IDE's too but the quick start guide might not be up to date and instructions might need minor tweaking |
-| Git               | Optional but recommended (`git clone`)                                                                                                                                                                                                                                                        |
+Also needed for live CPQ:
 
+| Requirement       | Details |
+| ----------------- | ------- |
+| Oracle CPQ access | REST API enabled; integration user with Basic Auth |
+| Network           | CPQ site reachable from your machine (VPN if required) |
 
 ---
 
-
-
 ## Step 1 — Get the code
 
-
-
-### 1 a Checking the pre-requisties
-
- **Python:**
-
-Open the terminal and type
-
-```bash
-python --version
-```
-
-If you get an error that means python is not installed. Install python using [https://www.python.org/downloads/](https://www.python.org/downloads/)
-
-**Git**
-
-Open terminal (powershell for windows) and type git --version. if you get an error that means git is not installed.
-
-Install git using the command 
-
-```bash
-winget install --id Git.Git -e --source winget
-```
+Short version: **[SETUP.md — Step 2](SETUP.md#step-2--workspace-folder-download-code-open-in-ide)**. Expanded steps below.
 
 ### 1.1 Create a workspace folder
 
@@ -103,7 +79,7 @@ This folder is your **project root** — all commands in later steps run from he
 oracleCPQMCP/                  ← project root (open this folder in your IDE)
 ├── pyproject.toml             ← Python project file (confirms you are in the right folder)
 ├── .config/                   ← CPQ credentials (YOU create *.yaml here)
-│   └── .profile.yaml.example  ← Unified profile template (safe to commit)
+│   └── example.yaml           ← Unified profile template (safe to commit)
 ├── .cursor/
 │   ├── mcp.json.example       ← Copy → mcp.json (Windows)
 │   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
@@ -156,6 +132,8 @@ cd path/to/oracleCPQMCP
 
 
 ## Step 2 — Create Python environment and install
+
+Short version: **[SETUP.md — Steps 3–4](SETUP.md#step-3--activate-the-virtual-environment)** (venv + `pip install -e ".[dev]"`). Mermaid is a SETUP Step 1 prerequisite; more Mermaid detail is in [§2.1](#21-optional--mermaid-cli-for-word-diagrams) below.
 
 **IDE terminal** (project root):
 
@@ -238,15 +216,15 @@ Credentials live in **one YAML file per customer**, never in MCP JSON.
 
 | Shell                    | Command                                                     |
 | ------------------------ | ----------------------------------------------------------- |
-| Windows PowerShell / CMD | `copy .config\.profile.yaml.example .config\mycompany.yaml` |
-| macOS / Linux / Git Bash | `cp .config/.profile.yaml.example .config/mycompany.yaml`   |
+| Windows PowerShell / CMD | `copy .config\example.yaml .config\mycompany.yaml` |
+| macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml`   |
 
 
 Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.yaml` becomes `CPQ_CUSTOMER_PROFILE`.
 
 ### 3.2 Edit `.config/mycompany.yaml`
 
-Open the file in the IDE editor and set at minimum `environments.dev` (url + credentials), `default_environment`, and optional commerce/table defaults. Every setting is documented with comments in [`.config/.profile.yaml.example`](../.config/.profile.yaml.example).
+Open the file in the IDE editor and set at minimum `environments.dev` (url + credentials), `default_environment`, and optional commerce/table defaults. Every setting is documented with comments in [`.config/example.yaml`](../.config/example.yaml).
 
 Example YAML fragment:
 
@@ -328,6 +306,8 @@ Make sure you replace mycompany witha actual profile you have created
 If smoke test was successful that means the MCP server standalone test is working. The next steps will configure the MCP in your IDE
 
 ## Step 5 — Connect your IDE / LLM client
+
+Short version (Antigravity / Cursor / VS Code): **[SETUP.md — Step 7](SETUP.md#step-7--connect-the-ide-mcp)**. Expanded config samples and dual-env examples below.
 
 Each client uses **stdio**: MCP runs `[scripts/mcp-server.cmd](../scripts/mcp-server.cmd)` (Windows) or `[scripts/mcp-server.sh](../scripts/mcp-server.sh)` (macOS/Linux), which starts `python -m oracle_cpq_mcp` from your local `.venv`.  
 **Never put CPQ passwords in MCP config** — only profile name and paths.
@@ -758,7 +738,7 @@ If you fork or contribute changes, confirm these rules **before** `git add`. For
 
 | Path                                             | Commit?                          | Why                                   |
 | ------------------------------------------------ | -------------------------------- | ------------------------------------- |
-| `.config/.profile.yaml.example`                  | Yes                              | Template only — placeholder passwords |
+| `.config/example.yaml`                           | Yes                              | Template only — placeholder passwords |
 | `.config/mycompany.yaml` (or any `*.yaml` profile) | **Never**                      | Contains real CPQ passwords           |
 | `.config/archive/`                               | **Never**                        | Local legacy profile archive          |
 | `.prompts/saved_prompts.json`                     | **Never**                        | Local refined-prompt library          |

@@ -134,6 +134,69 @@ def test_validate_sheets_payload_caps() -> None:
         validate_sheets_payload(too_many)
 
 
+def test_validate_sheets_payload_coerces_list_rows() -> None:
+    from oracle_cpq_mcp.exporters.response_export import coerce_sheet_records
+
+    records = coerce_sheet_records(
+        [["a", 1], ["b", 2]],
+        ["name", "count"],
+    )
+    assert records == [{"name": "a", "count": 1}, {"name": "b", "count": 2}]
+
+    normalized = validate_sheets_payload(
+        [
+            {
+                "name": "ListRows",
+                "columns": ["name", "count"],
+                "rows": [["alpha", 10], ["beta", 20]],
+            }
+        ]
+    )
+    assert normalized[0]["rows"][0] == {"name": "alpha", "count": 10}
+
+
+def test_build_multi_sheet_workbook_list_rows() -> None:
+    payload = build_multi_sheet_workbook(
+        [
+            {
+                "name": "ListRows",
+                "columns": ["name", "count"],
+                "rows": [["alpha", 10], ["beta", 20]],
+            }
+        ]
+    )
+    workbook = load_workbook(filename=BytesIO(payload))
+    sheet = workbook["ListRows"]
+    assert sheet["A2"].value == "alpha"
+    assert sheet["B2"].value == "10"
+    assert sheet["A3"].value == "beta"
+
+
+@pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
+def test_build_docx_from_tables_list_rows_not_empty() -> None:
+    from docx import Document
+
+    result = build_docx_from_tables(
+        title="List row export",
+        sheets=[
+            {
+                "name": "Per Table",
+                "columns": ["table_name", "verdict"],
+                "rows": [["Labor_hours", "FAIL"], ["Status", "PASS"]],
+            }
+        ],
+    )
+    document = Document(BytesIO(result.payload))
+    body = "\n".join(p.text for p in document.paragraphs)
+    assert "(row 1: empty)" not in body
+    assert "(row 2: empty)" not in body
+    table_texts = [
+        cell.text for table in document.tables for row in table.rows for cell in row.cells
+    ]
+    assert "Labor_hours" in table_texts
+    assert "FAIL" in table_texts
+
+
 @pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
 def test_build_docx_from_tables() -> None:
     from docx import Document

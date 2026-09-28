@@ -1,6 +1,6 @@
 # Features and security
 
-Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related local tooling. For per-tool tables see [`TOOL_CATALOG.md`](TOOL_CATALOG.md). Changelog: [`RELEASE_NOTES.md`](RELEASE_NOTES.md). Setup: [`QUICKSTART.md`](QUICKSTART.md). Live honesty: [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md).
+Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related local tooling. For per-tool tables see [`TOOL_CATALOG.md`](TOOL_CATALOG.md). Changelog: [`RELEASE_NOTES.md`](RELEASE_NOTES.md). Setup: [`SETUP.md`](SETUP.md) (quick) · [`QUICKSTART.md`](QUICKSTART.md) (full). Live honesty: [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md).
 
 ---
 
@@ -80,7 +80,7 @@ Lightweight FastAPI + static UI (**app 0.4.0+**) to browse/fill saved prompts, i
 
 ### Profiles and environments
 
-- Per-customer `.config/<profile>.yaml` (gitignored); template [`.config/.profile.yaml.example`](../.config/.profile.yaml.example).
+- Per-customer `.config/<profile>.yaml` (gitignored); template [`.config/example.yaml`](../.config/example.yaml).
 - Environments: `dev` / `test` / `prod` credential sets; `DEFAULT_ENVIRONMENT`.
 - Host-only: `CPQ_CUSTOMER_PROFILE`, `CPQ_CONFIG_DIR`, `CPQ_CONFIRMATION_SECRET`, `CPQ_ALLOW_PROD`, schema integrity flags.
 - **`DEBUG_MODE`** (default true) — appends timestamped, redacted CPQ request traces (curl + parameters) to `logs/{profile}-{environment}.log`. Override with `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`. Independent of `CPQ_VERBOSE` (stderr).
@@ -207,7 +207,8 @@ One command:
 | Doc | Role |
 |-----|------|
 | [`TOOL_CATALOG.md`](TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables |
-| [`QUICKSTART.md`](QUICKSTART.md) | Install, MCP connect, sample prompts |
+| [`SETUP.md`](SETUP.md) | Quick 8-step first-time setup |
+| [`QUICKSTART.md`](QUICKSTART.md) | Full setup guide — install, MCP connect, sample prompts |
 | [`STANDARDS.md`](STANDARDS.md) | Authoring checklist for new tools |
 | [`RELEASE_NOTES.md`](RELEASE_NOTES.md) | Changelog |
 | [`SECURITY.md`](../SECURITY.md) | Guardrail architecture |

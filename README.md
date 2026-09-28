@@ -10,9 +10,8 @@ MCP server for **Oracle CPQ** — **122 MCP tools** for Users, Groups, Data Tabl
 
 ## Get started
 
-**New here?** Follow the full walkthrough:
-
-**[docs/QUICKSTART.md](docs/QUICKSTART.md)** — download repo, create credential profile, smoke test, and connect **Antigravity** (recommended) step by step.
+1. **[Quick setup](docs/SETUP.md)** — 8 steps (prerequisites → workspace → venv → pip → Prompt Studio → YAML → connect IDE → test).
+2. **[Full setup guide](docs/QUICKSTART.md)** — multi-OS shells, dual MCP, deep profile/smoke/Prompt Studio detail, sample prompts.
 
 **Already on an older checkout?** Jump to [Update from an older version](#update-from-an-older-version) — pull latest, reinstall, migrate legacy flat profiles if needed, reload MCP (keep passwords and local MCP JSON).
 
@@ -30,8 +29,8 @@ pip install -e ".[dev]"
 
 | Shell | Copy credential template |
 |-------|--------------------------|
-| Windows PowerShell / CMD | `copy .config\.profile.yaml.example .config\mycompany.yaml` |
-| macOS / Linux / Git Bash | `cp .config/.profile.yaml.example .config/mycompany.yaml` |
+| Windows PowerShell / CMD | `copy .config\example.yaml .config\mycompany.yaml` |
+| macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml` |
 
 Edit `.config/mycompany.yaml` (see comments in the example), then:
 
@@ -40,6 +39,7 @@ oracle-cpq-smoke --profile mycompany --env dev
 python -m oracle_cpq_mcp
 ```
 
+IDE MCP connect (short): [SETUP — Step 7](docs/SETUP.md#step-7--connect-the-ide-mcp). Full Antigravity / Cursor / VS Code samples: [Full setup guide](docs/QUICKSTART.md#step-5--connect-your-ide--llm-client).
 ## Update from an older version
 
 Use this if you already cloned the repo and connected MCP earlier. You do **not** need to recreate credentials or re-copy MCP config from scratch.
@@ -85,7 +85,7 @@ python scripts/migrate_profile_yaml.py mycompany --force
 
    Field mapping and troubleshooting: [FAQ — How do I migrate from a legacy `.env` to `.yaml`?](docs/FAQ.md#how-do-i-migrate-from-a-legacy-env-to-yaml).
 
-4. **Refresh profile knobs (keep passwords).** Prefer editing `.config/<profile>.yaml` and comparing flags to [`.config/.profile.yaml.example`](.config/.profile.yaml.example). If you have not migrated yet, you can still compare a legacy `.env` to `.config/archive/.env.example` (local archive only) for key names:
+4. **Refresh profile knobs (keep passwords).** Prefer editing `.config/<profile>.yaml` and comparing flags to [`.config/example.yaml`](.config/example.yaml). If you have not migrated yet, you can still compare a legacy `.env` to `.config/archive/.env.example` (local archive only) for key names:
 
 | YAML key / legacy env key | Typical default | Purpose |
 |---------------------------|-----------------|--------|
@@ -107,68 +107,23 @@ Do **not** overwrite a live profile with an example file — that would wipe URL
 - *“Discover tools for domain admin”* or *“list saved searches”*
 - Optional: `oracle-cpq-smoke --profile <your-profile> --env dev`
 
-8. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.3.0**). Full first-time path remains [QUICKSTART](docs/QUICKSTART.md).
+8. **Read the delta:** [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) (current package **0.3.0**). First-time path: [Quick setup](docs/SETUP.md) or [Full setup guide](docs/QUICKSTART.md).
 
 **Leave alone (local / secrets):** `.config/*.yaml` profiles, `.config/archive/`, `data/`, `logs/`, `.prompts/saved_prompts.json`, Prompt Studio sidecar, and your local MCP config — they are gitignored on purpose.
 
 **Dual environments:** copy [`.cursor/mcp.json.dual.example.json`](.cursor/mcp.json.dual.example.json) or [`.agents/mcp_config.dual.example.json`](.agents/mcp_config.dual.example.json) — two MCP server entries (`CPQ_ENVIRONMENT=dev` and `test`). Tool envelopes include `profile` + `environment` so the agent can tell which site answered.
 
-## Add MCP in Google Antigravity (recommended)
+## Add MCP in your IDE
 
-Antigravity is the **recommended** client for this server. Instructions are **partially tested**. Full detail: [QUICKSTART — Antigravity](docs/QUICKSTART.md#google-antigravity-ide-recommended).
+Short path: **[SETUP — Step 7](docs/SETUP.md#step-7--connect-the-ide-mcp)** (Antigravity / Cursor / VS Code). Full samples and dual-env: **[Full setup guide — Step 5](docs/QUICKSTART.md#step-5--connect-your-ide--llm-client)**.
 
-1. Complete install, profile, and smoke test (above).
-2. Open the `oracleCPQMCP` folder in Antigravity.
-3. Copy the example MCP config:
+| IDE | Config (local, gitignored) | Example |
+|-----|----------------------------|---------|
+| **Antigravity** (recommended) | `.agents/mcp_config.json` | [`.agents/mcp_config.example.json`](.agents/mcp_config.example.json) — absolute paths required |
+| Cursor | `.cursor/mcp.json` | [`.cursor/mcp.json.example`](.cursor/mcp.json.example) / [unix](.cursor/mcp.json.unix.example) |
+| VS Code | `.vscode/mcp.json` | [`.vscode/mcp.json.example`](.vscode/mcp.json.example) / [unix](.vscode/mcp.json.unix.example) — uses `"servers"` + `"type": "stdio"` |
 
-| Shell | Command |
-|-------|---------|
-| Windows PowerShell | `mkdir .agents -Force; copy .agents\mcp_config.example.json .agents\mcp_config.json` |
-| Windows CMD | `mkdir .agents && copy .agents\mcp_config.example.json .agents\mcp_config.json` |
-| macOS / Linux / Git Bash | `mkdir -p .agents && cp .agents/mcp_config.example.json .agents/mcp_config.json` |
-
-4. Edit `.agents/mcp_config.json` — Antigravity requires **absolute paths** (not `${workspaceFolder}`):
-
-```json
-{
-  "mcpServers": {
-    "oracle-cpq": {
-      "command": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\scripts\\mcp-server.cmd",
-      "args": [],
-      "cwd": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP",
-      "env": {
-        "MCP_MODE": "stdio",
-        "DISABLE_CONSOLE_OUTPUT": "true",
-        "CPQ_CUSTOMER_PROFILE": "mycompany",
-        "CPQ_CONFIG_DIR": "C:\\Users\\YourName\\workspaces\\oracleCPQMCP\\.config",
-        "CPQ_SCHEMA_INTEGRITY": "1"
-      }
-    }
-  }
-}
-```
-
-Replace the path with your real project folder. Set `CPQ_CUSTOMER_PROFILE` to your `.config/<name>.yaml` profile id. On macOS/Linux use `scripts/mcp-server.sh` and `chmod +x scripts/mcp-server.sh`.
-
-5. In Antigravity: Agent panel → **…** → **MCP Servers** → **Manage MCP Servers** (or edit `.agents/mcp_config.json` directly).
-6. Restart Antigravity or reload MCP servers. Agent behavior (refined prompts, turn metrics, branded Word/Excel) comes from **MCP instructions**, not from `.cursor/rules` — see [`AGENTS.md`](AGENTS.md).
-7. In Agent chat: *"Discover CPQ tools and list 5 users."*
-
-**Required Antigravity env vars:** `MCP_MODE=stdio`, `DISABLE_CONSOLE_OUTPUT=true`, plus `CPQ_CUSTOMER_PROFILE` and `CPQ_CONFIG_DIR`. **Never put CPQ passwords in MCP JSON.**
-
-Example file: [`.agents/mcp_config.example.json`](.agents/mcp_config.example.json). Official docs: [Antigravity MCP](https://antigravity.google/docs/mcp/).
-
-### Other IDEs (need testing)
-
-| IDE | Config file | Example |
-|-----|-------------|---------|
-| Cursor | `.cursor/mcp.json` (local, gitignored) | [`.cursor/mcp.json.example`](.cursor/mcp.json.example) / [`.cursor/mcp.json.unix.example`](.cursor/mcp.json.unix.example) |
-| VS Code | `.vscode/mcp.json` (local, gitignored) | [`.vscode/mcp.json.example`](.vscode/mcp.json.example) / [`.vscode/mcp.json.unix.example`](.vscode/mcp.json.unix.example) |
-
-These paths still need end-to-end testing on this project. Prefer Antigravity. See [docs/QUICKSTART.md](docs/QUICKSTART.md#other-ides-need-testing).
-
-All clients use launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (Windows) / [`scripts/mcp-server.sh`](scripts/mcp-server.sh) (macOS/Linux).
-
+Launchers: [`scripts/mcp-server.cmd`](scripts/mcp-server.cmd) (Windows) / [`scripts/mcp-server.sh`](scripts/mcp-server.sh) (macOS/Linux). **Never put CPQ passwords in MCP JSON.** Official: [Antigravity MCP](https://antigravity.google/docs/mcp/).
 ## Agent instructions (Antigravity, Cursor, VS Code)
 
 | Layer | What it is | Who loads it |
@@ -185,7 +140,8 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 | Document | Contents |
 |----------|----------|
 | [AGENTS.md](AGENTS.md) | **All IDEs** — MCP instructions are SSOT; Cursor rules are mirrors only |
-| [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Start here** — clone, credentials, **Antigravity MCP** (recommended), sample prompts, Prompt Studio |
+| [docs/SETUP.md](docs/SETUP.md) | **Quick setup** — 8-step first-time path |
+| [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Full setup guide** — clone, credentials, IDE MCP detail, sample prompts, Prompt Studio |
 | [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, migrate legacy `.env` → YAML if needed, reload MCP |
 | [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, Antigravity vs Cursor rules |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
@@ -194,12 +150,11 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 | [docs/PRE_COMMIT_REVIEW.md](docs/PRE_COMMIT_REVIEW.md) | Pre-commit secrets / catalog / test checklist |
 | [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
 | [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md) | Changelog — current **0.3.0**; refresh Unreleased commits with `python scripts/update_release_notes.py` |
-| [docs/SETUP.md](docs/SETUP.md) | Short setup summary |
 | [docs/others/AUDIT_REPORT.md](docs/others/AUDIT_REPORT.md) | Historical technical audit (archived) |
 | [SECURITY.md](SECURITY.md) | Guardrails, confirmation tokens, audit |
 | [SECURITY_TESTING.md](SECURITY_TESTING.md) | Security test suite and CI |
 | [THREAT_MODEL.md](THREAT_MODEL.md) | STRIDE / MCP threat analysis |
-| [.config/.profile.yaml.example](.config/.profile.yaml.example) | CPQ unified profile field reference |
+| [.config/example.yaml](.config/example.yaml) | CPQ unified profile field reference |
 | [.config/template/README.md](.config/template/README.md) | Branded Word / Excel / PowerPoint templates for exports |
 
 ## Features
@@ -274,7 +229,7 @@ Also: MCP resources `cpq://saved-prompts`, `cpq://local`, `cpq://local/bml/{path
 | `data_tables` / `commerce_processes` | Catalog defaults + aliases |
 | `customer_knowledge_file` | Basename under `knowledge/` (e.g. `focalpoint.md`); shared `CPQBaseKnowledge.md` always loads |
 
-See [`.config/.profile.yaml.example`](.config/.profile.yaml.example) for all fields (commented). Host overrides such as `CPQ_LOCAL_DATA_DIR` / `CPQ_SAVED_PROMPTS_PATH` remain process env vars.
+See [`.config/example.yaml`](.config/example.yaml) for all fields (commented). Host overrides such as `CPQ_LOCAL_DATA_DIR` / `CPQ_SAVED_PROMPTS_PATH` remain process env vars.
 
 Legacy flat `.env` profiles: see [Update from an older version](#update-from-an-older-version).
 

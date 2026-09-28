@@ -597,6 +597,15 @@ def build_docx_from_tables(
         columns = spec.get("columns")
         if columns is not None and not isinstance(columns, list):
             raise ValueError(f"sheets[{index}].columns must be a list of strings")
+        from oracle_cpq_mcp.exporters.response_export import coerce_sheet_records
+
+        try:
+            records = coerce_sheet_records(
+                records,
+                [str(c) for c in columns] if isinstance(columns, list) else None,
+            )
+        except ValueError as exc:
+            raise ValueError(f"sheets[{index}]: {exc}") from exc
         cols = resolve_columns(records, columns)
         _append_sheet_table(
             document,

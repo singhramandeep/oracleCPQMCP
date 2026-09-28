@@ -133,6 +133,15 @@ def build_multi_sheet_workbook(
         columns = spec.get("columns")
         if columns is not None and not isinstance(columns, list):
             raise ValueError(f"sheets[{index}].columns must be a list of strings")
+        from oracle_cpq_mcp.exporters.response_export import coerce_sheet_records
+
+        try:
+            records = coerce_sheet_records(
+                records,
+                [str(c) for c in columns] if isinstance(columns, list) else None,
+            )
+        except ValueError as exc:
+            raise ValueError(f"sheets[{index}]: {exc}") from exc
         if first:
             sheet = workbook.active
             assert sheet is not None

@@ -37,7 +37,7 @@ environments:
         password: super-secret-password
 """
     (config / "acme.yaml").write_text(yaml_text, encoding="utf-8")
-    (config / ".profile.yaml.example").write_text(
+    (config / "example.yaml").write_text(
         "version: 1\ncustomer_name: Example\n", encoding="utf-8"
     )
     (logs / "acme-dev.log").write_text("========== 2026-01-01 ==========\n", encoding="utf-8")

@@ -3,7 +3,7 @@
 Changelog for the **Oracle CPQ MCP** server. Format inspired by [Keep a Changelog](https://keepachangelog.com/).  
 Package version today: **`0.3.0`** (see [`pyproject.toml`](../pyproject.toml)).
 
-Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md) · [QUICKSTART.md](QUICKSTART.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
+Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md) · [SETUP.md](SETUP.md) · [QUICKSTART.md](QUICKSTART.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
 
 ## How to refresh
 
@@ -36,11 +36,12 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 - Prompt Studio **0.3.2**: **API logs** view — parse `logs/{profile}-{env}.log`, status/latency charts, filters, copy curl/blocks/JSON, download raw.
 - Prompt Studio **0.4.0**: prompt ratings (1–10) + comments; per-source cache/api/mixed run telemetry via `record_prompt_use`; read-only **Profiles & Paths** (redacted YAML + workspace path map); import/export preserves feedback/telemetry without double-counting runs.
 - Unified customer profile: prefer one gitignored `.config/<id>.yaml` (secrets + catalog); legacy `.env` / `.catalog.yaml` still load when no full YAML exists.
-- Removed committed `.config/.catalog.yaml.example` (use `.profile.yaml.example` only; legacy sidecars still load for `.env` upgrades).
+- Removed committed `.config/.catalog.yaml.example` (use `example.yaml` only; legacy sidecars still load for `.env` upgrades).
 - Installable maintainer CLI: `oracle-cpq` (`migrate-yaml`, `migrate-catalog`, `lint-schemas`, `generate-tool-catalog`); `scripts/*.py` are thin wrappers.
 - Profile defaults: `local_data_policy=prefer`, `post_response_export=always_excel` (aliases `true`/`yes`/`on` accepted); example includes a commented setup prompt to sync `product_families` from live CPQ.
-- Slim profile config / unified YAML migrate docs: FAQ “How do I migrate from a legacy `.env` to `.yaml`?”; QUICKSTART §3.1b; SETUP Configure section prefers `.profile.yaml.example`.
+- Slim profile config / unified YAML migrate docs: FAQ “How do I migrate from a legacy `.env` to `.yaml`?”; QUICKSTART §3.1b; SETUP prefers `.config/example.yaml` (renamed from `.profile.yaml.example`).
 - Agents call `ensure_prompt_studio` after YES-gate CPQ work (auto-start local UI on port 8765 when down).
+- Docs: `SETUP.md` is the 8-step quick guide; `QUICKSTART.md` is the full setup guide.
 
 ### Added
 
@@ -50,7 +51,7 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 - Prompt Studio profile stamp/filter (`SavedPrompt.profile`, `GET /api/profiles`, toolbar select); restart scripts `scripts/restart-prompt-studio.*`.
 - MCP tools `list_product_hierarchy_table` and `list_commerce_processes_table` (flat variable-name tables).
 - MCP tool `ensure_prompt_studio` — probe/auto-start local Prompt Studio after YES-gate site/cache turns (catalog **122** tools; see `docs/TOOL_CATALOG.md`).
-- [`mcp/oracle_cpq_mcp/core/profile_yaml.py`](../mcp/oracle_cpq_mcp/core/profile_yaml.py) full-document loader; [`scripts/migrate_profile_yaml.py`](../scripts/migrate_profile_yaml.py); [`.config/.profile.yaml.example`](../.config/.profile.yaml.example).
+- [`mcp/oracle_cpq_mcp/core/profile_yaml.py`](../mcp/oracle_cpq_mcp/core/profile_yaml.py) full-document loader; [`scripts/migrate_profile_yaml.py`](../scripts/migrate_profile_yaml.py); [`.config/example.yaml`](../.config/example.yaml).
 - `PyYAML` dependency and [`mcp/oracle_cpq_mcp/core/catalog.py`](../mcp/oracle_cpq_mcp/core/catalog.py) loader (`load_catalog`, flat `PRODUCT_FAMILY_*` parser).
 - [`scripts/migrate_profile_catalog.py`](../scripts/migrate_profile_catalog.py) (deprecated sidecar helper; prefer `migrate_profile_yaml.py` / `oracle-cpq migrate-yaml`).
 - Product family / line / model aliases injected into MCP server instructions.
@@ -170,7 +171,8 @@ Offline unit/contract tests cover the catalog. Against **live** CPQ, still **unt
 | MCP quality | JSON Schema output contracts, envelopes/annotations/progress, schema integrity |
 | Cross-platform MCP | Antigravity / Cursor / VS Code examples; `.cmd` + `.sh` launchers |
 | Catalog growth | 67 → 87 → **100** tools |
-| Quickstart | First-time setup (clone, profile, smoke test, IDE MCP) |
+| Quick setup (`SETUP.md`) | 8-step first-time path |
+| Full setup guide (`QUICKSTART.md`) | Detailed install, MCP connect, samples |
 
 ### Git commits (through 0.2.0 cut)
 

@@ -125,7 +125,7 @@ def resolve_profile_path(customer_id: str) -> Path:
         return env_path
     raise FileNotFoundError(
         f"Customer profile not found: {yaml_path} (or {env_path}). "
-        f"Copy .config/.profile.yaml.example to .config/{customer_id}.yaml "
+        f"Copy .config/example.yaml to .config/{customer_id}.yaml "
         f"or use a legacy .config/{customer_id}.env"
     )
 

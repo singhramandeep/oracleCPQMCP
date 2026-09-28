@@ -2,7 +2,7 @@
 
 Common questions for installing, connecting, securing, and using this MCP server with an AI agent (Antigravity, Cursor, VS Code, and similar).
 
-**Start here for setup:** [QUICKSTART.md](QUICKSTART.md) · **Features & guardrails:** [FEATURES.md](FEATURES.md) · **Tool tables:** [TOOL_CATALOG.md](TOOL_CATALOG.md) · **Security:** [SECURITY.md](../SECURITY.md)
+**Start here for setup:** [SETUP.md](SETUP.md) (quick) · [QUICKSTART.md](QUICKSTART.md) (full) · **Features & guardrails:** [FEATURES.md](FEATURES.md) · **Tool tables:** [TOOL_CATALOG.md](TOOL_CATALOG.md) · **Security:** [SECURITY.md](../SECURITY.md)
 
 ---
 
@@ -37,7 +37,7 @@ Users, groups, data tables, BML, commerce metadata and transactions (including s
 
 ### Which IDE should I use?
 
-**[Google Antigravity](https://antigravity.google/)** is the recommended client (setup partially tested). Cursor and VS Code configs are included but still need more end-to-end testing on this project. See [QUICKSTART.md](QUICKSTART.md).
+**[Google Antigravity](https://antigravity.google/)** is the recommended client (setup partially tested). Cursor and VS Code configs are included but still need more end-to-end testing on this project. See [SETUP.md](SETUP.md) (quick) or [QUICKSTART.md](QUICKSTART.md) (full).
 
 ### Does this replace the CPQ UI or Admin?
 
@@ -60,7 +60,7 @@ No. This is a project-specific MCP server for Oracle CPQ REST APIs. Licensing is
 | Network | CPQ site reachable from your machine (VPN if required) |
 | Git | Optional but recommended |
 
-Full walkthrough: [QUICKSTART.md](QUICKSTART.md).
+Full walkthrough: [SETUP.md](SETUP.md) (quick) · [QUICKSTART.md](QUICKSTART.md) (full).
 
 ### How do I install the package?
 
@@ -88,7 +88,7 @@ For IDE use, the MCP host launches it via `scripts/mcp-server.cmd` (Windows) or 
 
 | Topic | Windows | macOS / Linux |
 |-------|---------|----------------|
-| Copy profile template | `copy .config\.profile.yaml.example .config\mycompany.yaml` | `cp .config/.profile.yaml.example .config/mycompany.yaml` |
+| Copy profile template | `copy .config\example.yaml .config\mycompany.yaml` | `cp .config/example.yaml .config/mycompany.yaml` |
 | MCP launcher | `scripts/mcp-server.cmd` | `scripts/mcp-server.sh` (+ `chmod +x`) |
 | Path style in Antigravity | Absolute Windows paths (`C:\\Users\\...`) | Absolute POSIX paths |
 
@@ -98,7 +98,7 @@ For IDE use, the MCP host launches it via `scripts/mcp-server.cmd` (Windows) or 
 
 ### Where do credentials live?
 
-**Preferred:** one gitignored file `.config/<customer_id>.yaml` (secrets, flags, commerce processes, data tables, metrics, and product families). Start from [`.config/.profile.yaml.example`](../.config/.profile.yaml.example) or migrate:
+**Preferred:** one gitignored file `.config/<customer_id>.yaml` (secrets, flags, commerce processes, data tables, metrics, and product families). Start from [`.config/example.yaml`](../.config/example.yaml) or migrate:
 
 ```bash
 python scripts/migrate_profile_yaml.py mycompany
@@ -186,7 +186,7 @@ Use the migrate script so secrets, flags, commerce processes, data tables, metri
 
 #### Related
 
-- Template for new profiles: [`.config/.profile.yaml.example`](../.config/.profile.yaml.example)
+- Template for new profiles: [`.config/example.yaml`](../.config/example.yaml)
 - Script: [`scripts/migrate_profile_yaml.py`](../scripts/migrate_profile_yaml.py)
 - Deprecated catalog-only migrate: `scripts/migrate_profile_catalog.py` (prefer the full YAML migrate above)
 
@@ -400,7 +400,7 @@ Credentials and other sensitive fields are stripped/sanitized so they are not ec
 
 ### What should never be committed?
 
-- `.config/*.yaml` / `.config/*.env` / `.config/archive/` (except `.profile.yaml.example` and `.config/template/`)
+- `.config/*.yaml` / `.config/*.env` / `.config/archive/` (except `example.yaml` and `.config/template/`)
 - `.agents/mcp_config.json`, `.cursor/mcp.json`, `.vscode/mcp.json` (local)
 - `.prompts/saved_prompts.json`, `.config/prompt_studio.json`
 - `data/`, `exports/`
@@ -758,7 +758,7 @@ apps/prompt_studio/    # local Prompt Studio UI
 
 ### Can I use this from ChatGPT / cloud agents today?
 
-Local **stdio** MCP works with desktop IDEs. Cloud clients that need HTTPS / Streamable HTTP are a later phase — see notes in [SETUP.md](SETUP.md).
+Local **stdio** MCP works with desktop IDEs. Cloud clients that need HTTPS / Streamable HTTP are a later phase.
 
 ### Is there a public support channel?
 
@@ -770,7 +770,8 @@ Treat this repository’s maintainers / internal process as the support path unl
 
 | Document | Use when |
 |----------|----------|
-| [QUICKSTART.md](QUICKSTART.md) | First-time install and IDE connect |
+| [SETUP.md](SETUP.md) | Quick 8-step first-time setup |
+| [QUICKSTART.md](QUICKSTART.md) | Full setup guide (multi-OS, dual MCP, samples) |
 | [FEATURES.md](FEATURES.md) | Product capabilities + HITL security |
 | [TOOL_CATALOG.md](TOOL_CATALOG.md) | Exact tool parameters |
 | [COMMON_PROMPTS.md](COMMON_PROMPTS.md) | Sample agent prompts |

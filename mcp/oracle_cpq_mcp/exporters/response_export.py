@@ -54,6 +54,46 @@ def count_sheet_rows(sheets: list[dict[str, Any]]) -> int:
     return total
 
 
+def coerce_sheet_records(
+    rows: list[Any],
+    columns: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Normalize sheet rows to dict records.
+
+    Accepts the MCP/export convention of either:
+    - list of dicts (already keyed by column), or
+    - list of lists/tuples aligned with *columns*.
+
+    Word and Excel writers only read dict rows; list-of-list payloads used to
+    produce empty cells / ``(row N: empty)`` placeholders.
+    """
+    if not isinstance(rows, list):
+        raise ValueError("rows must be a list")
+    col_names: list[str] | None = None
+    if columns is not None:
+        col_names = [str(c) for c in columns]
+
+    records: list[dict[str, Any]] = []
+    for index, row in enumerate(rows):
+        if isinstance(row, dict):
+            records.append(row)
+            continue
+        if isinstance(row, (list, tuple)):
+            if col_names is None:
+                keys = [f"col_{i + 1}" for i in range(len(row))]
+            else:
+                keys = col_names
+            record: dict[str, Any] = {}
+            for col_index, key in enumerate(keys):
+                record[key] = row[col_index] if col_index < len(row) else None
+            records.append(record)
+            continue
+        raise ValueError(
+            f"rows[{index}] must be an object or a list/tuple of cell values"
+        )
+    return records
+
+
 def validate_sheets_payload(sheets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Normalize and enforce sheet/row caps for export tools."""
     if not sheets:
@@ -81,9 +121,13 @@ def validate_sheets_payload(sheets: list[dict[str, Any]]) -> list[dict[str, Any]
         if columns is not None:
             if not isinstance(columns, list) or not all(isinstance(c, str) for c in columns):
                 raise ValueError(f"sheets[{index}].columns must be a list of strings")
+        try:
+            records = coerce_sheet_records(rows, columns if isinstance(columns, list) else None)
+        except ValueError as exc:
+            raise ValueError(f"sheets[{index}]: {exc}") from exc
         out: dict[str, Any] = {
             "name": name[:31] or f"Sheet{index + 1}",
-            "rows": rows,
+            "rows": records,
         }
         if columns is not None:
             out["columns"] = columns
