@@ -49,14 +49,14 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 - Cross-IDE agent policy in `AGENTS.md` + MCP `DOCUMENT_TEMPLATES` (Mermaid expected for analytical Word without user ask).
 - Prompt Studio profile stamp/filter (`SavedPrompt.profile`, `GET /api/profiles`, toolbar select); restart scripts `scripts/restart-prompt-studio.*`.
 - MCP tools `list_product_hierarchy_table` and `list_commerce_processes_table` (flat variable-name tables).
-- MCP tool `ensure_prompt_studio` — probe/auto-start local Prompt Studio after YES-gate site/cache turns (catalog **106** tools).
+- MCP tool `ensure_prompt_studio` — probe/auto-start local Prompt Studio after YES-gate site/cache turns (catalog **122** tools; see `docs/TOOL_CATALOG.md`).
 - [`mcp/oracle_cpq_mcp/core/profile_yaml.py`](../mcp/oracle_cpq_mcp/core/profile_yaml.py) full-document loader; [`scripts/migrate_profile_yaml.py`](../scripts/migrate_profile_yaml.py); [`.config/.profile.yaml.example`](../.config/.profile.yaml.example).
 - `PyYAML` dependency and [`mcp/oracle_cpq_mcp/core/catalog.py`](../mcp/oracle_cpq_mcp/core/catalog.py) loader (`load_catalog`, flat `PRODUCT_FAMILY_*` parser).
 - [`scripts/migrate_profile_catalog.py`](../scripts/migrate_profile_catalog.py) (deprecated sidecar helper; prefer `migrate_profile_yaml.py` / `oracle-cpq migrate-yaml`).
 - Product family / line / model aliases injected into MCP server instructions.
 - Prompt Studio ratings/comments APIs (`PATCH /api/prompts/{id}/rating`, comment CRUD) and per-source stats on prompt summaries.
 - Read-only `GET /api/config/profiles`, `GET /api/config/profiles/{id}`, `GET /api/workspace/paths` (redacted YAML; never `.env`).
-- `record_prompt_use` **1.1.0** optional `duration_ms` + `source=cache|api|mixed` (averages never blended).
+- `record_prompt_use` **1.1.0** optional `duration_ms` + `source=cache|api|mixed` (averages never blended). Optional `profile` / `environment` may be stripped by some MCP hosts — duration/source are sufficient.
 
 ### Changed
 

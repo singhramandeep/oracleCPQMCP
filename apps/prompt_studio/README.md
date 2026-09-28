@@ -103,7 +103,7 @@ Studio and MCP share the same `.prompts/saved_prompts.json` (override with `CPQ_
 
 1. Hover the status line — confirm the **absolute path** matches where MCP writes.
 2. Check **library last write** — if it never changes, the agent did not call `save_refined_prompt` (set `AUTO_SAVE_REFINED_PROMPT=true` on the active profile and reload MCP).
-3. Similar tasks **dedupe** by content hash — you may see one updated row instead of a new card.
+3. Similar tasks **dedupe** by content hash **and profile** — you may see one updated row instead of a new card (same content under a different profile is a separate row).
 4. Toggle **Show disabled** if a prompt was soft-disabled.
 5. Click **Refresh** or use the **Reload** banner when the file changes on disk.
 6. Use the **Profile** filter if you only want prompts stamped for one customer profile (leave **All profiles** to see everything; **Unscoped** shows rows with no profile).
@@ -121,4 +121,5 @@ Studio and MCP share the same `.prompts/saved_prompts.json` (override with `CPQ_
 ## Out of scope
 
 - Multi-user auth, cloud sync, calling Oracle CPQ from the studio
+- Creating, editing, or “fixing” profile `username` / `password` (or raw `.env`) — Profiles & Paths is redacted read-only only
 - Replacing Cursor MCP saved-prompt tools

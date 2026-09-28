@@ -33,7 +33,7 @@ It is an **MCP (Model Context Protocol) server** that exposes Oracle CPQ REST AP
 
 ### What CPQ areas are covered?
 
-Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync, `ensure_prompt_studio`). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (106 tools). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
+Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync, `ensure_prompt_studio`). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (**122** tools). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Which IDE should I use?
 
@@ -376,7 +376,7 @@ Reload / restart MCP servers (or the IDE). Tool catalogs and descriptions are lo
 
 When `DEBUG_MODE=true` (default if omitted; override with host `CPQ_DEBUG_MODE`), every CPQ HTTP call through `CPQClient` appends a timestamped block to **`logs/{profile}-{environment}.log`** (for example `logs/focalpoint-dev.log`). Each block includes a redacted `curl` (password as `***`) and a per-parameter list. Response bodies are not written. Override the directory with `CPQ_DEBUG_LOG_DIR`. The `logs/` folder is gitignored — treat files as sensitive (usernames and business query strings). Reload MCP after changing the flag. This is separate from `CPQ_VERBOSE` (console/stderr curl traces).
 
-Browse, filter, and copy these logs in **Prompt Studio → API logs** (status/latency charts, curl / block / JSON copy, download raw). Restart Studio after upgrading so version **0.3.2+** is loaded.
+Browse, filter, and copy these logs in **Prompt Studio → API logs** (status/latency charts, curl / block / JSON copy, download raw). Restart Studio after upgrading so app version **0.4.0+** is loaded (API logs shipped in **0.3.2**).
 
 ### How do safe writes work when enabled?
 
@@ -414,7 +414,7 @@ See [.gitignore](../.gitignore) and [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md)
 
 ### How many tools are there?
 
-**106** MCP tools (regenerate the catalog after tool changes with `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
+**122** MCP tools (regenerate the catalog after tool changes with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
 
 ### How do I find the right tool?
 
@@ -622,7 +622,7 @@ Safe cleanup:
 
 ### What is Prompt Studio?
 
-A **local** FastAPI UI to browse/search/favorite saved prompts, fill placeholders, and (from **0.3.2**) browse **API logs** under `logs/`. It does **not** call Oracle CPQ.
+A **local** FastAPI UI (app **0.4.0+**) to browse/search/favorite saved prompts, fill placeholders, browse **API logs** under `logs/`, rate/comment on prompts, view per-source **run telemetry** (cache|api|mixed), and inspect **Profiles & Paths** (redacted profile YAML + workspace paths). It does **not** call Oracle CPQ and never edits credentials.
 
 After YES-gate site/cache CPQ work, agents call MCP tool **`ensure_prompt_studio`**, which probes `http://127.0.0.1:8765/api/health` and **auto-starts** Studio in the background if needed (then cites the URL). You can still start it manually:
 
@@ -633,7 +633,25 @@ After YES-gate site/cache CPQ work, agents call MCP tool **`ensure_prompt_studio
 
 Open [http://127.0.0.1:8765](http://127.0.0.1:8765). Details: [FEATURES.md — Prompt Studio](FEATURES.md#prompt-studio-enable-and-run) and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
 
-**New / Import / Export:** use toolbar **New**, **Import** (JSON + import name/tag + select rows), **Export all** / **Export selected**. The header shows the library file path. See the in-app **Help** view for start/restart commands.
+**New / Import / Export:** use toolbar **New**, **Import** (JSON + import name/tag + select rows; preserves ratings/comments/telemetry without bumping run counts), **Export all** / **Export selected**. The header shows the library file path. See the in-app **Help** view for start/restart commands.
+
+### How do I rate or comment on a saved prompt?
+
+Open a prompt (**Run** / **Edit**). In the **Feedback** section choose a rating **1–10** (or clear it) and add/edit/delete comments. Ratings and comments are stored in `.prompts/saved_prompts.json` and round-trip through Import/Export.
+
+### What do Cached / API / Mixed run averages mean?
+
+After an agent finishes a saved-prompt task, MCP **`record_prompt_use`** can record `duration_ms` with `source=cache|api|mixed`:
+
+- **cache** — site data came from local `data/` only  
+- **api** — live CPQ tools only  
+- **mixed** — both  
+
+Each source keeps its own count, last duration, and average. Studio never blends them into one number. Some MCP hosts reject optional `profile` / `environment` on this tool; `duration_ms` + `source` are enough.
+
+### Can Prompt Studio show my profile YAML?
+
+Yes — open **Profiles & Paths**. Studio shows **redacted**, read-only `.config/<profile>.yaml` (secrets like passwords become `[REDACTED]`). It never opens raw `.env`, templates, or arbitrary repo YAML. Use the path cards to copy library, logs, local cache, and exports locations.
 
 ### How do I restart Prompt Studio?
 

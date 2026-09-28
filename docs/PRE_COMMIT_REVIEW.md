@@ -17,14 +17,15 @@ Confirm these stay **untracked / ignored**:
 
 ## Should commit (typical for this wave)
 
-- [ ] `apps/prompt_studio/` (+ `apps/__init__.py`)
+- [ ] `apps/prompt_studio/` (+ `apps/__init__.py`), including `log_viewer.py` and `profile_config_viewer.py`
+- [ ] `mcp/oracle_cpq_mcp/cli/` (`oracle-cpq` maintainer entrypoints)
 - [ ] `mcp/oracle_cpq_mcp/prompts/`, `tools/local_data.py`, `tools/saved_prompts.py`, `core/local_data.py`
 - [ ] Registry / validation / `tool_manifest.json` / schema integrity updates
-- [ ] `scripts/generate_tool_catalog.py`, `docs/TOOL_CATALOG.md`
-- [ ] `docs/FEATURES.md`, `docs/RELEASE_NOTES.md`, `docs/QUICKSTART.md`, `README.md`
-- [ ] Tests: `tests/test_prompt_studio.py`, `test_local_data.py`, `test_saved_prompts.py`, …
-- [ ] `pyproject.toml` optional extra `prompt-studio`; hatch wheel fix (no duplicate `oracle_cpq_mcp`)
-- [ ] `.gitignore` entries for studio sidecar + saved prompts
+- [ ] `scripts/generate_tool_catalog.py` (thin wrapper), `docs/TOOL_CATALOG.md`
+- [ ] `docs/FEATURES.md`, `docs/FAQ.md`, `docs/RELEASE_NOTES.md`, `docs/QUICKSTART.md`, `README.md`
+- [ ] Tests: `tests/test_prompt_studio.py`, `test_prompt_studio_logs.py`, `test_prompt_studio_profile_config.py`, `test_prompt_run_telemetry.py`, `test_local_data.py`, `test_saved_prompts.py`, …
+- [ ] `pyproject.toml` optional extra `prompt-studio` + `oracle-cpq` script entry
+- [ ] `.gitignore` entries for studio sidecar + saved prompts + `tmp/`
 - [ ] `.cursor/rules/`, `.cursor/commands/`, `.cursor/skills/` if intentional for the team
 - [ ] `command-center-DESIGN.md` if you want design tokens in-repo
 
@@ -36,14 +37,14 @@ Confirm these stay **untracked / ignored**:
 .\.venv\Scripts\python.exe -m pytest -q -m "not live_eval"
 ```
 
-- [ ] Catalog tool count matches README / FEATURES (currently **106**)
+- [ ] Catalog tool count matches README / FEATURES / FAQ (currently **122**; see `docs/TOOL_CATALOG.md`)
 - [ ] `tool_manifest.json` regenerated/updated with new tools (schema integrity)
 - [ ] No failing unit tests; launcher example tests if you changed MCP JSON examples
 
 ## Product / ops checks
 
-- [ ] Reload MCP after pull so new tools (`*_local`, saved prompts, `ensure_prompt_studio`) appear
-- [ ] Prompt Studio: agents may auto-start via `ensure_prompt_studio`, or `pip install '.[prompt-studio]'` then `python -m apps.prompt_studio`
+- [ ] Reload MCP after pull so new tools (`*_local`, saved prompts, `ensure_prompt_studio`, `record_prompt_use` 1.1.0) appear
+- [ ] Prompt Studio: agents may auto-start via `ensure_prompt_studio`, or `pip install '.[prompt-studio]'` then `python -m apps.prompt_studio` (hard-refresh for **0.4.0+** UI)
 - [ ] Writes still default `dry_run=true`; `READ_ONLY=true` in example profile
 - [ ] Document live **untested** domains honestly (tasks, configuration, some BML/datatable writes)
 

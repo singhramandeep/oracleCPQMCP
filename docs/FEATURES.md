@@ -6,7 +6,7 @@ Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related l
 
 ## Detailed features
 
-### MCP tool catalog (106 tools)
+### MCP tool catalog (122 tools)
 
 | Domain | What it covers |
 |--------|----------------|
@@ -186,6 +186,8 @@ One command:
 1. In Cursor/Antigravity, complete a CPQ task so a refined prompt is offered/saved (`offer_save_refined_prompt` / `save_refined_prompt` / `AUTO_SAVE_REFINED_PROMPT=true`). Agents may also call `ensure_prompt_studio` so the UI is already up.
 2. In Prompt Studio click **Refresh** to reload `.prompts/saved_prompts.json` (hard-refresh once after Studio upgrades so `?v=` cache-bust picks up new JS/CSS).
 3. Browse **Cards** or **List**; filter by **Profile**, tags, or favorites; **Run** fills `{{placeholders}}` and shows **expected response format** (Text / JSON / Excel).
+4. In the Run modal, set a **1–10 rating**, leave **comments**, and review **Cached / API / Mixed** run telemetry (averages stay separate). Agents should call `record_prompt_use` with `duration_ms` + `source=cache|api|mixed` after a completed saved-prompt run (some hosts strip optional `profile` / `environment` args — pass duration/source only if rejected).
+5. Open **API logs** for DEBUG_MODE traces, or **Profiles & Paths** for redacted profile YAML and copyable workspace paths (never raw `.env` or credentials).
 
 ### Env overrides
 
@@ -194,6 +196,9 @@ One command:
 | `CPQ_SAVED_PROMPTS_PATH` | Alternate `saved_prompts.json` |
 | `CPQ_PROMPT_STUDIO_PATH` | Alternate `prompt_studio.json` sidecar |
 | `CPQ_PROMPT_STUDIO_PORT` | Port for Studio / `ensure_prompt_studio` health probe (default **8765**) |
+| `CPQ_DEBUG_LOG_DIR` | Alternate directory for DEBUG_MODE `*.log` files (default `<repo>/logs`) |
+| `CPQ_CONFIG_DIR` | Alternate `.config` directory (Studio pins to `<repo>/.config` when unset) |
+| `CPQ_LOCAL_DATA_DIR` | Alternate `data/` root shown in Profiles & Paths |
 
 ---
 

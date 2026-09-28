@@ -1,6 +1,6 @@
-# Oracle CPQ MCP Server
+﻿# Oracle CPQ MCP Server
 
-MCP server for **Oracle CPQ** — **106 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
+MCP server for **Oracle CPQ** — **122 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
 
 **Current package version:** **`0.3.0`** — see [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md). Contributor version bumps: [Update the package version](#update-the-package-version).
 
@@ -189,7 +189,7 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 | [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, migrate legacy `.env` → YAML if needed, reload MCP |
 | [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, Antigravity vs Cursor rules |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
-| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (106 tools; regenerate with `python scripts/generate_tool_catalog.py`) |
+| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (122 tools; regenerate with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`) |
 | [docs/LIVE_SMOKE_MATRIX.md](docs/LIVE_SMOKE_MATRIX.md) | Live vs untested honesty matrix for agents |
 | [docs/PRE_COMMIT_REVIEW.md](docs/PRE_COMMIT_REVIEW.md) | Pre-commit secrets / catalog / test checklist |
 | [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
@@ -206,7 +206,7 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 
 Full product write-up (including **security / human-in-the-loop**): **[`docs/FEATURES.md`](docs/FEATURES.md)**. What’s new in **0.3.0**: [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
 
-- **106 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
+- **122 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
 - **Read-only by default** — `READ_ONLY=true`; writes use dry-run + `confirmation_token`
 - **DEBUG_MODE logging** — redacted CPQ request traces in `logs/{profile}-{environment}.log`
 - **Async BML** — `start_bml_site_export` + `get_local_job`; local search via `search_local_bml` / `cpq://local`
@@ -232,7 +232,7 @@ See [`docs/LIVE_SMOKE_MATRIX.md`](docs/LIVE_SMOKE_MATRIX.md). Offline unit/contr
 
 ## MCP tools (summary)
 
-**106 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
+**122 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
 
 Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_token`. Blocked when `READ_ONLY=true`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME`. Envelopes include **`profile`** + **`environment`**.
 
@@ -374,7 +374,7 @@ Do **not** put CPQ passwords, profile YAML files, or `data/` / `logs/` in the re
 
 ### Prompt Studio (local)
 
-Browse/search/favorites/suites and fill `{{placeholders}}` against `.prompts/saved_prompts.json`:
+Browse/search/favorites/suites and fill `{{placeholders}}` against `.prompts/saved_prompts.json`. App **0.4.0+** also supports **API logs**, prompt **ratings/comments**, per-source **run telemetry** (cache|api|mixed), and read-only **Profiles & Paths** (redacted YAML — never `.env`):
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install '.[prompt-studio]'
@@ -397,6 +397,7 @@ Browse/search/favorites/suites and fill `{{placeholders}}` against `.prompts/sav
 ```
 AGENTS.md             # Portable agent entry (all IDEs) — points at MCP instructions
 mcp/oracle_cpq_mcp/   # MCP server package
+  cli/                # oracle-cpq maintainer CLI (migrate-yaml, lint-schemas, catalog)
   core/               # Config, CPQClient, errors, preflight
   exporters/          # Excel/Word builders + branded_documents templates
   prompts/            # build_server_instructions (SSOT for agent policy)
@@ -406,7 +407,7 @@ mcp/oracle_cpq_mcp/   # MCP server package
 apps/prompt_studio/   # Local Prompt Studio (FastAPI + static UI)
 .config/              # Customer profiles (*.yaml gitignored; archive/ for legacy .env)
   template/           # Word / Excel / PPT branding templates (committed)
-scripts/              # mcp-server.cmd / mcp-server.sh launchers
+scripts/              # mcp-server.cmd / mcp-server.sh launchers (+ thin CLI wrappers)
 .agents/              # Antigravity MCP example (local mcp_config.json not committed)
 .cursor/              # Cursor MCP examples + rules mirrors (local mcp.json gitignored)
 .github/              # CI + copilot-instructions.md pointer

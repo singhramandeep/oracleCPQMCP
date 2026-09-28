@@ -1,4 +1,4 @@
-# Quickstart — Download, Configure, and Connect
+﻿# Quickstart — Download, Configure, and Connect
 
 Step-by-step guide to clone the Oracle CPQ MCP server, add your CPQ credentials, verify connectivity, and connect an IDE.
 
@@ -580,7 +580,7 @@ Set `REFINED_PROMPT=false` to disable the footer.
 
 ### Prompt Studio (local UI for saved prompts)
 
-Browse, favorite, suite, and fill `{{placeholders}}` from `.prompts/saved_prompts.json` without calling CPQ. After YES-gate site/cache work, the agent calls **`ensure_prompt_studio`** (auto-starts if down and cites the URL). Manual start:
+Browse, favorite, suite, and fill `{{placeholders}}` from `.prompts/saved_prompts.json` without calling CPQ. App **0.4.0+** also includes **API logs**, **ratings/comments**, per-source **run telemetry**, and **Profiles & Paths** (redacted YAML). After YES-gate site/cache work, the agent calls **`ensure_prompt_studio`** (auto-starts if down and cites the URL). Manual start:
 
 1. Install optional deps (project venv):
 
@@ -597,6 +597,8 @@ Browse, favorite, suite, and fill `{{placeholders}}` from `.prompts/saved_prompt
 3. Open [http://127.0.0.1:8765](http://127.0.0.1:8765) (localhost only; no auth in v1).
 
 4. After the agent saves a refined prompt in Cursor, click **Refresh** in Prompt Studio.
+
+5. Optional: open a prompt to set a **1–10 rating** / comments; use **API logs** or **Profiles & Paths** from the sidebar.
 
 #### Restart Prompt Studio (one command)
 
