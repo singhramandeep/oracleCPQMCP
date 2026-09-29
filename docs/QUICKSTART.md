@@ -79,7 +79,8 @@ This folder is your **project root** — all commands in later steps run from he
 oracleCPQMCP/                  ← project root (open this folder in your IDE)
 ├── pyproject.toml             ← Python project file (confirms you are in the right folder)
 ├── .config/                   ← CPQ credentials (YOU create *.yaml here)
-│   └── example.yaml           ← Unified profile template (safe to commit)
+│   ├── example.yaml           ← Unified profile template (cpq / Basic Auth)
+│   └── example_fusion.yaml    ← Fusion profile template (OAuth + /cpq/rest)
 ├── .cursor/
 │   ├── mcp.json.example       ← Copy → mcp.json (Windows)
 │   └── mcp.json.unix.example  ← Copy → mcp.json (macOS/Linux)
@@ -219,12 +220,13 @@ Credentials live in **one YAML file per customer**, never in MCP JSON.
 | Windows PowerShell / CMD | `copy .config\example.yaml .config\mycompany.yaml` |
 | macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml`   |
 
+**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) instead (`mode: fusion` + `oauth_*`). Same MCP tools; REST uses Bearer + `/cpq/rest/{version}`.
 
 Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.yaml` becomes `CPQ_CUSTOMER_PROFILE`.
 
 ### 3.2 Edit `.config/mycompany.yaml`
 
-Open the file in the IDE editor and set at minimum `environments.dev` (url + credentials), `default_environment`, and optional commerce/table defaults. Every setting is documented with comments in [`.config/example.yaml`](../.config/example.yaml).
+Open the file in the IDE editor and set at minimum `environments.dev` (url + credentials **or** oauth fields), `default_environment`, and optional commerce/table defaults. Every setting is documented with comments in [`.config/example.yaml`](../.config/example.yaml) / [`.config/example_fusion.yaml`](../.config/example_fusion.yaml).
 
 Example YAML fragment:
 

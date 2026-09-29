@@ -2,7 +2,7 @@
 
 Common questions for installing, connecting, securing, and using this MCP server with an AI agent (Antigravity, Cursor, VS Code, and similar).
 
-**Start here for setup:** [SETUP.md](SETUP.md) (quick) · [QUICKSTART.md](QUICKSTART.md) (full) · **Features & guardrails:** [FEATURES.md](FEATURES.md) · **Tool tables:** [TOOL_CATALOG.md](TOOL_CATALOG.md) · **Security:** [SECURITY.md](../SECURITY.md)
+**Start here for setup:** [SETUP.md](SETUP.md) (quick) · [QUICKSTART.md](QUICKSTART.md) (full) · **Upgrade existing install:** [UPGRADE.md](UPGRADE.md) · **Features & guardrails:** [FEATURES.md](FEATURES.md) · **Tool tables:** [TOOL_CATALOG.md](TOOL_CATALOG.md) · **Security:** [SECURITY.md](../SECURITY.md)
 
 ---
 
@@ -62,6 +62,10 @@ No. This is a project-specific MCP server for Oracle CPQ REST APIs. Licensing is
 
 Full walkthrough: [SETUP.md](SETUP.md) (quick) · [QUICKSTART.md](QUICKSTART.md) (full).
 
+### How do I upgrade from an older version?
+
+Follow **[UPGRADE.md](UPGRADE.md)** — open the repo root in the IDE terminal, `git pull` (or re-clone and copy local `.config` / `data` / MCP JSON), activate `.venv`, `pip install -e ".[dev]"`, migrate legacy `.env` → YAML if needed, reload the MCP server. Short checklist: [README — Update from an older version](../README.md#update-from-an-older-version).
+
 ### How do I install the package?
 
 From the **repository root** (IDE terminal recommended):
@@ -104,7 +108,7 @@ For IDE use, the MCP host launches it via `scripts/mcp-server.cmd` (Windows) or 
 python scripts/migrate_profile_yaml.py mycompany
 ```
 
-**Legacy (still supported for upgrades):** `.config/<customer_id>.env` for secrets/flags, optionally plus `.config/<customer_id>.catalog.yaml`. Flat `.env` templates/backups may live under the gitignored `.config/archive/` folder. If both `.yaml` and `.env` exist for the same id, **the unified `.yaml` wins**. New setups should use YAML only ([QUICKSTART](QUICKSTART.md)); migration steps: [How do I migrate from a legacy `.env` to `.yaml`?](#how-do-i-migrate-from-a-legacy-env-to-yaml) and [README — Update from an older version](../README.md#update-from-an-older-version).
+**Legacy (still supported for upgrades):** `.config/<customer_id>.env` for secrets/flags, optionally plus `.config/<customer_id>.catalog.yaml`. Flat `.env` templates/backups may live under the gitignored `.config/archive/` folder. If both `.yaml` and `.env` exist for the same id, **the unified `.yaml` wins**. New setups should use YAML only ([QUICKSTART](QUICKSTART.md)); migration steps: [How do I migrate from a legacy `.env` to `.yaml`?](#how-do-i-migrate-from-a-legacy-env-to-yaml). Full upgrade walkthrough: [UPGRADE.md](UPGRADE.md) (short checklist: [README — Update from an older version](../README.md#update-from-an-older-version)).
 
 ### How do I migrate from a legacy `.env` to `.yaml`?
 
@@ -191,6 +195,17 @@ Use the migrate script so secrets, flags, commerce processes, data tables, metri
 - Deprecated catalog-only migrate: `scripts/migrate_profile_catalog.py` (prefer the full YAML migrate above)
 
 **Never** put CPQ passwords in MCP JSON, chat, commits, or screenshots.
+
+### What is Fusion mode (`mode: fusion`)?
+
+Oracle CPQ can be reached in two profile modes (same MCP tools; only auth + URL prefix change):
+
+| Mode | Auth | REST path prefix | Sample |
+|------|------|------------------|--------|
+| `cpq` (default; `standalone` alias) | Basic Auth | `/rest/{rest_api_version}` | [`.config/example.yaml`](../.config/example.yaml) |
+| `fusion` | OAuth client_credentials → Bearer | `/cpq/rest/{rest_api_version}` | [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) |
+
+Copy the fusion sample, set `mode: fusion`, fill per-env `oauth_*` fields, and leave `credentials` commented. Agents must never edit oauth secrets. `CPQClient` applies the prefix automatically — do not call Fusion REST with profile secrets via curl. Optional explicit token: MCP `get_fusion_access_token`. Per-tool paths appear as **CPQ REST URL** and **Fusion REST URL** rows in [`TOOL_CATALOG.md`](TOOL_CATALOG.md).
 
 ### What is `CPQ_CUSTOMER_PROFILE`?
 
@@ -432,7 +447,7 @@ Most tools return a single object:
 { "status": "ok", "tool": "<name>", "data": { }, "pagination": { } }
 ```
 
-Errors use `status: "error"` with `code`, `message`, `hint`. Export/BML tools may return `[envelope, File attachment]`.
+Errors use `status: "error"` with `code`, `message`, `hint`. Some download tools may return `[envelope, File attachment]`. Chat response exports (`export_response_excel` / `export_response_word`) return a **single object envelope** with `path` / `absolute_path` / `file://` URI (no File attachment) so Cursor hosts accept structured output.
 
 ### How does pagination work?
 
@@ -538,18 +553,22 @@ Yes. After a tabular answer, with `POST_RESPONSE_EXPORT=always_excel` (default),
 
 | Tool | Result |
 |------|--------|
-| `export_response_excel` | Multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` + attachment |
+| `export_response_excel` | Multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` (envelope with path/URI) |
 | `export_response_word` | `.docx` in the same folder + local `file://` path (needs `python-docx`); `diagrams` with Mermaid/`image_path` PNG (expected for analytical exports) |
 
 Pass structured `sheets` (not scraped markdown). Install Word support with `pip install python-docx` or `pip install -e ".[docs]"`. Set policy with `set_post_response_export` or env `POST_RESPONSE_EXPORT` / `CPQ_POST_RESPONSE_EXPORT`.
+
+**Open exports in Word or Excel** (or LibreOffice) via the returned `path` / `file://` URI — Cursor’s editor does not render `.docx` body text and can look empty. Export clones also strip the Argano template’s Heading 1 `pageBreakBefore` so the title is not forced onto page 2 (header-only first page). The on-disk `.config/template/` files are never modified.
+
+Word export always writes title/notes/tables **before** Mermaid. Diagrams are best-effort (~8s per diagram, ~12s total, process-tree kill on timeout). If Cursor shows **-32001 / Connection closed** during Word export, reload Oracle CPQ MCP — after this hardening a content-bearing `.docx` should already exist under `data/{profile}/{env}/exports/` even when diagrams are skipped. Retry without `diagrams` or with a pre-rendered `image_path` PNG if Mermaid keeps hanging.
 
 ### Should Word exports include Mermaid?
 
 **Yes for analytical or structured answers** (audits, pass/fail summaries, flows, comparisons, relationship reviews). When calling `export_response_word` (or Word as part of `both`), agents must pass **1–3** items in `diagrams: [{title, mermaid?, image_path?, caption?}]` (max 8) **without waiting for the user to ask**. Prefer `flowchart` / `graph`. Skip diagrams for trivial short lists or pure errors. Embedded diagram images and captions are **center-aligned**.
 
-Structure Word `notes` with newlines, `##` / `###` headings, and `-` / `*` bullets — not one dense paragraph (lightweight markers only; not full Markdown).
+Structure Word `notes` with newlines, `##` / `###` headings, and `-` / `*` bullets — not one dense paragraph (lightweight markers only; not full Markdown). Diagrams are placed after notes and tables.
 
-Mermaid is rasterized **locally** with `mmdc` (`npm i -g @mermaid-js/mermaid-cli`). Do not use public Kroki/mermaid.ink. If `mmdc` is missing, the export still succeeds: Mermaid source is kept as prose and listed in `diagrams_skipped`. Alternatively pass a pre-rendered PNG under `tmp/{profile}/{env}/` via `image_path`.
+Mermaid is rasterized **locally** with `mmdc` (`npm i -g @mermaid-js/mermaid-cli`). Do not use public Kroki/mermaid.ink. If `mmdc` is missing or times out, the export still succeeds with tabular content: Mermaid source is kept as prose and listed in `diagrams_skipped`. Alternatively pass a pre-rendered PNG under `tmp/{profile}/{env}/` via `image_path`.
 
 ### How do I install Mermaid for Word diagrams?
 
@@ -772,6 +791,7 @@ Treat this repository’s maintainers / internal process as the support path unl
 |----------|----------|
 | [SETUP.md](SETUP.md) | Quick 8-step first-time setup |
 | [QUICKSTART.md](QUICKSTART.md) | Full setup guide (multi-OS, dual MCP, samples) |
+| [UPGRADE.md](UPGRADE.md) | Existing users — pull latest, reinstall, reload MCP |
 | [FEATURES.md](FEATURES.md) | Product capabilities + HITL security |
 | [TOOL_CATALOG.md](TOOL_CATALOG.md) | Exact tool parameters |
 | [COMMON_PROMPTS.md](COMMON_PROMPTS.md) | Sample agent prompts |

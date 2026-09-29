@@ -4,7 +4,7 @@ Copy [`tool_scaffold.py.example`](tool_scaffold.py.example) pieces into the real
 
 ## Steps
 
-1. [ ] Add `ToolSpec` to `TOOL_CATALOG` in `mcp/oracle_cpq_mcp/registry/tool_registry.py` via `_spec(...)` with `description`, `title` (or accept name-derived default), `version="1.0.0"` (bump on later changes), and optional `icons` (else domain default)
+1. [ ] Add `ToolSpec` to `TOOL_CATALOG` in `mcp/oracle_cpq_mcp/registry/tool_registry.py` via `_spec(...)` with `description`, `title` (or accept name-derived default), `version="1.0.0"` (bump on later changes), optional `icons` (else domain default), and correct `cx_module` (`cpq` default for CPQ REST; `service` for CX Service REST; `meta` auto when `domain="meta"`)
 2. [ ] Add `_StrictModel` subclass in `mcp/oracle_cpq_mcp/security/validation.py` — every field has `Field(..., description="...")`
 3. [ ] Register the model in `TOOL_INPUT_MODELS`
 4. [ ] Implement handler in `mcp/oracle_cpq_mcp/tools/<domain>.py` (or new domain module)

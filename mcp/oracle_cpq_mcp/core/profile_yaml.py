@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from oracle_cpq_mcp.core.catalog import (
     CatalogCommerceProcess,
@@ -25,6 +25,10 @@ except ImportError:  # pragma: no cover
     yaml = None  # type: ignore[assignment]
 
 EnvironmentName = Literal["dev", "test", "prod"]
+ProfileMode = Literal["cpq", "fusion"]
+
+# Current profile YAML format version (bump when template gains fields).
+PROFILE_YAML_FORMAT_VERSION = 1.02
 
 # Allowlisted env-style keys → YAML field names for in-place updates.
 PROFILE_YAML_WRITABLE_FIELDS: dict[str, str] = {
@@ -50,23 +54,42 @@ class ProfileCredential(BaseModel):
 
 
 class ProfileEnvironment(BaseModel):
-    """URL + credentials for one CPQ environment."""
+    """URL + auth material for one CPQ / Fusion environment."""
 
     url: str
     credentials: list[ProfileCredential] = Field(default_factory=list)
     enabled: bool = True
+    oauth_token_url: str | None = None
+    oauth_client_id: str | None = None
+    oauth_client_secret: str | None = Field(default=None, repr=False)
+    oauth_scope: str | None = None
 
     @field_validator("url")
     @classmethod
     def strip_url(cls, value: str) -> str:
         return value.strip().rstrip("/")
 
+    @field_validator(
+        "oauth_token_url",
+        "oauth_client_id",
+        "oauth_client_secret",
+        "oauth_scope",
+        mode="before",
+    )
+    @classmethod
+    def strip_optional_oauth(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
 
 class CustomerProfileDocument(BaseModel):
     """Complete `.config/<id>.yaml` document (secrets, flags, catalog)."""
 
-    version: int = 1
+    version: float = PROFILE_YAML_FORMAT_VERSION
     customer_name: str | None = None
+    mode: ProfileMode = "cpq"
     default_environment: EnvironmentName = "dev"
     rest_api_version: str = "v18"
     company_login_name: str = "_host"
@@ -84,6 +107,25 @@ class CustomerProfileDocument(BaseModel):
     metrics: dict[str, str] = Field(default_factory=dict)
     product_families: list[CatalogProductFamily] = Field(default_factory=list)
 
+    @field_validator("mode", mode="before")
+    @classmethod
+    def normalize_mode(cls, value: Any) -> str:
+        """Normalize connection mode.
+
+        Missing/blank and ``standalone`` map to ``cpq`` (Basic Auth + ``/rest/{version}``).
+        ``fusion`` keeps Bearer + ``/cpq/rest/{version}``.
+        """
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return "cpq"
+        text = str(value).strip().lower()
+        if text in ("cpq", "standalone"):
+            return "cpq"
+        if text == "fusion":
+            return "fusion"
+        raise ValueError(
+            "mode must be 'cpq', 'standalone' (alias for cpq), or 'fusion'"
+        )
+
     @field_validator("metrics", mode="before")
     @classmethod
     def normalize_metric_keys(cls, value: Any) -> dict[str, str]:
@@ -99,9 +141,46 @@ class CustomerProfileDocument(BaseModel):
                 out[name] = description
         return out
 
+    @model_validator(mode="after")
+    def validate_mode_auth_fields(self) -> CustomerProfileDocument:
+        """Require auth fields on every enabled env based on mode.
+
+        mode=fusion → oauth_* required (credentials may be omitted).
+        mode=cpq → credentials required (oauth_* may be omitted).
+        """
+        for env_name, block in self.environments.items():
+            if not block.enabled:
+                continue
+            if self.mode == "fusion":
+                missing = [
+                    field
+                    for field, val in (
+                        ("oauth_token_url", block.oauth_token_url),
+                        ("oauth_client_id", block.oauth_client_id),
+                        ("oauth_client_secret", block.oauth_client_secret),
+                        ("oauth_scope", block.oauth_scope),
+                    )
+                    if not val
+                ]
+                if missing:
+                    raise ValueError(
+                        f"mode=fusion requires environments.{env_name}."
+                        + ", ".join(missing)
+                        + " (credentials may be omitted)"
+                    )
+            else:
+                if not block.credentials:
+                    raise ValueError(
+                        f"mode=cpq requires environments.{env_name}.credentials "
+                        "(oauth_* fields may be omitted)"
+                    )
+        return self
+
     def as_catalog(self) -> ProfileCatalog:
+        # ProfileCatalog.version is the catalog schema (int), not the profile
+        # YAML format version (float, e.g. 1.02).
         return ProfileCatalog(
-            version=self.version,
+            version=1,
             commerce_processes=self.commerce_processes,
             data_tables=self.data_tables,
             metrics=self.metrics,
@@ -234,7 +313,7 @@ def profile_document_from_flat_env(raw: dict[str, str | None]) -> CustomerProfil
         http_timeout = float(http_raw)
 
     return CustomerProfileDocument(
-        version=1,
+        version=PROFILE_YAML_FORMAT_VERSION,
         customer_name=(raw.get("CUSTOMER_NAME") or "").strip() or None,
         default_environment=default_env,  # type: ignore[arg-type]
         rest_api_version=(raw.get("REST_API_VERSION") or "v18").strip() or "v18",

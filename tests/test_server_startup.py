@@ -32,3 +32,34 @@ def test_server_module_imports_without_schema_error(
     reloaded = importlib.reload(server_module)
     assert reloaded.mcp is not None
     assert reloaded.mcp.version == __version__
+
+
+def test_server_startup_fusion_mode_without_basic_auth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Fusion profiles have no username/password — startup must not access them."""
+    yaml_text = """\
+version: 1.01
+customer_name: Fusion Startup
+mode: fusion
+default_environment: dev
+rest_api_version: v19
+environments:
+  dev:
+    url: https://fusion-dev.example.com
+    oauth_token_url: https://idcs.example.com/oauth2/v1/token
+    oauth_client_id: client-id
+    oauth_client_secret: client-secret
+    oauth_scope: urn:opc:resource:fusion:demo:cpq/
+"""
+    (tmp_path / "fusion.yaml").write_text(yaml_text, encoding="utf-8")
+    monkeypatch.setenv("CPQ_CUSTOMER_PROFILE", "fusion")
+    monkeypatch.setenv("CPQ_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("CPQ_ENVIRONMENT", "dev")
+    monkeypatch.setenv("CPQ_SCHEMA_INTEGRITY", "0")
+
+    import oracle_cpq_mcp.server as server_module
+
+    reloaded = importlib.reload(server_module)
+    assert reloaded._profile.mode == "fusion"
+    assert reloaded._profile.credentials == []

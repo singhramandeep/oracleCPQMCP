@@ -35,6 +35,7 @@ def tool_identity_record(spec: Any, *, include_version: bool) -> dict[str, Any]:
         "title": spec.title,
         "domain": spec.domain,
         "operation": spec.operation,
+        "cx_module": spec.cx_module,
         "description": spec.description,
         "read_only": spec.read_only,
         "destructive": spec.destructive,

@@ -43,6 +43,17 @@ class DocxBuildResult:
     payload: bytes
     diagrams_embedded: int = 0
     diagrams_skipped: list[dict[str, str]] = field(default_factory=list)
+    paragraphs: int = 0
+    tables: int = 0
+    nonempty_text_chars: int = 0
+
+    def content_dict(self) -> dict[str, int]:
+        """Compact content proof for the MCP export envelope."""
+        return {
+            "paragraphs": self.paragraphs,
+            "tables": self.tables,
+            "nonempty_text_chars": self.nonempty_text_chars,
+        }
 
 
 def _content_width_inches(section: Any) -> float:
@@ -371,7 +382,11 @@ def _append_sheet_table(
     )
 
 
-def _resolve_diagram_png(spec: dict[str, Any]) -> tuple[bytes | None, str | None]:
+def _resolve_diagram_png(
+    spec: dict[str, Any],
+    *,
+    mermaid_timeout_seconds: int | None = None,
+) -> tuple[bytes | None, str | None]:
     """Return PNG bytes or a skip reason for one diagram spec."""
     image_path_raw = spec.get("image_path")
     mermaid = spec.get("mermaid")
@@ -401,7 +416,16 @@ def _resolve_diagram_png(spec: dict[str, Any]) -> tuple[bytes | None, str | None
             return None, f"image_path error: {type(exc).__name__}"
 
     if mermaid_text:
-        result = render_mermaid_to_png(mermaid_text)
+        from oracle_cpq_mcp.exporters.mermaid_render import (
+            DEFAULT_MMDC_TIMEOUT_SECONDS,
+        )
+
+        timeout = (
+            DEFAULT_MMDC_TIMEOUT_SECONDS
+            if mermaid_timeout_seconds is None
+            else max(1, int(mermaid_timeout_seconds))
+        )
+        result = render_mermaid_to_png(mermaid_text, timeout_seconds=timeout)
         if result.ok and result.png_bytes is not None:
             return result.png_bytes, None
         return None, result.skipped_reason or "mermaid render failed"
@@ -490,13 +514,22 @@ def _append_diagrams(
     document: Any,
     diagrams: list[dict[str, Any]] | None,
 ) -> tuple[int, list[dict[str, str]]]:
-    """Render diagrams after notes; return (embedded_count, skipped)."""
+    """Render diagrams after tables; return (embedded_count, skipped)."""
     if not diagrams:
         return 0, []
+    import time
+
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    from oracle_cpq_mcp.exporters.mermaid_render import (
+        DEFAULT_MMDC_TIMEOUT_SECONDS,
+        DEFAULT_MMDC_TOTAL_BUDGET_SECONDS,
+        MIN_MMDC_REMAINING_SECONDS,
+    )
 
     embedded = 0
     skipped: list[dict[str, str]] = []
+    budget_deadline = time.monotonic() + DEFAULT_MMDC_TOTAL_BUDGET_SECONDS
     for index, spec in enumerate(diagrams):
         if not isinstance(spec, dict):
             skipped.append(
@@ -510,7 +543,36 @@ def _append_diagrams(
             f"Diagram {index + 1}"
         )
         add_heading_paragraph(document, title, level=2)
-        png_bytes, reason = _resolve_diagram_png(spec)
+        remaining = budget_deadline - time.monotonic()
+        needs_mermaid = bool(str(spec.get("mermaid") or "").strip()) and not (
+            spec.get("image_path") and str(spec.get("image_path")).strip()
+        )
+        if needs_mermaid and remaining < MIN_MMDC_REMAINING_SECONDS:
+            mermaid = spec.get("mermaid")
+            reason = (
+                f"mermaid total budget exhausted "
+                f"({DEFAULT_MMDC_TOTAL_BUDGET_SECONDS}s)"
+            )
+            if mermaid and str(mermaid).strip():
+                add_normal_paragraph(
+                    document,
+                    f"(Diagram not rendered: {reason}. Mermaid source follows.)",
+                )
+                add_normal_paragraph(document, str(mermaid).strip())
+            else:
+                add_normal_paragraph(document, f"(Diagram not rendered: {reason}.)")
+            skipped.append({"title": title, "reason": reason})
+            continue
+        mermaid_timeout = None
+        if needs_mermaid:
+            mermaid_timeout = max(
+                MIN_MMDC_REMAINING_SECONDS,
+                min(DEFAULT_MMDC_TIMEOUT_SECONDS, int(remaining)),
+            )
+        png_bytes, reason = _resolve_diagram_png(
+            spec,
+            mermaid_timeout_seconds=mermaid_timeout,
+        )
         if png_bytes is None:
             mermaid = spec.get("mermaid")
             if mermaid and str(mermaid).strip():
@@ -565,7 +627,8 @@ def build_docx_from_tables(
     ``pip install python-docx`` or ``pip install -e ".[docs]"``).
 
     Wide tables auto-switch to landscape or per-row label/value blocks so columns
-    stay readable. Diagrams are placed after notes and before tables.
+    stay readable. Diagrams are placed **after notes and tables** (best-effort
+    Mermaid; never blocks writing tabular content).
 
     Notes support lightweight markers: ``##`` / ``###`` headings, ``-`` / ``*``
     bullets; other lines are Normal paragraphs.
@@ -580,8 +643,6 @@ def build_docx_from_tables(
 
     add_title_paragraph(document, title.strip() or "Export")
     _append_notes(document, notes)
-
-    diagrams_embedded, diagrams_skipped = _append_diagrams(document, diagrams)
 
     for index, spec in enumerate(sheets):
         if not isinstance(spec, dict):
@@ -614,13 +675,44 @@ def build_docx_from_tables(
             records=records,
         )
 
+    # Diagrams last so title/notes/tables are always assembled before mmdc.
+    diagrams_embedded, diagrams_skipped = _append_diagrams(document, diagrams)
+
+    paragraphs, tables, nonempty_text_chars = _document_content_stats(document)
     buffer = BytesIO()
     document.save(buffer)
     return DocxBuildResult(
         payload=buffer.getvalue(),
         diagrams_embedded=diagrams_embedded,
         diagrams_skipped=diagrams_skipped,
+        paragraphs=paragraphs,
+        tables=tables,
+        nonempty_text_chars=nonempty_text_chars,
     )
+
+
+def _document_content_stats(document: Any) -> tuple[int, int, int]:
+    """Return ``(paragraphs, tables, nonempty_text_chars)`` for envelope proof."""
+    paragraphs = list(getattr(document, "paragraphs", []) or [])
+    tables = list(getattr(document, "tables", []) or [])
+    chars = 0
+    for para in paragraphs:
+        text = (getattr(para, "text", None) or "").strip()
+        chars += len(text)
+    for table in tables:
+        try:
+            rows = table.rows
+        except Exception:
+            continue
+        for row in rows:
+            try:
+                cells = row.cells
+            except Exception:
+                continue
+            for cell in cells:
+                text = (getattr(cell, "text", None) or "").strip()
+                chars += len(text)
+    return len(paragraphs), len(tables), chars
 
 
 def word_template_status_dict() -> dict[str, Any]:

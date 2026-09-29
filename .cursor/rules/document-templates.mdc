@@ -23,10 +23,11 @@ Whenever you create a `.docx`, `.xlsx`, or `.pptx` file in this repo:
 7. Word-only: for analytical or structured exports (audits, pass/fail, flows, comparisons,
    rankings, share breakdowns), `export_response_word` **must** include **1–3** `diagrams`
    (Mermaid via local `mmdc`, or PNG `image_path` under `tmp/{profile}/{env}/`) — expected,
-   not optional; do not wait for the user to ask. Choose Mermaid kind by content:
-   flowchart/graph for flows; pie for shares of a whole; xychart-beta bar/line for numeric
-   comparisons. Pictographs only via optional local PNG `image_path`. Skip only for trivial
-   short lists or pure errors. Diagram images are center-aligned. Structure `notes` with
-   `##` / `###` headings and `-` / `*` bullets — never one dense paragraph. Never write
-   diagram assets into `.config/template/`.
+   not optional; do not wait for the user to ask. Diagrams are placed after notes and tables;
+   title/notes/tables always write first (Mermaid is best-effort with hard timeout). Choose
+   Mermaid kind by content: flowchart/graph for flows; pie for shares of a whole; xychart-beta
+   bar/line for numeric comparisons. Pictographs only via optional local PNG `image_path`.
+   Skip only for trivial short lists or pure errors. Diagram images are center-aligned.
+   Structure `notes` with `##` / `###` headings and `-` / `*` bullets — never one dense
+   paragraph. Never write diagram assets into `.config/template/`.
 8. See [`.config/template/README.md`](.config/template/README.md) for naming and styling notes.

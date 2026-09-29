@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG, DomainFilter, OperationFilter, discover_tools_result
+from oracle_cpq_mcp.registry.tool_registry import (
+    TOOL_CATALOG,
+    CxModuleFilter,
+    DomainFilter,
+    OperationFilter,
+    discover_tools_result,
+)
 from oracle_cpq_mcp.tools._register import register_tool
 
 _DISCOVER_DOC = TOOL_CATALOG["discover_tools"].description
@@ -17,12 +23,14 @@ def register_discovery_tools(mcp: Any) -> None:
         query: str | None = None,
         domain: DomainFilter = "all",
         operation: OperationFilter = "all",
+        cx_module: CxModuleFilter = "all",
         limit: int = 20,
     ) -> dict[str, Any]:
         return discover_tools_result(
             query=query,
             domain=domain,
             operation=operation,
+            cx_module=cx_module,
             limit=max(1, min(limit, 50)),
         )
 

@@ -6,7 +6,7 @@ Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related l
 
 ## Detailed features
 
-### MCP tool catalog (122 tools)
+### MCP tool catalog (123 tools)
 
 | Domain | What it covers |
 |--------|----------------|
@@ -17,7 +17,7 @@ Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related l
 | **Commerce** | Process/line attributes and actions; transactions (read + create/save/submit/version/reconfigure/favorites/history; line add/update/delete/copy/interact/reconfigure); commerce UI settings; saved searches; **`list_commerce_processes_table`** |
 | **Metrics** | Site metrics list with optional time filters and METRICS_* descriptions |
 | **Collab** | Collaborative quote operation queue get/clear |
-| **Admin** | Site certificates list/get; SSO configuration (PEM redacted) |
+| **Admin** | Site certificates list/get; SSO configuration (PEM redacted); **`get_fusion_access_token`** (Fusion/IDCS OAuth when `mode: fusion`) |
 | **Performance** | Performance log list/get/export |
 | **Parts** | Parts search and get |
 | **Tasks** | Get task status; download task file (async export follow-up) |
@@ -29,6 +29,19 @@ Regenerate the formal catalog after tool changes:
 ```bash
 python scripts/generate_tool_catalog.py
 ```
+
+Each tool table in [`TOOL_CATALOG.md`](TOOL_CATALOG.md) lists **CPQ REST URL** (`/rest/{version}…`) and **Fusion REST URL** (`/cpq/rest/{version}…`). `CPQClient` picks one from profile `mode`.
+
+### Profile modes (`cpq` vs `fusion`)
+
+| Mode | Auth | REST prefix | Profile sample |
+|------|------|-------------|----------------|
+| `cpq` (default; `standalone` alias) | Basic Auth | `/rest/{rest_api_version}` | [`.config/example.yaml`](../.config/example.yaml) |
+| `fusion` | OAuth client_credentials → Bearer | `/cpq/rest/{rest_api_version}` | [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) |
+
+- Same MCP tools and `api_path` values for both modes — only prefix + auth change.
+- Fusion requires per-env `oauth_token_url` / `oauth_client_id` / `oauth_client_secret` / `oauth_scope`; username/password unused.
+- Agents never edit oauth secrets (same rule as passwords). Optional explicit token: `get_fusion_access_token`.
 
 ### Diagnostics
 
@@ -66,12 +79,15 @@ python scripts/generate_tool_catalog.py
 
 - After tabular chat answers, agents can offer an export (default) via `offer_export_response`.
 - Policy: `POST_RESPONSE_EXPORT=ask|never|always_excel` (default `always_excel`). Writable via `set_post_response_export` or offer choices `always_excel` / `never`.
-- `export_response_excel` — multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` + MCP File attachment.
+- `export_response_excel` — multi-sheet `.xlsx` under `data/{profile}/{env}/exports/` (success envelope with path/`file://` URI; no MCP File attachment).
 - `export_response_word` — `.docx` under the same folder + local `file://` URI (optional dep: `python-docx`, install with `pip install python-docx` or `pip install -e ".[docs]"`).
+- **Two-phase Word write:** title/notes/tables are written to disk **first**; Mermaid diagrams are best-effort afterward (overwrite on success). If Mermaid times out or Cursor raises -32001, the content file remains.
 - Branding resolution (Word / Excel / PPT): `CPQ_*_TEMPLATE` env path → `.config/template/{Word,Excel,PowerPoint} Template.*` → `data/templates/` (or `CPQ_TEMPLATE_WORK_DIR`). See [`.config/template/README.md`](../.config/template/README.md). Export envelopes include `template.applied` and `template.source` (`env` / `config` / `working`).
+- Word clone sanitizes Argano **Heading 1** `pageBreakBefore` in memory only (template file untouched) so titles are not forced onto page 2.
+- Word success envelopes include `content: {paragraphs, tables, nonempty_text_chars}` so agents can prove the file is not empty.
 - Word table auto-layout: weighted widths, landscape for wide tables (≤7 columns), per-row label/value blocks when a grid would be unreadable (>7 columns or columns cannot meet the minimum width), repeating header row, smaller table font. Diagram width follows the active section.
 - Agent must pass structured `sheets: [{name, columns?, rows}]` — markdown scraping is not supported.
-- **Word diagrams (expected for analytical exports):** `export_response_word` accepts `diagrams: [{title, mermaid?, image_path?, caption?}]` (max 8), placed after notes and before tables. For audits, pass/fail summaries, flows, and comparisons, agents must include **1–3** Mermaid diagrams **without waiting for the user to ask** (skip for trivial lists or pure errors). Prefer flowchart/graph. Mermaid is rasterized **locally** with `mmdc` (`@mermaid-js/mermaid-cli`) when on PATH; otherwise pass a pre-rendered PNG under `tmp/{profile}/{env}/` via `image_path`. Embedded diagram images and captions are **center-aligned**; tall charts are height-capped so they stay on-page. Skipped diagrams keep Mermaid source as prose and are listed in `diagrams_skipped` — the export still succeeds. No public Kroki/mermaid.ink by default.
+- **Word diagrams (expected for analytical exports):** `export_response_word` accepts `diagrams: [{title, mermaid?, image_path?, caption?}]` (max 8), placed after notes and tables. Title/notes/tables are always written first; Mermaid is best-effort (process-tree hard-kill on timeout; ~8s/diagram and ~12s total). For audits, pass/fail summaries, flows, and comparisons, agents must include **1–3** Mermaid diagrams **without waiting for the user to ask** (skip for trivial lists or pure errors). Prefer flowchart/graph. Mermaid is rasterized **locally** with `mmdc` (`@mermaid-js/mermaid-cli`) when on PATH; otherwise pass a pre-rendered PNG under `tmp/{profile}/{env}/` via `image_path`. Embedded diagram images and captions are **center-aligned**; tall charts are height-capped so they stay on-page. Skipped diagrams keep Mermaid source as prose and are listed in `diagrams_skipped` — the export still succeeds with tabular content. No public Kroki/mermaid.ink by default.
 - **Word notes:** optional `notes` supports lightweight structure (`##` / `###` headings, `-` / `*` bullets) — prefer that over one dense paragraph.
 
 ### Prompt Studio (local UI)
@@ -80,8 +96,9 @@ Lightweight FastAPI + static UI (**app 0.4.3+**) to browse/fill saved prompts, i
 
 ### Profiles and environments
 
-- Per-customer `.config/<profile>.yaml` (gitignored); template [`.config/example.yaml`](../.config/example.yaml).
-- Environments: `dev` / `test` / `prod` credential sets; `DEFAULT_ENVIRONMENT`.
+- Per-customer `.config/<profile>.yaml` (gitignored); templates [`.config/example.yaml`](../.config/example.yaml) (cpq) and [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) (fusion).
+- **Mode:** `cpq` / `standalone` (Basic + `/rest/…`) or `fusion` (OAuth Bearer + `/cpq/rest/…`) — see [Profile modes](#profile-modes-cpq-vs-fusion).
+- Environments: `dev` / `test` / `prod` credential or oauth sets; `DEFAULT_ENVIRONMENT`.
 - Host-only: `CPQ_CUSTOMER_PROFILE`, `CPQ_CONFIG_DIR`, `CPQ_CONFIRMATION_SECRET`, `CPQ_ALLOW_PROD`, schema integrity flags.
 - **`DEBUG_MODE`** (default true) — appends timestamped, redacted CPQ request traces (curl + parameters) to `logs/{profile}-{environment}.log`. Override with `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`. Independent of `CPQ_VERBOSE` (stderr).
 - **Knowledge base** — shared [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md) is always injected into MCP server instructions; optional `CUSTOMER_KNOWLEDGE_FILE` (e.g. `focalpoint.md`) loads [`knowledge/{file}`](../knowledge/). Reload MCP after edits.

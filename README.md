@@ -1,6 +1,6 @@
-﻿# Oracle CPQ MCP Server
+# Oracle CPQ MCP Server
 
-MCP server for **Oracle CPQ** — **122 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
+MCP server for **Oracle CPQ** — **123 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Parts, Performance Logs, and more.
 
 **Current package version:** **`0.3.0`** — see [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md). Contributor version bumps: [Update the package version](#update-the-package-version).
 
@@ -10,10 +10,10 @@ MCP server for **Oracle CPQ** — **122 MCP tools** for Users, Groups, Data Tabl
 
 ## Get started
 
-1. **[Quick setup](docs/SETUP.md)** — 8 steps (prerequisites → workspace → venv → pip → Prompt Studio → YAML → connect IDE → test).
+1. **[Quick setup](docs/SETUP.md)** — 8 steps (prerequisites ? workspace ? venv ? pip ? Prompt Studio ? YAML ? connect IDE ? test).
 2. **[Full setup guide](docs/QUICKSTART.md)** — multi-OS shells, dual MCP, deep profile/smoke/Prompt Studio detail, sample prompts.
 
-**Already on an older checkout?** Jump to [Update from an older version](#update-from-an-older-version) — pull latest, reinstall, migrate legacy flat profiles if needed, reload MCP (keep passwords and local MCP JSON).
+**Already on an older checkout?** Full command walkthrough: **[docs/UPGRADE.md](docs/UPGRADE.md)** — or the short checklist [below](#update-from-an-older-version) (pull, reinstall, migrate legacy `.env` if needed, reload MCP; keep passwords and local MCP JSON).
 
 **What's new?** See **[docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)** for changelog history (auto-updated from git; refresh with `python scripts/update_release_notes.py`).
 
@@ -32,6 +32,8 @@ pip install -e ".[dev]"
 | Windows PowerShell / CMD | `copy .config\example.yaml .config\mycompany.yaml` |
 | macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml` |
 
+**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](.config/example_fusion.yaml) instead, set `mode: fusion`, and fill `oauth_*` (username/password unused). `CPQClient` uses Bearer + `/cpq/rest/{version}` for all CPQ REST tools.
+
 Edit `.config/mycompany.yaml` (see comments in the example), then:
 
 ```bash
@@ -42,7 +44,9 @@ python -m oracle_cpq_mcp
 IDE MCP connect (short): [SETUP — Step 7](docs/SETUP.md#step-7--connect-the-ide-mcp). Full Antigravity / Cursor / VS Code samples: [Full setup guide](docs/QUICKSTART.md#step-5--connect-your-ide--llm-client).
 ## Update from an older version
 
-Use this if you already cloned the repo and connected MCP earlier. You do **not** need to recreate credentials or re-copy MCP config from scratch.
+**Detailed step-by-step (Windows + macOS/Linux, ZIP installs, verify, troubleshoot):** **[docs/UPGRADE.md](docs/UPGRADE.md)**.
+
+Use this short checklist if you already cloned the repo and connected MCP earlier. You do **not** need to recreate credentials or re-copy MCP config from scratch.
 
 1. **Pull the latest code** (repo root, your branch / `main` as appropriate):
 
@@ -89,7 +93,7 @@ python scripts/migrate_profile_yaml.py mycompany --force
 
 | YAML key / legacy env key | Typical default | Purpose |
 |---------------------------|-----------------|--------|
-| `debug_mode` / `DEBUG_MODE` | `true` | Redacted API traces → `logs/{profile}-{env}.log` |
+| `debug_mode` / `DEBUG_MODE` | `true` | Redacted API traces ? `logs/{profile}-{env}.log` |
 | `refined_prompt` / `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
 | `auto_save_refined_prompt` / `AUTO_SAVE_REFINED_PROMPT` | `true` in example profile | Auto-save refined prompts |
 | `local_data_policy` / `LOCAL_DATA_POLICY` | `prefer` | Cache vs live CPQ before big lists (`ask` / `prefer` / `never`) |
@@ -142,10 +146,11 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 | [AGENTS.md](AGENTS.md) | **All IDEs** — MCP instructions are SSOT; Cursor rules are mirrors only |
 | [docs/SETUP.md](docs/SETUP.md) | **Quick setup** — 8-step first-time path |
 | [docs/QUICKSTART.md](docs/QUICKSTART.md) | **Full setup guide** — clone, credentials, IDE MCP detail, sample prompts, Prompt Studio |
-| [README — Update from an older version](#update-from-an-older-version) | **Existing users** — `git pull`, reinstall, migrate legacy `.env` → YAML if needed, reload MCP |
+| [docs/UPGRADE.md](docs/UPGRADE.md) | **Existing users** — detailed upgrade commands (`git pull`, venv, pip, migrate, reload MCP) |
+| [README — Update from an older version](#update-from-an-older-version) | Short upgrade checklist (same topic; full guide is UPGRADE.md) |
 | [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, Antigravity vs Cursor rules |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
-| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (122 tools; regenerate with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`) |
+| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (123 tools; regenerate with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`) |
 | [docs/LIVE_SMOKE_MATRIX.md](docs/LIVE_SMOKE_MATRIX.md) | Live vs untested honesty matrix for agents |
 | [docs/PRE_COMMIT_REVIEW.md](docs/PRE_COMMIT_REVIEW.md) | Pre-commit secrets / catalog / test checklist |
 | [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
@@ -161,7 +166,7 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 
 Full product write-up (including **security / human-in-the-loop**): **[`docs/FEATURES.md`](docs/FEATURES.md)**. What’s new in **0.3.0**: [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
 
-- **122 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
+- **123 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
 - **Read-only by default** — `READ_ONLY=true`; writes use dry-run + `confirmation_token`
 - **DEBUG_MODE logging** — redacted CPQ request traces in `logs/{profile}-{environment}.log`
 - **Async BML** — `start_bml_site_export` + `get_local_job`; local search via `search_local_bml` / `cpq://local`
@@ -187,7 +192,7 @@ See [`docs/LIVE_SMOKE_MATRIX.md`](docs/LIVE_SMOKE_MATRIX.md). Offline unit/contr
 
 ## MCP tools (summary)
 
-**122 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
+**123 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `metrics`, `collab`).
 
 Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_token`. Blocked when `READ_ONLY=true`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME`. Envelopes include **`profile`** + **`environment`**.
 
@@ -308,7 +313,7 @@ pytest
 
 ## Update the package version
 
-Use this when cutting a numbered release for GitHub (e.g. `0.2.0` → `0.3.0`). Full narrative lives in [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
+Use this when cutting a numbered release for GitHub (e.g. `0.2.0` ? `0.3.0`). Full narrative lives in [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md).
 
 1. **Bump** `version` in [`pyproject.toml`](pyproject.toml).
 2. **Move** the current `## Unreleased` Highlights / Added / Changed blocks under a new heading:  

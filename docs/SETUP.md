@@ -2,6 +2,8 @@
 
 Eight steps from install to a working MCP connection. For multi-OS shells, dual MCP, field-by-field profiles, and troubleshooting, use the **[Full setup guide](QUICKSTART.md)**.
 
+**Already have an older checkout?** Do not re-run this first-time path — follow **[UPGRADE.md](UPGRADE.md)** (`git pull`, reinstall into the same venv, reload MCP).
+
 ```mermaid
 flowchart TD
   s1[Step1_Prerequisites]
@@ -117,6 +119,17 @@ Copy the template and name it after your customer id:
 | macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml` |
 
 Edit `.config/mycompany.yaml` — set CPQ URL and credentials under `environments.dev` (you own passwords; never commit this file). The filename without `.yaml` is `CPQ_CUSTOMER_PROFILE`.
+
+Top-level `version` is the profile **format** version (currently **1.02**). Bump it when you copy a newer template so you can tell at a glance whether a customer file is up to date.
+
+**One YAML layout** for both modes (see [`.config/example.yaml`](../.config/example.yaml) and [`.config/example_fusion.yaml`](../.config/example_fusion.yaml)):
+
+- Shared top-level flags (`mode`, `read_only`, `local_data_policy`, …) and catalog sections
+- Per environment: `url`, `enabled`, then **either** `credentials` **or** `oauth_*` filled; leave the unused auth block commented or omitted
+  - `mode: cpq` or `mode: standalone` (or omit `mode`) → fill `credentials` (Basic Auth + `/rest/{version}`); missing/`standalone` normalize to standalone/cpq
+  - `mode: fusion` → fill `oauth_token_url` / `oauth_client_id` / `oauth_client_secret` / `oauth_scope` (Bearer + `/cpq/rest/{version}`)
+
+**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml), set `mode: fusion`, and fill oauth fields (username/password unused). Agents must never edit OAuth secrets. All CPQ REST tools go through `CPQClient`, which applies Bearer + `/cpq/rest/{version}` when `mode: fusion` (otherwise Basic + `/rest/{version}`).
 
 Field-by-field tour and `.env` migration → [Full setup guide](QUICKSTART.md#step-3--create-your-cpq-credential-profile) · [FAQ](FAQ.md#how-do-i-migrate-from-a-legacy-env-to-yaml).
 

@@ -227,3 +227,200 @@ environments:
     (config_dir / "baddefault.yaml").write_text(yaml_text, encoding="utf-8")
     with pytest.raises(ValueError, match="environment 'prod' is disabled"):
         load_profile("baddefault")
+
+
+FUSION_YAML = """\
+version: 1
+customer_name: Fusion Corp
+mode: fusion
+default_environment: dev
+rest_api_version: v19
+environments:
+  dev:
+    url: https://fusion-dev.example.com
+    oauth_token_url: https://idcs.example.com/oauth2/v1/token
+    oauth_client_id: fusion-client
+    oauth_client_secret: fusion-secret
+    oauth_scope: urn:opc:resource:fusion:demo:cpq/
+"""
+
+
+def test_missing_mode_defaults_to_cpq(config_dir: Path) -> None:
+    (config_dir / "acme.yaml").write_text(PROFILE_YAML, encoding="utf-8")
+    profile = load_profile("acme")
+    assert profile.mode == "cpq"
+    assert profile.rest_base == "https://yaml-dev.example.com/rest/v18"
+
+
+def test_standalone_mode_alias_defaults_to_cpq(config_dir: Path) -> None:
+    yaml_text = PROFILE_YAML.replace(
+        "customer_name: Yaml Corp\n",
+        "customer_name: Yaml Corp\nmode: standalone\n",
+        1,
+    )
+    (config_dir / "standalone.yaml").write_text(yaml_text, encoding="utf-8")
+    profile = load_profile("standalone")
+    assert profile.mode == "cpq"
+    assert profile.rest_base == "https://yaml-dev.example.com/rest/v18"
+    assert "/cpq/rest/" not in profile.rest_base
+
+
+def test_fusion_mode_loads_oauth_and_rest_base(config_dir: Path) -> None:
+    (config_dir / "fusion.yaml").write_text(FUSION_YAML, encoding="utf-8")
+    profile = load_profile("fusion")
+    assert profile.mode == "fusion"
+    assert profile.oauth_client_id == "fusion-client"
+    assert profile.oauth_client_secret == "fusion-secret"
+    assert profile.oauth_scope == "urn:opc:resource:fusion:demo:cpq/"
+    assert profile.rest_base == "https://fusion-dev.example.com/cpq/rest/v19"
+    assert profile.sanitize_secret == "fusion-secret"
+    assert profile.credentials == []
+
+
+def test_fusion_mode_missing_oauth_rejected(config_dir: Path) -> None:
+    yaml_text = """\
+version: 1
+customer_name: Broken Fusion
+mode: fusion
+default_environment: dev
+rest_api_version: v19
+environments:
+  dev:
+    url: https://fusion-dev.example.com
+"""
+    (config_dir / "broken.yaml").write_text(yaml_text, encoding="utf-8")
+    with pytest.raises(ValueError, match="mode=fusion requires"):
+        load_profile("broken")
+
+
+def test_profile_yaml_format_version_float(config_dir: Path) -> None:
+    from oracle_cpq_mcp.core.profile_yaml import (
+        PROFILE_YAML_FORMAT_VERSION,
+        CustomerProfileDocument,
+        load_profile_document,
+    )
+
+    assert PROFILE_YAML_FORMAT_VERSION == 1.02
+    assert CustomerProfileDocument.model_fields["version"].default == 1.02
+
+    yaml_text = """\
+version: 1.02
+customer_name: Versioned
+mode: cpq
+default_environment: dev
+rest_api_version: v18
+environments:
+  dev:
+    url: https://ver-dev.example.com
+    credentials:
+      - username: u1
+        password: p1
+"""
+    path = config_dir / "versioned.yaml"
+    path.write_text(yaml_text, encoding="utf-8")
+    doc = load_profile_document(path)
+    assert doc.version == 1.02
+    assert doc.mode == "cpq"
+
+    # Older integer / 1.01 versions still load (backward compatible).
+    old = yaml_text.replace("version: 1.02", "version: 1", 1)
+    path.write_text(old, encoding="utf-8")
+    doc_old = load_profile_document(path)
+    assert doc_old.version == 1.0
+
+    mid = yaml_text.replace("version: 1.02", "version: 1.01", 1)
+    path.write_text(mid, encoding="utf-8")
+    assert load_profile_document(path).version == 1.01
+
+
+def test_load_profile_accepts_format_version_float(config_dir: Path) -> None:
+    """Regression: float format version must not break ProfileCatalog (int)."""
+    yaml_text = """\
+version: 1.02
+customer_name: Format Ok
+mode: cpq
+default_environment: dev
+rest_api_version: v18
+environments:
+  dev:
+    url: https://ok-dev.example.com
+    credentials:
+      - username: u1
+        password: p1
+commerce_processes:
+  - var_name: oraclecpqo
+    alias: base
+    enabled: true
+"""
+    (config_dir / "ok.yaml").write_text(yaml_text, encoding="utf-8")
+    profile = load_profile("ok")
+    assert profile.customer_id == "ok"
+    assert profile.mode == "cpq"
+    assert profile.commerce_process_var_names == ["oraclecpqo"]
+
+
+def test_fusion_skips_credentials_cpq_skips_oauth(config_dir: Path) -> None:
+    from oracle_cpq_mcp.core.profile_yaml import load_profile_document
+
+    fusion = """\
+version: 1.02
+customer_name: Fusion Skip Creds
+mode: fusion
+default_environment: dev
+rest_api_version: v19
+environments:
+  dev:
+    url: https://fusion-dev.example.com
+    oauth_token_url: https://idcs.example.com/oauth2/v1/token
+    oauth_client_id: cid
+    oauth_client_secret: csecret
+    oauth_scope: urn:opc:resource:fusion:demo:cpq/
+"""
+    path = config_dir / "fskip.yaml"
+    path.write_text(fusion, encoding="utf-8")
+    doc = load_profile_document(path)
+    assert doc.mode == "fusion"
+    assert doc.environments["dev"].credentials == []
+    profile = load_profile("fskip")
+    assert profile.mode == "fusion"
+    assert profile.credentials == []
+
+    cpq = """\
+version: 1.02
+customer_name: Cpq Skip Oauth
+mode: cpq
+default_environment: dev
+rest_api_version: v18
+environments:
+  dev:
+    url: https://cpq-dev.example.com
+    credentials:
+      - username: u1
+        password: p1
+"""
+    path = config_dir / "cskip.yaml"
+    path.write_text(cpq, encoding="utf-8")
+    doc = load_profile_document(path)
+    assert doc.mode == "cpq"
+    assert doc.environments["dev"].oauth_client_id is None
+    assert load_profile("cskip").mode == "cpq"
+
+
+def test_cpq_enabled_env_missing_credentials_rejected(config_dir: Path) -> None:
+    from oracle_cpq_mcp.core.profile_yaml import load_profile_document
+
+    yaml_text = """\
+version: 1.02
+customer_name: Broken Cpq
+mode: cpq
+default_environment: dev
+rest_api_version: v18
+environments:
+  dev:
+    url: https://cpq-dev.example.com
+    enabled: true
+"""
+    path = config_dir / "broken_cpq.yaml"
+    path.write_text(yaml_text, encoding="utf-8")
+    with pytest.raises(ValueError, match="mode=cpq requires"):
+        load_profile_document(path)

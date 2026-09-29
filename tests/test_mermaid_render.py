@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -44,28 +43,88 @@ def test_render_mermaid_success_mocked(
     fake_mmdc = tmp_path / "mmdc.cmd"
     fake_mmdc.write_text("", encoding="utf-8")
 
-    def fake_run(cmd: list[str], **kwargs: object) -> MagicMock:
-        # mmdc -i in -o out -b white
-        out_path = Path(cmd[cmd.index("-o") + 1])
-        out_path.write_bytes(_MINI_PNG)
-        completed = MagicMock()
-        completed.returncode = 0
-        completed.stderr = ""
-        completed.stdout = ""
-        return completed
+    class FakeProc:
+        def __init__(self) -> None:
+            self.pid = 4242
+            self.returncode = 0
+            self._out_path: Path | None = None
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            assert self._out_path is not None
+            self._out_path.write_bytes(_MINI_PNG)
+            return "", ""
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float | None = None) -> int:
+            return self.returncode
+
+    fake_proc = FakeProc()
+
+    def fake_popen(argv: list[str], **kwargs: object) -> FakeProc:
+        # argv may be [cmd, -i, in, -o, out, ...] or [cmd.exe, /c, cmd, -i, ...]
+        out_path = Path(argv[argv.index("-o") + 1])
+        fake_proc._out_path = out_path
+        return fake_proc
 
     monkeypatch.setattr(
         "oracle_cpq_mcp.exporters.mermaid_render._mmdc_command",
         lambda: str(fake_mmdc),
     )
     monkeypatch.setattr(
-        "oracle_cpq_mcp.exporters.mermaid_render.subprocess.run",
-        fake_run,
+        "oracle_cpq_mcp.exporters.mermaid_render.subprocess.Popen",
+        fake_popen,
     )
     result = render_mermaid_to_png("flowchart LR\n  A --> B")
     assert result.ok is True
     assert result.png_bytes == _MINI_PNG
     assert result.skipped_reason is None
+
+
+def test_render_mermaid_timeout_kills_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import subprocess
+
+    fake_mmdc = tmp_path / "mmdc"
+    fake_mmdc.write_text("", encoding="utf-8")
+    killed: list[int] = []
+
+    class HangingProc:
+        pid = 9991
+        returncode: int | None = None
+        stderr = None
+
+        def communicate(self, timeout: float | None = None) -> tuple[str, str]:
+            raise subprocess.TimeoutExpired(cmd="mmdc", timeout=timeout or 1)
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def wait(self, timeout: float | None = None) -> int:
+            self.returncode = -9
+            return -9
+
+    monkeypatch.setattr(
+        "oracle_cpq_mcp.exporters.mermaid_render._mmdc_command",
+        lambda: str(fake_mmdc),
+    )
+    monkeypatch.setattr(
+        "oracle_cpq_mcp.exporters.mermaid_render.subprocess.Popen",
+        lambda *a, **k: HangingProc(),
+    )
+    monkeypatch.setattr(
+        "oracle_cpq_mcp.exporters.mermaid_render._kill_process_tree",
+        lambda pid: killed.append(pid),
+    )
+    result = render_mermaid_to_png(
+        "flowchart LR\n  A --> B", timeout_seconds=2
+    )
+    assert result.ok is False
+    assert result.skipped_reason is not None
+    assert "timed out" in result.skipped_reason
+    assert killed == [9991]
 
 
 def test_load_png_file_ok(tmp_path: Path) -> None:

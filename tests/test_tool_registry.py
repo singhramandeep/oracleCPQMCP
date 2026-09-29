@@ -38,6 +38,7 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "list_certificates" in TOOL_CATALOG
     assert "get_certificate" in TOOL_CATALOG
     assert "get_sso_configuration" in TOOL_CATALOG
+    assert "get_fusion_access_token" in TOOL_CATALOG
     assert "list_transactions" in TOOL_CATALOG
     assert "generate_proposal" in TOOL_CATALOG
     assert "export_attachment" in TOOL_CATALOG
@@ -48,7 +49,7 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "export_response_excel" in TOOL_CATALOG
     assert "export_response_word" in TOOL_CATALOG
     assert "set_post_response_export" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 122
+    assert len(TOOL_CATALOG) == 123
 
 
 def test_filter_users_read_tools() -> None:
@@ -154,13 +155,15 @@ def test_mcp_tool_kwargs_read_only_hint() -> None:
     assert kwargs["annotations"].openWorldHint is True
     assert kwargs["title"] == "List Users"
     assert kwargs["annotations"].title == "List Users"
-    assert kwargs["version"] == "1.0.0"
+    assert kwargs["version"] == "1.0.1"
     assert kwargs["description"] == spec.description
     assert kwargs["icons"]
     assert kwargs["meta"]["domain"] == "users"
-    assert kwargs["meta"]["version"] == "1.0.0"
+    assert kwargs["meta"]["cx_module"] == "cpq"
+    assert kwargs["meta"]["version"] == "1.0.1"
     assert "users" in kwargs["tags"]
     assert "read" in kwargs["tags"]
+    assert "cpq" in kwargs["tags"]
 
 
 def test_catalog_tools_have_title_version_icons() -> None:
@@ -239,3 +242,30 @@ def test_discover_tools_result_shape() -> None:
     assert "readOnlyHint" in first
     assert "destructiveHint" in first
     assert first["readOnlyHint"] is True
+    assert first["cx_module"] == "cpq"
+
+
+def test_cx_module_defaults_and_filters() -> None:
+    for name, spec in TOOL_CATALOG.items():
+        if spec.cx_module == "meta":
+            assert spec.domain in {"meta", "admin"}, name
+        else:
+            assert spec.cx_module in {"cpq", "service"}, name
+
+    assert len(CPQ_API_TOOLS) == 101
+    assert all(TOOL_CATALOG[n].cx_module == "cpq" for n in CPQ_API_TOOLS)
+
+    cpq_names = {s.name for s in filter_tools(cx_module="cpq")}
+    assert cpq_names == set(CPQ_API_TOOLS)
+
+    meta_specs = filter_tools(cx_module="meta", include_meta=True)
+    assert meta_specs
+    assert all(s.cx_module == "meta" for s in meta_specs)
+    assert "get_fusion_access_token" in {s.name for s in meta_specs}
+
+    payload = discover_tools_result(cx_module="meta", limit=50)
+    assert payload["count"] >= 1
+    assert all(t["cx_module"] == "meta" for t in payload["tools"])
+
+    empty_service = filter_tools(cx_module="service")
+    assert empty_service == []

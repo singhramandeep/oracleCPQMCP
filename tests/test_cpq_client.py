@@ -269,3 +269,107 @@ def test_debug_mode_logs_post_body_keys(
     assert "body.selections =" in text
     assert "body.nested =" in text
     assert profile.password not in text
+
+
+@respx.mock
+@pytest.mark.parametrize(
+    "relative_path",
+    [
+        "/users",
+        "/companies/_host/groups",
+        "/commerceProcesses",
+        "/datatables",
+        "/parts",
+    ],
+)
+def test_fusion_mode_bearer_and_cpq_rest_for_domain_paths(relative_path: str) -> None:
+    token_url = "https://idcs.example.com/oauth2/v1/token"
+    profile = CPQProfile(
+        customer_name="Fusion",
+        customer_id="fusion",
+        environment="dev",
+        base_url="https://fusion-dev.example.com",
+        credentials=[],
+        rest_version="v19",
+        mode="fusion",
+        oauth_token_url=token_url,
+        oauth_client_id="cid",
+        oauth_client_secret="csecret",
+        oauth_scope="urn:opc:resource:fusion:demo:cpq/",
+        read_only=True,
+        debug_mode=False,
+    )
+    client = CPQClient(profile)
+    respx.post(token_url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "access_token": "bearer-tok-multidomain",
+                "token_type": "Bearer",
+                "expires_in": 3600,
+            },
+        )
+    )
+    absolute = f"https://fusion-dev.example.com/cpq/rest/v19{relative_path}"
+    route = respx.get(absolute).mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    result = client.get(relative_path)
+    assert result == {"items": []}
+    assert route.called
+    assert route.calls.last.request.headers["Authorization"] == (
+        "Bearer bearer-tok-multidomain"
+    )
+    assert "/cpq/rest/v19" in str(route.calls.last.request.url)
+
+
+@respx.mock
+def test_fusion_mode_uses_bearer_and_cpq_rest_path() -> None:
+    token_url = "https://idcs.example.com/oauth2/v1/token"
+    profile = CPQProfile(
+        customer_name="Fusion",
+        customer_id="fusion",
+        environment="dev",
+        base_url="https://fusion-dev.example.com",
+        credentials=[],
+        rest_version="v19",
+        mode="fusion",
+        oauth_token_url=token_url,
+        oauth_client_id="cid",
+        oauth_client_secret="csecret",
+        oauth_scope="urn:opc:resource:fusion:demo:cpq/",
+        read_only=True,
+        debug_mode=False,
+    )
+    assert profile.rest_base == "https://fusion-dev.example.com/cpq/rest/v19"
+    client = CPQClient(profile)
+    respx.post(token_url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "access_token": "bearer-tok-12345678",
+                "token_type": "Bearer",
+                "expires_in": 3600,
+            },
+        )
+    )
+    route = respx.get("https://fusion-dev.example.com/cpq/rest/v19/users").mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    result = client.get("/users")
+    assert result == {"items": []}
+    assert route.called
+    auth = route.calls.last.request.headers["Authorization"]
+    assert auth == "Bearer bearer-tok-12345678"
+    # Second call should reuse cached token (no second token POST required to succeed).
+    respx.get("https://fusion-dev.example.com/cpq/rest/v19/groups").mock(
+        return_value=httpx.Response(200, json={"items": []})
+    )
+    client.get("/groups")
+    assert len([c for c in respx.calls if c.request.url == token_url]) == 1
+
+
+def test_format_curl_bearer() -> None:
+    curl = format_curl_command("GET", "https://x.example/cpq/rest/v19/users", bearer=True)
+    assert "Bearer ***" in curl
+    assert "-u" not in curl

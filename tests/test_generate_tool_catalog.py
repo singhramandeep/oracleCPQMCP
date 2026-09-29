@@ -1,44 +1,64 @@
-"""Tests for scripts/generate_tool_catalog.py."""
+"""Tests for oracle_cpq_mcp.cli.generate_tool_catalog."""
 
 from __future__ import annotations
 
-import importlib.util
 from pathlib import Path
 
+from oracle_cpq_mcp.cli import generate_tool_catalog as gen
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = REPO_ROOT / "scripts" / "generate_tool_catalog.py"
+
+def test_format_method_and_urls_rest_and_local() -> None:
+    users = TOOL_CATALOG["list_users"]
+    method, cpq_url, fusion_url = gen.format_method_and_urls(users)
+    assert method == "GET"
+    assert cpq_url == "/rest/{rest_api_version}/users"
+    assert fusion_url == "/cpq/rest/{rest_api_version}/users"
+
+    local = TOOL_CATALOG["discover_tools"]
+    method_l, cpq_l, fusion_l = gen.format_method_and_urls(local)
+    assert method_l == "—"
+    assert cpq_l == "— (local / no CPQ REST)"
+    assert fusion_l == "— (local / no CPQ REST)"
 
 
-def _load_generator():
-    spec = importlib.util.spec_from_file_location("generate_tool_catalog", SCRIPT)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def test_format_method_and_endpoint_compat_shorthand() -> None:
+    users = TOOL_CATALOG["list_users"]
+    method, endpoint = gen.format_method_and_endpoint(users)
+    assert method == "GET"
+    assert endpoint == "/rest|cpq/rest/{rest_api_version}/users"
 
 
-def test_generate_tool_catalog_writes_all_tools(tmp_path: Path) -> None:
-    gen = _load_generator()
+def test_generate_tool_catalog_per_tool_tables(tmp_path: Path) -> None:
     out = tmp_path / "TOOL_CATALOG.md"
     path = gen.write_catalog(out)
     text = path.read_text(encoding="utf-8")
     assert text.strip()
     assert f"**Total tools:** {len(TOOL_CATALOG)}" in text
+    assert "### Read tools" in text
+    assert "### Write tools" in text
+    assert "#### `list_users`" in text
+    assert "| **CX module** |" in text
+    assert "| **CPQ REST URL** |" in text
+    assert "| **Fusion REST URL** |" in text
+    assert "| **Endpoint** |" not in text
+    assert "| **Parameters** |" in text
+    assert "`/rest/{rest_api_version}/users`" in text
+    assert "`/cpq/rest/{rest_api_version}/users`" in text
+    assert "| Tool | Version | Risk | Method | Endpoint |" not in text
+    assert "### Tool reference" not in text
     for name in TOOL_CATALOG:
         assert f"`{name}`" in text
-    # One table header per domain that has tools
     domains = {spec.domain for spec in TOOL_CATALOG.values()}
     for domain in domains:
         assert f"## {domain}" in text
 
 
-def test_generate_tool_catalog_main_default(tmp_path: Path, monkeypatch) -> None:
-    gen = _load_generator()
+def test_generate_tool_catalog_main_default(tmp_path: Path) -> None:
     out = tmp_path / "out.md"
     assert gen.main(["--out", str(out)]) == 0
     assert out.is_file()
     body = out.read_text(encoding="utf-8")
     assert f"**Total tools:** {len(TOOL_CATALOG)}" in body
     assert all(f"`{name}`" in body for name in TOOL_CATALOG)
+    assert "HTTP / API" not in body

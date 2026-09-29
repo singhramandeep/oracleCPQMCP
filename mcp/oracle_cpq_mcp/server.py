@@ -51,19 +51,25 @@ def _load_startup_profile() -> CPQProfile:
     profile = load_profile()
     configure_security(profile, settings)
     logging.getLogger(__name__).info("Oracle CPQ MCP server version %s", __version__)
+    auth_user = (
+        "(oauth)"
+        if profile.mode == "fusion"
+        else (profile.username if profile.credentials else "(none)")
+    )
     logging.getLogger(__name__).info(
-        "Loaded profile %s (%s) env=%s rest=%s credentials=%d active_index=%d "
+        "Loaded profile %s (%s) mode=%s env=%s rest=%s credentials=%d active_index=%d "
         "user=%s read_only=%s refined_prompt=%s auto_save_refined_prompt=%s "
         "local_data_policy=%s post_response_export=%s knowledge_file=%s "
         "commerce_aliases=%d table_aliases=%d catalog_source=%s "
         "profile_file=%s product_family_aliases=%d",
         profile.customer_id,
         profile.customer_name,
+        profile.mode,
         profile.environment,
         profile.rest_version,
         len(profile.credentials),
         profile.credential_index,
-        profile.username,
+        auth_user,
         profile.read_only,
         profile.refined_prompt,
         profile.auto_save_refined_prompt,

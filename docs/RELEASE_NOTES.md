@@ -3,7 +3,7 @@
 Changelog for the **Oracle CPQ MCP** server. Format inspired by [Keep a Changelog](https://keepachangelog.com/).  
 Package version today: **`0.3.0`** (see [`pyproject.toml`](../pyproject.toml)).
 
-Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md) · [SETUP.md](SETUP.md) · [QUICKSTART.md](QUICKSTART.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
+Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md) · [SETUP.md](SETUP.md) · [QUICKSTART.md](QUICKSTART.md) · [UPGRADE.md](UPGRADE.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
 
 ## How to refresh
 
@@ -33,7 +33,10 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Narrative below i
 
 ### Highlights
 
+- **Fusion mode:** profile `mode: fusion` → OAuth Bearer + `/cpq/rest/{version}` for all CPQ REST tools via `CPQClient` (same tools as cpq; sample [`.config/example_fusion.yaml`](../.config/example_fusion.yaml)).
+- **Tool catalog:** each tool lists **CPQ REST URL** and **Fusion REST URL** columns (regenerate with `python scripts/generate_tool_catalog.py`).
 - Branded Word/Excel/PPT exports via `.config/template/` + Mermaid diagrams in analytical Word exports (local `mmdc`, center-aligned, structured `notes`).
+- **Word export hardening:** two-phase write (content to disk before Mermaid); Mermaid process-tree hard-kill (~8s/12s budgets); Heading 1 `pageBreakBefore` stripped on clone; envelope `content` counts.
 - Prompt Studio **0.3.1**: fixed Refresh cache-bust / event binds; **Profile** filter on saved prompts (stamped from active CPQ customer).
 - Prompt Studio **0.3.2**: **API logs** view — parse `logs/{profile}-{env}.log`, status/latency charts, filters, copy curl/blocks/JSON, download raw.
 - Prompt Studio **0.4.0**: prompt ratings (1–10) + comments; per-source cache/api/mixed run telemetry via `record_prompt_use`; read-only **Profiles & Paths** (redacted YAML + workspace path map); import/export preserves feedback/telemetry without double-counting runs.

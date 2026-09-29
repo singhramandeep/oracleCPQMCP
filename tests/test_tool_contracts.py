@@ -315,6 +315,7 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
     "list_certificates": {},
     "get_certificate": {"name": "testCertificate"},
     "get_sso_configuration": {},
+    "get_fusion_access_token": {},
     "list_parts": {"limit": 5, "offset": 0},
     "get_part": {"part_id": "FSM1C"},
     "search_parts": {"body": {"criteria": {"partNumber": "FSM1C"}}},

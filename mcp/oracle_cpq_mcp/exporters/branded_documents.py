@@ -305,6 +305,7 @@ def open_word_document() -> Any:
                 pass
 
     _clear_word_body(document)
+    _sanitize_word_export_styles(document)
     _set_status(
         TemplateStatus(
             kind="word",
@@ -325,6 +326,35 @@ def _clear_word_body(document: Any) -> None:
         if isinstance(tag, str) and tag.endswith("}sectPr"):
             continue
         body.remove(child)
+
+
+def _sanitize_word_export_styles(document: Any) -> None:
+    """Strip export-hostile style flags from the in-memory clone only.
+
+    Argano ``Word Template.docx`` sets ``w:pageBreakBefore`` on Heading 1, which
+    makes the first Heading 1 (or Title fallback) land on page 2 — header logo
+    only on page 1. The on-disk template under ``.config/template/`` is never
+    modified.
+    """
+    try:
+        from docx.oxml.ns import qn  # type: ignore[import-untyped]
+    except ImportError:  # pragma: no cover
+        return
+
+    for style_name in ("Heading 1",):
+        try:
+            style = document.styles[style_name]
+        except KeyError:
+            continue
+        element = getattr(style, "element", None)
+        if element is None:
+            continue
+        p_pr = element.find(qn("w:pPr"))
+        if p_pr is None:
+            continue
+        page_break = p_pr.find(qn("w:pageBreakBefore"))
+        if page_break is not None:
+            p_pr.remove(page_break)
 
 
 def _style_names(document: Any) -> set[str]:

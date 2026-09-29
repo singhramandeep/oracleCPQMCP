@@ -41,6 +41,7 @@ venv/
 # .config/archive/ (legacy .env templates/backups) stays ignored — do not un-ignore.
 .config/*
 !.config/example.yaml
+!.config/example_fusion.yaml
 !.config/template/
 !.config/template/**
 # Global *.xlsx ignore would hide branded templates — re-include them.
@@ -59,6 +60,7 @@ docs/*.md
 !docs/PRE_COMMIT_REVIEW.md
 !docs/FAQ.md
 !docs/LIVE_SMOKE_MATRIX.md
+!docs/UPGRADE.md
 
 # Local Focalpoint/scratch dumps (never commit)
 tmp_*

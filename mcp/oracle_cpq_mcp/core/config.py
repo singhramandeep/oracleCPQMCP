@@ -16,6 +16,7 @@ LocalDataPolicy = Literal["ask", "prefer", "never"]
 PostResponseExportPolicy = Literal["ask", "never", "always_excel"]
 CatalogSource = Literal["none", "env", "catalog_yaml", "profile_yaml"]
 ProfileFileKind = Literal["yaml", "env"]
+ProfileMode = Literal["cpq", "fusion"]
 
 
 class CredentialSet(BaseModel):
@@ -34,8 +35,13 @@ class CPQProfile(BaseModel):
     base_url: str
     rest_version: str
     company_login_name: str = "_host"
-    credentials: list[CredentialSet]
+    mode: ProfileMode = "cpq"
+    credentials: list[CredentialSet] = Field(default_factory=list)
     credential_index: int = 0
+    oauth_token_url: str | None = None
+    oauth_client_id: str | None = None
+    oauth_client_secret: str | None = Field(default=None, repr=False)
+    oauth_scope: str | None = None
     custom_data_table_names: list[str] = Field(default_factory=list)
     commerce_process_var_names: list[str] = Field(default_factory=list)
     customer_knowledge_file: str | None = None
@@ -65,10 +71,20 @@ class CPQProfile(BaseModel):
 
     @property
     def username(self) -> str:
+        if not self.credentials:
+            raise RuntimeError(
+                f"Profile '{self.customer_id}' has no Basic Auth credentials "
+                f"(mode={self.mode})"
+            )
         return self.credentials[self.credential_index].username
 
     @property
     def password(self) -> str:
+        if not self.credentials:
+            raise RuntimeError(
+                f"Profile '{self.customer_id}' has no Basic Auth credentials "
+                f"(mode={self.mode})"
+            )
         return self.credentials[self.credential_index].password
 
     @property
@@ -81,7 +97,18 @@ class CPQProfile(BaseModel):
 
     @property
     def rest_base(self) -> str:
+        if self.mode == "fusion":
+            return f"{self.base_url}/cpq/rest/{self.rest_version}"
         return f"{self.base_url}/rest/{self.rest_version}"
+
+    @property
+    def sanitize_secret(self) -> str | None:
+        """Secret to redact from error messages (password or OAuth client secret)."""
+        if self.mode == "fusion":
+            return self.oauth_client_secret
+        if self.credentials:
+            return self.credentials[self.credential_index].password
+        return None
 
 
 def find_project_root(start: Path | None = None) -> Path:
@@ -475,6 +502,8 @@ def _resolve_credential_index(
     credential_index: int | None,
     credential_count: int,
 ) -> int:
+    if credential_count == 0:
+        return 0
     if credential_index is None:
         env_value = os.environ.get("CPQ_CREDENTIAL_INDEX")
         credential_index = int(env_value) if env_value is not None else 0
@@ -550,17 +579,30 @@ def _load_profile_from_yaml(
             f"(environments.{active_env}.enabled=false in {path}). "
             "Pick another environment or set enabled: true."
         )
-    if not env_block.credentials:
-        raise ValueError(
-            f"Profile '{customer_id}' is missing environments.{active_env}.credentials "
-            f"in {path}"
-        )
 
-    credentials = [
-        CredentialSet(username=item.username, password=item.password)
-        for item in env_block.credentials
-    ]
-    resolved_index = _resolve_credential_index(credential_index, len(credentials))
+    mode = document.mode
+    if mode == "fusion":
+        credentials: list[CredentialSet] = []
+        resolved_index = 0
+        oauth_token_url = env_block.oauth_token_url
+        oauth_client_id = env_block.oauth_client_id
+        oauth_client_secret = env_block.oauth_client_secret
+        oauth_scope = env_block.oauth_scope
+    else:
+        if not env_block.credentials:
+            raise ValueError(
+                f"Profile '{customer_id}' is missing environments.{active_env}.credentials "
+                f"in {path}"
+            )
+        credentials = [
+            CredentialSet(username=item.username, password=item.password)
+            for item in env_block.credentials
+        ]
+        resolved_index = _resolve_credential_index(credential_index, len(credentials))
+        oauth_token_url = None
+        oauth_client_id = None
+        oauth_client_secret = None
+        oauth_scope = None
 
     catalog = document.as_catalog()
     commerce_names, commerce_aliases = commerce_from_catalog(catalog)
@@ -608,8 +650,13 @@ def _load_profile_from_yaml(
         base_url=env_block.url,
         rest_version=document.rest_api_version or "v18",
         company_login_name=document.company_login_name or "_host",
+        mode=mode,
         credentials=credentials,
         credential_index=resolved_index,
+        oauth_token_url=oauth_token_url,
+        oauth_client_id=oauth_client_id,
+        oauth_client_secret=oauth_client_secret,
+        oauth_scope=oauth_scope,
         custom_data_table_names=table_names,
         commerce_process_var_names=commerce_names,
         customer_knowledge_file=document.customer_knowledge_file,
@@ -711,6 +758,7 @@ def _load_profile_from_env(
         base_url=base_url,
         rest_version=raw.get("REST_API_VERSION") or "v18",
         company_login_name=raw.get("COMPANY_LOGIN_NAME") or "_host",
+        mode="cpq",
         credentials=credentials,
         credential_index=resolved_index,
         custom_data_table_names=table_names,

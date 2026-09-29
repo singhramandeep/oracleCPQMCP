@@ -39,7 +39,8 @@ def format_curl_command(
     method: str,
     url: str,
     *,
-    username: str,
+    username: str | None = None,
+    bearer: bool = False,
     json_body: Any = None,
 ) -> str:
     """Build a redacted curl command equivalent to the CPQ REST request."""
@@ -47,13 +48,19 @@ def format_curl_command(
         "curl",
         "-X",
         method.upper(),
-        "-u",
-        f"'{username}:***'",
-        "-H",
-        "'Content-Type: application/json'",
-        "-H",
-        "'Accept: application/json'",
     ]
+    if bearer:
+        parts.extend(["-H", "'Authorization: Bearer ***'"])
+    else:
+        parts.extend(["-u", f"'{username or 'user'}:***'"])
+    parts.extend(
+        [
+            "-H",
+            "'Content-Type: application/json'",
+            "-H",
+            "'Accept: application/json'",
+        ]
+    )
     if json_body is not None:
         serialized = json.dumps(json_body) if not isinstance(json_body, str) else json_body
         parts.extend(["-d", f"'{serialized}'"])
@@ -62,12 +69,16 @@ def format_curl_command(
 
 
 class CPQClient:
-    """Routes all Oracle CPQ REST calls with Basic Auth and safe errors."""
+    """Routes all Oracle CPQ REST calls (Basic Auth or Fusion Bearer) with safe errors."""
+
+    _TOKEN_SKEW_SECONDS = 60.0
 
     def __init__(self, profile: CPQProfile, *, timeout: float = DEFAULT_TIMEOUT) -> None:
         self.profile = profile
         self.timeout = timeout
         self._verbose = os.environ.get("CPQ_VERBOSE", "").lower() in ("1", "true", "yes")
+        self._cached_token: str | None = None
+        self._token_expires_at: float = 0.0
 
     def _build_url(self, path: str, params: dict[str, Any] | None = None) -> str:
         normalized = path if path.startswith("/") else f"/{path}"
@@ -86,12 +97,73 @@ class CPQClient:
         logger.info("Equivalent curl: %s", curl)
 
     def _to_curl(self, method: str, url: str, body: Any = None) -> str:
+        if self.profile.mode == "fusion":
+            return format_curl_command(
+                method, url, bearer=True, json_body=body
+            )
         return format_curl_command(
             method,
             url,
             username=self.profile.username,
             json_body=body,
         )
+
+    def _ensure_fusion_token(self) -> str:
+        now = time.time()
+        if (
+            self._cached_token
+            and self._token_expires_at > now + self._TOKEN_SKEW_SECONDS
+        ):
+            return self._cached_token
+        from oracle_cpq_mcp.security.fusion_oauth import (
+            FusionOAuthError,
+            get_fusion_access_token,
+        )
+
+        if not (
+            self.profile.oauth_token_url
+            and self.profile.oauth_client_id
+            and self.profile.oauth_client_secret
+            and self.profile.oauth_scope
+        ):
+            raise CPQAPIError(
+                "Fusion mode profile is missing OAuth fields "
+                "(oauth_token_url / oauth_client_id / oauth_client_secret / oauth_scope).",
+                code="VALIDATION_ERROR",
+                hint="Set OAuth fields under environments.<env> in the profile YAML.",
+                password=self.profile.sanitize_secret,
+            )
+        try:
+            token = get_fusion_access_token(
+                self.profile.oauth_token_url,
+                self.profile.oauth_client_id,
+                self.profile.oauth_client_secret,
+                self.profile.oauth_scope,
+                timeout_seconds=min(self.timeout, 60.0),
+            )
+        except FusionOAuthError as exc:
+            raise CPQAPIError(
+                f"Failed to obtain Fusion access token: {exc}",
+                code="UNAUTHORIZED",
+                hint="Verify oauth_token_url, client id/secret, and scope on the profile.",
+                password=self.profile.sanitize_secret,
+            ) from exc
+        self._cached_token = token.access_token
+        expires = token.expires_in if token.expires_in and token.expires_in > 0 else 3600
+        self._token_expires_at = now + float(expires)
+        return self._cached_token
+
+    def _httpx_auth_and_headers(
+        self, *, accept: str, content_type: str | None = "application/json"
+    ) -> tuple[tuple[str, str] | None, dict[str, str]]:
+        headers: dict[str, str] = {"Accept": accept}
+        if content_type:
+            headers["Content-Type"] = content_type
+        if self.profile.mode == "fusion":
+            token = self._ensure_fusion_token()
+            headers["Authorization"] = f"Bearer {token}"
+            return None, headers
+        return (self.profile.username, self.profile.password), headers
 
     def _debug_file_log(
         self,
@@ -158,7 +230,7 @@ class CPQClient:
                 path=path,
                 url=url,
                 curl_command=curl_command,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             )
 
         url = self._build_url(path, params)
@@ -167,13 +239,11 @@ class CPQClient:
         started = time.perf_counter()
 
         try:
+            auth, headers = self._httpx_auth_and_headers(accept="application/json")
             with httpx.Client(
-                auth=(self.profile.username, self.profile.password),
+                auth=auth,
                 timeout=self.timeout,
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
             ) as client:
                 response = client.request(method.upper(), url, json=json_body)
         except httpx.RequestError as exc:
@@ -188,7 +258,7 @@ class CPQClient:
                 status="ERROR",
                 duration_ms=duration_ms,
             )
-            message = sanitize_message(str(exc), self.profile.password)
+            message = sanitize_message(str(exc), self.profile.sanitize_secret)
             logger.error(
                 "CPQ request failed — curl: %s — response: (none)",
                 curl_command,
@@ -201,7 +271,7 @@ class CPQClient:
                 path=path,
                 url=url,
                 curl_command=curl_command,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             ) from exc
 
         duration_ms = (time.perf_counter() - started) * 1000.0
@@ -230,7 +300,7 @@ class CPQClient:
             )
             message = sanitize_message(
                 f"CPQ API error {response.status_code} for {method.upper()} {path}",
-                self.profile.password,
+                self.profile.sanitize_secret,
             )
             logger.error(
                 "CPQ request failed — curl: %s — response: %s",
@@ -247,7 +317,7 @@ class CPQClient:
                 url=url,
                 curl_command=curl_command,
                 body=body,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             )
 
         if response.status_code == 204 or not response.content:
@@ -272,12 +342,13 @@ class CPQClient:
         started = time.perf_counter()
 
         try:
+            auth, headers = self._httpx_auth_and_headers(
+                accept=accept, content_type=None
+            )
             with httpx.Client(
-                auth=(self.profile.username, self.profile.password),
+                auth=auth,
                 timeout=self.timeout,
-                headers={
-                    "Accept": accept,
-                },
+                headers=headers,
             ) as client:
                 response = client.get(url)
         except httpx.RequestError as exc:
@@ -292,7 +363,7 @@ class CPQClient:
                 status="ERROR",
                 duration_ms=duration_ms,
             )
-            message = sanitize_message(str(exc), self.profile.password)
+            message = sanitize_message(str(exc), self.profile.sanitize_secret)
             logger.error(
                 "CPQ binary request failed — curl: %s — response: (none)",
                 curl_command,
@@ -305,7 +376,7 @@ class CPQClient:
                 path=path,
                 url=url,
                 curl_command=curl_command,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             ) from exc
 
         duration_ms = (time.perf_counter() - started) * 1000.0
@@ -334,7 +405,7 @@ class CPQClient:
             )
             message = sanitize_message(
                 f"CPQ API error {response.status_code} for GET {path}",
-                self.profile.password,
+                self.profile.sanitize_secret,
             )
             logger.error(
                 "CPQ binary request failed — curl: %s — response: %s",
@@ -351,7 +422,7 @@ class CPQClient:
                 url=url,
                 curl_command=curl_command,
                 body=body,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             )
 
         return response.content
@@ -392,7 +463,7 @@ class CPQClient:
                 path=path,
                 url=url,
                 curl_command=curl_command,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             )
 
         url = self._build_url(path, params)
@@ -401,13 +472,11 @@ class CPQClient:
         started = time.perf_counter()
 
         try:
+            auth, headers = self._httpx_auth_and_headers(accept=accept)
             with httpx.Client(
-                auth=(self.profile.username, self.profile.password),
+                auth=auth,
                 timeout=self.timeout,
-                headers={
-                    "Accept": accept,
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
             ) as client:
                 response = client.post(url, json=json_body)
         except httpx.RequestError as exc:
@@ -423,7 +492,7 @@ class CPQClient:
                 status="ERROR",
                 duration_ms=duration_ms,
             )
-            message = sanitize_message(str(exc), self.profile.password)
+            message = sanitize_message(str(exc), self.profile.sanitize_secret)
             logger.error(
                 "CPQ binary POST failed — curl: %s — response: (none)",
                 curl_command,
@@ -436,7 +505,7 @@ class CPQClient:
                 path=path,
                 url=url,
                 curl_command=curl_command,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             ) from exc
 
         duration_ms = (time.perf_counter() - started) * 1000.0
@@ -466,7 +535,7 @@ class CPQClient:
             )
             message = sanitize_message(
                 f"CPQ API error {response.status_code} for POST {path}",
-                self.profile.password,
+                self.profile.sanitize_secret,
             )
             logger.error(
                 "CPQ binary POST failed — curl: %s — response: %s",
@@ -483,7 +552,7 @@ class CPQClient:
                 url=url,
                 curl_command=curl_command,
                 body=body,
-                password=self.profile.password,
+                password=self.profile.sanitize_secret,
             )
 
         return response.content

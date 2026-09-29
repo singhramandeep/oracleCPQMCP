@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import pytest
 from openpyxl import Workbook, load_workbook
@@ -247,6 +248,90 @@ def test_build_docx_from_template(
     assert "Branded" in texts
     assert "Note line" in texts
     assert len(document.tables) == 1
+
+
+def _ensure_heading1_page_break_before(document: Any) -> None:
+    """Force ``w:pageBreakBefore`` on Heading 1 (matches Argano template)."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    style = document.styles["Heading 1"]
+    element = style.element
+    p_pr = element.find(qn("w:pPr"))
+    if p_pr is None:
+        p_pr = OxmlElement("w:pPr")
+        element.append(p_pr)
+    if p_pr.find(qn("w:pageBreakBefore")) is None:
+        p_pr.append(OxmlElement("w:pageBreakBefore"))
+
+
+def _heading1_has_page_break_before(document: Any) -> bool:
+    from docx.oxml.ns import qn
+
+    style = document.styles["Heading 1"]
+    p_pr = style.element.find(qn("w:pPr"))
+    if p_pr is None:
+        return False
+    return p_pr.find(qn("w:pageBreakBefore")) is not None
+
+
+@pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
+def test_open_word_strips_heading1_page_break_before(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmpl = _config_with_template_dir(tmp_path, monkeypatch)
+    seed = Document()
+    _ensure_heading1_page_break_before(seed)
+    assert _heading1_has_page_break_before(seed) is True
+    seed.save(str(tmpl / "Word Template.docx"))
+
+    document = bd.open_word_document()
+    assert _heading1_has_page_break_before(document) is False
+
+    result = build_docx_from_tables(
+        title="No Blank First Page",
+        sheets=[{"name": "T", "columns": ["a"], "rows": [{"a": "1"}]}],
+        notes="## Section\nBody",
+    )
+    filled = Document(BytesIO(result.payload))
+    assert _heading1_has_page_break_before(filled) is False
+    assert result.nonempty_text_chars > 0
+    assert result.paragraphs >= 1
+    assert result.tables == 1
+    assert result.content_dict()["nonempty_text_chars"] == result.nonempty_text_chars
+
+
+_REPO_WORD_TEMPLATE = (
+    Path(__file__).resolve().parents[1] / ".config" / "template" / "Word Template.docx"
+)
+
+
+@pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
+@pytest.mark.skipif(
+    not _REPO_WORD_TEMPLATE.is_file() or _REPO_WORD_TEMPLATE.stat().st_size < 100,
+    reason="repo Word Template.docx not present",
+)
+def test_open_word_strips_page_break_from_repo_template(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    tmpl = _config_with_template_dir(tmp_path, monkeypatch)
+    shutil.copy(_REPO_WORD_TEMPLATE, tmpl / "Word Template.docx")
+
+    raw = Document(str(_REPO_WORD_TEMPLATE))
+    assert _heading1_has_page_break_before(raw) is True
+
+    document = bd.open_word_document()
+    assert _heading1_has_page_break_before(document) is False
+
+    result = build_docx_from_tables(
+        title="Argano Smoke",
+        sheets=[{"name": "Smoke", "columns": ["k"], "rows": [{"k": "v"}]}],
+    )
+    assert result.nonempty_text_chars > 0
+    filled = Document(BytesIO(result.payload))
+    assert _heading1_has_page_break_before(filled) is False
 
 
 @pytest.mark.skipif(not HAS_PPTX, reason="python-pptx not installed")

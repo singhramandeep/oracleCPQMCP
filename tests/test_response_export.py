@@ -280,9 +280,9 @@ def test_build_docx_embeds_fixture_png(
     assert "Order flow" in texts
     assert "Create order path" in texts
     assert "Before diagrams" in texts
-    # Title/notes/diagram heading before first table heading
-    assert texts.index("Before diagrams") < texts.index("Order flow")
-    assert texts.index("Order flow") < texts.index("Alpha")
+    # Title/notes/tables before diagram heading (diagrams are best-effort last)
+    assert texts.index("Before diagrams") < texts.index("Alpha")
+    assert texts.index("Alpha") < texts.index("Order flow")
     assert len(document.inline_shapes) == 1
     from docx.enum.text import WD_ALIGN_PARAGRAPH
 
@@ -405,12 +405,11 @@ def test_export_response_word_embeds_png(
         notes="Hello",
         diagrams=[{"title": "D1", "image_path": str(png_path)}],
     )
-    assert isinstance(result, list)
-    lead = result[0]
-    assert lead["status"] == "ok"
-    assert lead["data"]["diagrams_embedded"] == 1
-    assert lead["data"]["diagrams_skipped"] == []
-    assert Path(lead["data"]["absolute_path"]).exists()
+    assert isinstance(result, dict)
+    assert result["status"] == "ok"
+    assert result["data"]["diagrams_embedded"] == 1
+    assert result["data"]["diagrams_skipped"] == []
+    assert Path(result["data"]["absolute_path"]).exists()
 
 
 def test_offer_export_response_needs_input(
@@ -428,13 +427,12 @@ def test_export_response_excel_writes_file(
 ) -> None:
     tools = _register(tmp_path, monkeypatch)
     result = tools["export_response_excel"](title="Demo table", sheets=_SHEETS)
-    assert isinstance(result, list)
-    lead = result[0]
-    assert lead["status"] == "ok"
-    path = Path(lead["data"]["absolute_path"])
+    assert isinstance(result, dict)
+    assert result["status"] == "ok"
+    path = Path(result["data"]["absolute_path"])
     assert path.exists()
     assert path.suffix == ".xlsx"
-    assert "exports" in lead["data"]["path"]
+    assert "exports" in result["data"]["path"]
 
 
 @pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
@@ -445,11 +443,67 @@ def test_export_response_word_writes_file(
     result = tools["export_response_word"](
         title="Demo table", sheets=_SHEETS, notes="Hello"
     )
-    assert isinstance(result, list)
-    lead = result[0]
-    assert lead["status"] == "ok"
-    assert lead["data"]["uri"].startswith("file:")
-    assert Path(lead["data"]["absolute_path"]).exists()
+    assert isinstance(result, dict)
+    assert result["status"] == "ok"
+    assert result["data"]["uri"].startswith("file:")
+    assert Path(result["data"]["absolute_path"]).exists()
+    content = result["data"]["content"]
+    assert content["paragraphs"] >= 1
+    assert content["tables"] >= 1
+    assert content["nonempty_text_chars"] > 0
+    assert "Content:" in result["data"]["message"]
+
+
+@pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
+def test_export_response_word_keeps_file_when_mermaid_hangs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Phase-1 content file must exist even if Mermaid never returns a PNG."""
+    from docx import Document
+
+    from oracle_cpq_mcp.exporters.mermaid_render import MermaidRenderResult
+
+    def slow_fail(_source: str, *, timeout_seconds: int = 8) -> MermaidRenderResult:
+        # Simulate a skipped/timed-out render without sleeping (unit-test fast).
+        return MermaidRenderResult(
+            None, f"mmdc timed out after {timeout_seconds}s"
+        )
+
+    monkeypatch.setattr(
+        "oracle_cpq_mcp.exporters.chat_document.render_mermaid_to_png",
+        slow_fail,
+    )
+    # Also patch the module used by _resolve_diagram_png import path
+    monkeypatch.setattr(
+        "oracle_cpq_mcp.exporters.mermaid_render.render_mermaid_to_png",
+        slow_fail,
+    )
+
+    tools = _register(tmp_path, monkeypatch)
+    result = tools["export_response_word"](
+        title="Hang safe",
+        sheets=_SHEETS[:1],
+        notes="Must persist",
+        diagrams=[
+            {
+                "title": "Flow",
+                "mermaid": "flowchart LR\n  A --> B",
+            }
+        ],
+    )
+    assert result["status"] == "ok"
+    path = Path(result["data"]["absolute_path"])
+    assert path.exists()
+    assert path.stat().st_size > 1000
+    assert result["data"]["content"]["nonempty_text_chars"] > 0
+    assert result["data"]["content"]["tables"] >= 1
+    assert result["data"]["diagrams_embedded"] == 0
+    assert result["data"]["diagrams_skipped"]
+    document = Document(BytesIO(path.read_bytes()))
+    texts = [p.text for p in document.paragraphs]
+    assert "Hang safe" in texts
+    assert "Must persist" in texts
+    assert "Alpha" in texts
 
 
 def test_set_post_response_export_writes_env(

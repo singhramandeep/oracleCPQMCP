@@ -1,9 +1,12 @@
-"""Unit tests for site admin MCP tools (certificates, SSO)."""
+"""Unit tests for site admin MCP tools (certificates, SSO, Fusion OAuth)."""
 
 from __future__ import annotations
 
 from typing import Any
 from unittest.mock import MagicMock
+
+import httpx
+import respx
 
 from oracle_cpq_mcp.core.config import CPQProfile, CredentialSet
 from oracle_cpq_mcp.security.context import reset_session_tool_calls
@@ -126,3 +129,63 @@ def test_get_sso_configuration_calls_api() -> None:
     assert result["status"] == "ok"
     client.get.assert_called_with("/ssoConfiguration")
     assert result["data"].get("idProviderCertificate") == "[REDACTED]"
+
+
+def test_get_fusion_access_token_requires_fusion_mode() -> None:
+    profile = _profile()
+    _configure(profile)
+    client = MagicMock()
+    client.profile = profile
+    mcp = _FakeMcp()
+    register_admin_tools(mcp, client)  # type: ignore[arg-type]
+    result = mcp.tools["get_fusion_access_token"]()
+    assert result["status"] == "error"
+    assert "fusion" in result["message"].lower()
+
+
+@respx.mock
+def test_get_fusion_access_token_masked_and_full() -> None:
+    from oracle_cpq_mcp.core.config import CPQProfile
+
+    token_url = "https://idcs.example.com/oauth2/v1/token"
+    profile = CPQProfile(
+        customer_name="Fusion",
+        customer_id="fusion",
+        environment="dev",
+        base_url="https://fusion-dev.example.com",
+        credentials=[],
+        rest_version="v19",
+        mode="fusion",
+        oauth_token_url=token_url,
+        oauth_client_id="cid",
+        oauth_client_secret="csecret",
+        oauth_scope="urn:opc:resource:fusion:demo:cpq/",
+        read_only=True,
+    )
+    _configure(profile)
+    client = MagicMock()
+    client.profile = profile
+    respx.post(token_url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "access_token": "abcdefghijklmnop",
+                "token_type": "Bearer",
+                "expires_in": 1200,
+                "scope": profile.oauth_scope,
+            },
+        )
+    )
+    mcp = _FakeMcp()
+    register_admin_tools(mcp, client)  # type: ignore[arg-type]
+    masked = mcp.tools["get_fusion_access_token"]()
+    assert masked["status"] == "ok"
+    data = masked["data"]
+    assert data["token_type"] == "Bearer"
+    assert data["expires_in"] == 1200
+    assert data["access_token_masked"] == "abcd…mnop"
+    assert "oauth_access_token" not in data
+
+    full = mcp.tools["get_fusion_access_token"](include_token=True)
+    assert full["status"] == "ok"
+    assert full["data"]["oauth_access_token"] == "abcdefghijklmnop"

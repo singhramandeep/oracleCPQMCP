@@ -72,6 +72,7 @@ _FILTER_FIELD_NAMES = frozenset(
         "tool_domain",
         "domain",
         "operation",
+        "cx_module",
     }
 )
 
@@ -149,6 +150,128 @@ def _truncate(text: str, limit: int = 220) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
+def format_method_and_urls(spec: ToolSpec) -> tuple[str, str, str]:
+    """Return (Method, CPQ REST URL, Fusion REST URL) cells for the catalog table.
+
+    Paths are relative to the site base URL. Standalone/cpq uses
+    ``/rest/{rest_api_version}``; fusion uses ``/cpq/rest/{rest_api_version}``.
+    ``CPQClient`` selects one prefix from profile ``mode``.
+    """
+    local = "— (local / no CPQ REST)"
+    if not spec.http_method and not spec.api_path:
+        return "—", local, local
+    method = spec.http_method or "—"
+    if spec.api_path:
+        path = spec.api_path if spec.api_path.startswith("/") else f"/{spec.api_path}"
+        cpq_url = f"/rest/{{rest_api_version}}{path}"
+        fusion_url = f"/cpq/rest/{{rest_api_version}}{path}"
+    else:
+        cpq_url = "—"
+        fusion_url = "—"
+    return method, cpq_url, fusion_url
+
+
+def format_method_and_endpoint(spec: ToolSpec) -> tuple[str, str]:
+    """Compatibility wrapper: Method + combined Endpoint shorthand (tests/legacy)."""
+    method, cpq_url, fusion_url = format_method_and_urls(spec)
+    if cpq_url.startswith("/") and fusion_url.startswith("/"):
+        # Strip leading /rest/ and /cpq/rest/ to rebuild historical shorthand.
+        path = cpq_url.removeprefix("/rest/{rest_api_version}")
+        endpoint = f"/rest|cpq/rest/{{rest_api_version}}{path}"
+        return method, endpoint
+    return method, cpq_url
+
+
+def _split_field_list(cell: str) -> list[str]:
+    """Turn a '; '-joined parameters/filters cell into items."""
+    if cell in ("-", "—", "_(no input model)_"):
+        return []
+    return [part.strip() for part in cell.split(";") if part.strip()]
+
+
+def _fields_cell(cell: str) -> str:
+    """Join parameter/filter fields with <br> for a single table cell."""
+    items = _split_field_list(cell)
+    if not items:
+        return "—"
+    return "<br>".join(_escape_cell(item) for item in items)
+
+
+def _tool_anchor(name: str) -> str:
+    """GitHub-style heading anchor for #### `name`."""
+    return name.lower().replace("_", "-")
+
+
+def _append_mini_toc(lines: list[str], label: str, specs: list[ToolSpec]) -> None:
+    if not specs:
+        return
+    links = ", ".join(f"[`{s.name}`](#{_tool_anchor(s.name)})" for s in specs)
+    lines.append(f"- **{label}:** {links}")
+
+
+def _url_cell(url: str) -> str:
+    if url.startswith("/"):
+        return f"`{_escape_cell(url)}`"
+    return _escape_cell(url)
+
+
+def _append_tool_property_table(lines: list[str], spec: ToolSpec) -> None:
+    method, cpq_url, fusion_url = format_method_and_urls(spec)
+    method_cell = f"`{_escape_cell(method)}`" if method != "—" else "—"
+    tags = ", ".join(f"`{t}`" for t in sorted(spec.tags)) or "—"
+    params_s, filters_s = format_parameters_and_filters(spec.name)
+    output = format_output(spec.name, operation=spec.operation)
+    rows = [
+        ("Version", f"`{spec.version}`"),
+        ("CX module", f"`{spec.cx_module}`"),
+        ("Op / Risk", f"`{spec.operation}` / `{spec.risk}`"),
+        ("Method", method_cell),
+        ("CPQ REST URL", _url_cell(cpq_url)),
+        ("Fusion REST URL", _url_cell(fusion_url)),
+        ("Tags", _escape_cell(tags)),
+        ("Parameters", _fields_cell(params_s)),
+        ("Filters", _fields_cell(filters_s)),
+        ("Output", _escape_cell(output)),
+        ("Description", _escape_cell(_truncate(spec.description))),
+    ]
+    lines.extend(
+        [
+            f"#### `{spec.name}`",
+            "",
+            "| | |",
+            "|---|---|",
+        ]
+    )
+    for label, value in rows:
+        lines.append(f"| **{label}** | {value} |")
+    lines.append("")
+
+
+def _append_op_section(lines: list[str], heading: str, specs: list[ToolSpec]) -> None:
+    if not specs:
+        return
+    lines.extend([f"### {heading}", ""])
+    for spec in specs:
+        _append_tool_property_table(lines, spec)
+
+
+def _render_domain(lines: list[str], domain: str, specs: list[ToolSpec]) -> None:
+    specs = sorted(specs, key=lambda s: s.name)
+    reads = [s for s in specs if s.operation == "read"]
+    writes = [s for s in specs if s.operation == "write"]
+    other = [s for s in specs if s.operation not in ("read", "write")]
+    lines.extend([f"## {domain}", "", f"_{len(specs)} tool(s)_", ""])
+    _append_mini_toc(lines, "Read", reads)
+    _append_mini_toc(lines, "Write", writes)
+    if other:
+        _append_mini_toc(lines, "Other", other)
+    lines.append("")
+    _append_op_section(lines, "Read tools", reads)
+    _append_op_section(lines, "Write tools", writes)
+    if other:
+        _append_op_section(lines, "Other tools", other)
+
+
 def build_catalog_markdown() -> str:
     """Render the full TOOL_CATALOG.md body."""
     by_domain: dict[str, list[ToolSpec]] = defaultdict(list)
@@ -169,9 +292,20 @@ def build_catalog_markdown() -> str:
         f"**Total tools:** {len(TOOL_CATALOG)}",
         "",
         "This document is the formal per-tool reference for the GitHub repository. "
-        "Each row is one MCP tool function with **Parameters** and **Filters** "
-        "(from Pydantic validation models), output contract, tags, and API metadata "
-        "from `TOOL_CATALOG`.",
+        "Each domain lists **Read tools** then **Write tools**. "
+        "Every tool has one property table (Version, CX module, Op/Risk, Method, "
+        "CPQ REST URL, Fusion REST URL, Tags, Parameters, Filters, Output, Description) "
+        "so API path and inputs stay together.",
+        "",
+        "**CPQ REST URL** and **Fusion REST URL** are paths relative to the site base URL. "
+        "Standalone/cpq (`mode` omitted, `cpq`, or `standalone`): use **CPQ REST URL** "
+        "(`/rest/{rest_api_version}` + API path). "
+        "Fusion (`mode: fusion`): use **Fusion REST URL** "
+        "(`/cpq/rest/{rest_api_version}` + API path). "
+        "`{rest_api_version}` comes from the profile (e.g. `v18` / `v19`). "
+        "Full URL = `{site_base}` + the column path "
+        "(applied automatically by `CPQClient` from profile `mode`). "
+        "Tools that do not call CPQ REST show `— (local / no CPQ REST)` in both columns.",
         "",
         "## Domains",
         "",
@@ -188,45 +322,7 @@ def build_catalog_markdown() -> str:
     ordered_domains.extend(sorted(d for d in by_domain if d not in _DOMAIN_ORDER))
 
     for domain in ordered_domains:
-        specs = sorted(by_domain[domain], key=lambda s: s.name)
-        lines.extend(
-            [
-                f"## {domain}",
-                "",
-                f"_{len(specs)} tool(s)_",
-                "",
-                "| Tool | Version | Op | Risk | Tags | HTTP / API | Parameters | Filters | Output |",
-                "|------|---------|----|------|------|------------|------------|---------|--------|",
-            ]
-        )
-        for spec in specs:
-            tool_cell = f"`{spec.name}`"
-            if spec.title and spec.title.lower().replace(" ", "_") != spec.name:
-                tool_cell = f"`{spec.name}`<br>{_escape_cell(spec.title)}"
-            http_api = "—"
-            if spec.http_method or spec.api_path:
-                method = spec.http_method or ""
-                path = spec.api_path or ""
-                http_api = _escape_cell(f"{method} {path}".strip())
-            tags = ", ".join(f"`{t}`" for t in sorted(spec.tags))
-            params_s, filters_s = format_parameters_and_filters(spec.name)
-            row = (
-                f"| {tool_cell} "
-                f"| `{spec.version}` "
-                f"| `{spec.operation}` "
-                f"| `{spec.risk}` "
-                f"| {_escape_cell(tags)} "
-                f"| {http_api} "
-                f"| {_escape_cell(params_s)} "
-                f"| {_escape_cell(filters_s)} "
-                f"| {_escape_cell(format_output(spec.name, operation=spec.operation))} |"
-            )
-            lines.append(row)
-
-        lines.extend(["", "### Descriptions", ""])
-        for spec in specs:
-            lines.append(f"- **`{spec.name}`** — {_escape_cell(_truncate(spec.description))}")
-        lines.append("")
+        _render_domain(lines, domain, by_domain[domain])
 
     lines.extend(
         [

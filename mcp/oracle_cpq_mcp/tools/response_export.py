@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
-
-from fastmcp.utilities.types import File
 
 from oracle_cpq_mcp.core.config import update_profile_env_key
 from oracle_cpq_mcp.core.cpq_client import CPQClient
@@ -24,6 +23,8 @@ from oracle_cpq_mcp.exporters.response_export import (
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.security.context import get_security_context
 from oracle_cpq_mcp.tools._register import register_tool
+
+logger = logging.getLogger(__name__)
 
 PostResponseExportPolicy = Literal["ask", "never", "always_excel"]
 ExportChoice = Literal["excel", "word", "both", "skip", "always_excel", "never"]
@@ -60,31 +61,71 @@ def _build_export_result(
     notes: str | None,
     kind: Literal["excel", "word"],
     diagrams: list[dict[str, Any]] | None = None,
-) -> list[Any]:
+) -> dict[str, Any]:
+    """Build workbook/docx, write under exports/, return a single MCP object envelope.
+
+    Cursor and similar hosts fail when tools return ``[envelope, File]`` (no
+    structuredContent). Path/URI on disk is the durable deliverable.
+    """
     profile = client.profile
     normalized = validate_sheets_payload(sheets)
     diagrams_embedded = 0
     diagrams_skipped: list[dict[str, str]] = []
+    content: dict[str, int] | None = None
     if kind == "excel":
         payload = build_multi_sheet_workbook(normalized)
         filename = export_filename(title, extension="xlsx")
-        mime_format = "xlsx"
         message_kind = "Excel"
+        path = write_export_bytes(profile, filename, payload)
     else:
-        docx_result = build_docx_from_tables(
+        # Phase 1: title + notes + tables — always on disk before Mermaid.
+        filename = export_filename(title, extension="docx")
+        message_kind = "Word"
+        phase1 = build_docx_from_tables(
             title=title,
             sheets=normalized,
             notes=notes,
-            diagrams=diagrams,
+            diagrams=None,
         )
-        payload = docx_result.payload
-        diagrams_embedded = docx_result.diagrams_embedded
-        diagrams_skipped = list(docx_result.diagrams_skipped)
-        filename = export_filename(title, extension="docx")
-        mime_format = "docx"
-        message_kind = "Word"
+        path = write_export_bytes(profile, filename, phase1.payload)
+        content = phase1.content_dict()
+        payload = phase1.payload
+        # Phase 2: best-effort diagrams; never erase phase-1 content on failure.
+        if diagrams:
+            try:
+                phase2 = build_docx_from_tables(
+                    title=title,
+                    sheets=normalized,
+                    notes=notes,
+                    diagrams=diagrams,
+                )
+                path.write_bytes(phase2.payload)
+                payload = phase2.payload
+                diagrams_embedded = phase2.diagrams_embedded
+                diagrams_skipped = list(phase2.diagrams_skipped)
+                content = phase2.content_dict()
+            except Exception as exc:
+                logger.info(
+                    "Word diagram phase failed; keeping content-only export: %s",
+                    type(exc).__name__,
+                )
+                for index, spec in enumerate(diagrams):
+                    if not isinstance(spec, dict):
+                        title_d = f"diagram[{index}]"
+                    else:
+                        title_d = str(
+                            spec.get("title") or f"Diagram {index + 1}"
+                        ).strip() or f"Diagram {index + 1}"
+                    diagrams_skipped.append(
+                        {
+                            "title": title_d,
+                            "reason": (
+                                f"diagram phase failed: {type(exc).__name__} "
+                                "(content-only file kept)"
+                            ),
+                        }
+                    )
 
-    path = write_export_bytes(profile, filename, payload)
     rel = relative_export_path(profile, filename)
     uri = file_uri(path)
     row_count = count_sheet_rows(normalized)
@@ -109,10 +150,17 @@ def _build_export_result(
             f" Diagrams: {diagrams_embedded} embedded"
             f"{f', {len(diagrams_skipped)} skipped' if diagrams_skipped else ''}."
         )
+    content_note = ""
+    if content is not None:
+        content_note = (
+            f" Content: {content['paragraphs']} paragraph(s), "
+            f"{content['tables']} table(s), "
+            f"{content['nonempty_text_chars']} text char(s)."
+        )
     summary = (
         f"Exported {message_kind} for {title!r} "
         f"({len(normalized)} sheet(s), {row_count} row(s)) to {rel}."
-        f"{template_note}{diagram_note}"
+        f"{template_note}{diagram_note}{content_note}"
     )
     extra: dict[str, Any] = {
         "title": title,
@@ -127,15 +175,14 @@ def _build_export_result(
     if kind == "word":
         extra["diagrams_embedded"] = diagrams_embedded
         extra["diagrams_skipped"] = diagrams_skipped
-    return [
-        build_attachment_lead_envelope(
-            tool_name,
-            message=summary,
-            filename=filename,
-            extra=extra,
-        ),
-        File(data=payload, format=mime_format, name=filename),
-    ]
+        if content is not None:
+            extra["content"] = content
+    return build_attachment_lead_envelope(
+        tool_name,
+        message=summary,
+        filename=filename,
+        extra=extra,
+    )
 
 
 def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
@@ -164,7 +211,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
                     "both, skip, always export Excel without asking, or never ask."
                 ),
                 "choices": [
-                    "excel — write .xlsx under data/{profile}/{env}/exports/ and attach",
+                    "excel — write .xlsx under data/{profile}/{env}/exports/",
                     "word — write .docx under data/.../exports/ and return path + file:// URI",
                     "both — Excel and Word",
                     "skip — do not export this response",
@@ -242,7 +289,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
         title: str,
         sheets: list[dict[str, Any]],
         notes: str | None = None,
-    ) -> list[Any]:
+    ) -> dict[str, Any]:
         return _build_export_result(
             client=client,
             tool_name="export_response_excel",
@@ -260,7 +307,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
         sheets: list[dict[str, Any]],
         notes: str | None = None,
         diagrams: list[dict[str, Any]] | None = None,
-    ) -> list[Any] | dict[str, Any]:
+    ) -> dict[str, Any]:
         try:
             return _build_export_result(
                 client=client,

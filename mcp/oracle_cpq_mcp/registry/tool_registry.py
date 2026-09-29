@@ -27,6 +27,7 @@ DomainName = Literal[
     "meta",
 ]
 OperationName = Literal["read", "write"]
+CxModuleName = Literal["cpq", "service", "meta"]
 DomainFilter = Literal[
     "users",
     "groups",
@@ -43,6 +44,7 @@ DomainFilter = Literal[
     "all",
 ]
 OperationFilter = Literal["read", "write", "all"]
+CxModuleFilter = Literal["cpq", "service", "meta", "all"]
 RiskLevel = Literal[
     "READ_ONLY",
     "LOW_RISK_WRITE",
@@ -72,6 +74,7 @@ class ToolSpec:
     title: str
     version: str
     icons: tuple[IconSpec, ...]
+    cx_module: CxModuleName = "cpq"
     destructive: bool = False
     http_method: str | None = None
     api_path: str | None = None
@@ -120,10 +123,14 @@ def _spec(
     http_method: str | None = None,
     api_path: str | None = None,
     title: str | None = None,
-    version: str = "1.0.0",
+    version: str = "1.0.1",
     icons: tuple[IconSpec, ...] | None = None,
+    cx_module: CxModuleName | None = None,
 ) -> ToolSpec:
-    merged_tags = frozenset({domain, operation, *tags})
+    resolved_module: CxModuleName = (
+        cx_module if cx_module is not None else ("meta" if domain == "meta" else "cpq")
+    )
+    merged_tags = frozenset({domain, operation, resolved_module, *tags})
     resolved_title = (title or human_tool_title(name)).strip()
     resolved_icons = resolve_tool_icons(domain, icons)
     return ToolSpec(
@@ -136,6 +143,7 @@ def _spec(
         title=resolved_title,
         version=version,
         icons=resolved_icons,
+        cx_module=resolved_module,
         destructive=destructive,
         http_method=http_method,
         api_path=api_path,
@@ -170,7 +178,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/users",
-        version="1.2.0",
+        version="1.2.1",
     ),
     "get_user": _spec(
         "get_user",
@@ -392,7 +400,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/adminMeta",
-        version="1.4.0",
+        version="1.4.1",
     ),
     "start_bml_site_export": _spec(
         "start_bml_site_export",
@@ -410,7 +418,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/adminMeta",
-        version="1.0.0",
+        version="1.0.1",
     ),
     "search_local_bml": _spec(
         "search_local_bml",
@@ -424,7 +432,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"bml", "search", "local_data"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "get_bml_function": _spec(
         "get_bml_function",
@@ -1391,6 +1399,23 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         http_method="GET",
         api_path="/ssoConfiguration",
     ),
+    "get_fusion_access_token": _spec(
+        "get_fusion_access_token",
+        domain="admin",
+        operation="read",
+        description=(
+            "Obtain an IDCS/Fusion OAuth access token for the active profile when "
+            "mode=fusion (client_credentials using oauth_* fields from the current "
+            "environment). Returns token_type, expires_in, scope, and "
+            "access_token_masked by default; set include_token=true to also return "
+            "oauth_access_token (full Bearer value). Fails if profile mode is not "
+            "fusion. Does not call CPQ REST."
+        ),
+        tags={"admin", "fusion", "oauth"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="meta",
+    ),
     "list_performance_logs": _spec(
         "list_performance_logs",
         domain="performance",
@@ -1479,6 +1504,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "Search and filter the Oracle CPQ MCP tool catalog by domain "
             "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/"
             "metrics/collab/admin), "
+            "cx_module (cpq/service/meta), "
             "operation, or free-text query. Use this to find read-only vs write tools "
             "before calling them."
         ),
@@ -1495,7 +1521,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.1.0",
+        version="1.1.1",
     ),
     "search_saved_prompts": _spec(
         "search_saved_prompts",
@@ -1507,7 +1533,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts", "search"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "get_saved_prompt": _spec(
         "get_saved_prompt",
@@ -1519,7 +1545,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "record_prompt_use": _spec(
         "record_prompt_use",
@@ -1535,7 +1561,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.1.0",
+        version="1.1.1",
     ),
     "save_refined_prompt": _spec(
         "save_refined_prompt",
@@ -1550,7 +1576,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.2.0",
+        version="1.2.1",
     ),
     "offer_save_refined_prompt": _spec(
         "offer_save_refined_prompt",
@@ -1566,7 +1592,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.2.0",
+        version="1.2.1",
     ),
     "set_auto_save_refined_prompt": _spec(
         "set_auto_save_refined_prompt",
@@ -1580,7 +1606,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "start_prompt_picker": _spec(
         "start_prompt_picker",
@@ -1594,7 +1620,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts", "discovery"},
         read_only=True,
-        version="1.1.0",
+        version="1.1.1",
     ),
     "set_saved_prompt_enabled": _spec(
         "set_saved_prompt_enabled",
@@ -1606,7 +1632,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "get_local_job": _spec(
         "get_local_job",
@@ -1621,7 +1647,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"local_data", "async"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "list_local_data": _spec(
         "list_local_data",
@@ -1634,7 +1660,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"local_data", "discovery"},
         read_only=True,
-        version="1.1.0",
+        version="1.1.1",
     ),
     "get_local_data_status": _spec(
         "get_local_data_status",
@@ -1648,7 +1674,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"local_data"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "load_local_data": _spec(
         "load_local_data",
@@ -1661,7 +1687,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"local_data"},
         read_only=True,
-        version="1.1.0",
+        version="1.1.1",
     ),
     "offer_use_local_data": _spec(
         "offer_use_local_data",
@@ -1675,7 +1701,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"local_data"},
         read_only=True,
-        version="1.1.0",
+        version="1.1.1",
     ),
     "set_local_data_policy": _spec(
         "set_local_data_policy",
@@ -1688,7 +1714,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"local_data"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "offer_export_response": _spec(
         "offer_export_response",
@@ -1704,7 +1730,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"export", "excel", "local_data"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "export_response_excel": _spec(
         "export_response_excel",
@@ -1713,12 +1739,13 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         description=(
             "Build a multi-sheet Excel (.xlsx) from structured sheets "
             "[{name, columns?, rows}] and write under data/{profile}/{env}/exports/. "
-            "Returns an attachment lead envelope plus File bytes. Caps: 20 sheets, 10k rows total. "
-            "Does not call Oracle CPQ."
+            "Returns a success envelope with path, absolute_path, and file:// uri "
+            "(no MCP File attachment — Cursor hosts reject list+[File] structured output). "
+            "Caps: 20 sheets, 10k rows total. Does not call Oracle CPQ."
         ),
         tags={"export", "excel"},
         read_only=True,
-        version="1.0.0",
+        version="1.1.0",
     ),
     "export_response_word": _spec(
         "export_response_word",
@@ -1731,17 +1758,21 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "(@mermaid-js/mermaid-cli) when on PATH, or via a pre-rendered PNG at "
             "image_path under tmp/{profile}/{env}/; skipped diagrams keep source as "
             "prose and are listed in diagrams_skipped (export still succeeds). "
+            "Title/notes/tables are written first; Mermaid is best-effort with hard "
+            "process-tree kill and short budgets (~8s/diagram, ~12s total) so host MCP "
+            "timeouts do not leave an empty exports folder. "
             "Prefer Mermaid kinds by content: flowchart/graph for flows; pie for shares; "
             "xychart-beta bar/line for numeric comparisons (no dedicated pictograph engine — "
             "optional PNG via image_path). "
-            "Returns attachment lead with path + file:// URI plus File bytes. "
+            "Returns a success envelope with path, absolute_path, and file:// uri "
+            "(no MCP File attachment). "
             "Requires optional dependency python-docx "
             '(pip install python-docx or pip install -e ".[docs]"). '
             "Does not call Oracle CPQ. Does not use public Kroki/mermaid.ink."
         ),
         tags={"export"},
         read_only=True,
-        version="1.2.0",
+        version="1.4.0",
     ),
     "set_post_response_export": _spec(
         "set_post_response_export",
@@ -1754,7 +1785,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"export", "local_data"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "ensure_prompt_studio": _spec(
         "ensure_prompt_studio",
@@ -1770,7 +1801,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         ),
         tags={"saved_prompts", "prompt_studio"},
         read_only=True,
-        version="1.0.0",
+        version="1.0.1",
     ),
     "sync_users_local": _spec(
         "sync_users_local",
@@ -1785,7 +1816,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/users",
-        version="1.1.0",
+        version="1.1.1",
     ),
     "sync_groups_local": _spec(
         "sync_groups_local",
@@ -1799,7 +1830,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/companies/{company}/groups",
-        version="1.1.0",
+        version="1.1.1",
     ),
     "sync_bml_local": _spec(
         "sync_bml_local",
@@ -1813,7 +1844,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/bml/library/functions",
-        version="1.1.0",
+        version="1.1.1",
     ),
     "sync_commerce_metadata_local": _spec(
         "sync_commerce_metadata_local",
@@ -1828,7 +1859,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/commerceProcesses/{process}/documents/{doc}/{resource}",
-        version="1.1.0",
+        version="1.1.1",
     ),
     "sync_datatable_local": _spec(
         "sync_datatable_local",
@@ -1842,7 +1873,7 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/datatables/{name}",
-        version="1.1.0",
+        version="1.1.1",
     ),
     "sync_datatables_local": _spec(
         "sync_datatables_local",
@@ -1856,11 +1887,13 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         read_only=True,
         http_method="GET",
         api_path="/datatables/{name}",
-        version="1.0.0",
+        version="1.0.1",
     ),
 }
 
-CPQ_API_TOOLS = frozenset(name for name, spec in TOOL_CATALOG.items() if spec.domain != "meta")
+CPQ_API_TOOLS = frozenset(
+    name for name, spec in TOOL_CATALOG.items() if spec.cx_module == "cpq"
+)
 
 
 def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
@@ -1868,6 +1901,7 @@ def mcp_tool_kwargs(spec: ToolSpec) -> dict[str, Any]:
     meta: dict[str, Any] = {
         "domain": spec.domain,
         "operation": spec.operation,
+        "cx_module": spec.cx_module,
         "version": spec.version,
     }
     if spec.http_method:
@@ -1909,6 +1943,7 @@ def tool_to_dict(spec: ToolSpec) -> dict[str, Any]:
         "version": spec.version,
         "domain": spec.domain,
         "operation": spec.operation,
+        "cx_module": spec.cx_module,
         "description": spec.description,
         "icons": [
             {
@@ -1934,6 +1969,7 @@ def _searchable_text(spec: ToolSpec) -> str:
             spec.title,
             spec.domain,
             spec.operation,
+            spec.cx_module,
             spec.description,
             *spec.tags,
             spec.http_method or "",
@@ -1976,16 +2012,20 @@ def filter_tools(
     *,
     domain: DomainFilter = "all",
     operation: OperationFilter = "all",
+    cx_module: CxModuleFilter = "all",
     include_meta: bool = False,
 ) -> list[ToolSpec]:
-    """Return catalog tools matching domain and operation filters."""
+    """Return catalog tools matching domain, operation, and CX module filters."""
     results: list[ToolSpec] = []
     for name, spec in TOOL_CATALOG.items():
-        if spec.domain == "meta" and not include_meta:
+        # Local/helper tools (domain=meta or cx_module=meta) stay hidden unless requested.
+        if not include_meta and (spec.domain == "meta" or spec.cx_module == "meta"):
             continue
         if domain != "all" and spec.domain != domain:
             continue
         if operation != "all" and spec.operation != operation:
+            continue
+        if cx_module != "all" and spec.cx_module != cx_module:
             continue
         results.append(spec)
     return sorted(results, key=lambda item: item.name)
@@ -1996,11 +2036,17 @@ def search_tools(
     *,
     domain: DomainFilter = "all",
     operation: OperationFilter = "all",
+    cx_module: CxModuleFilter = "all",
     limit: int = 20,
     include_meta: bool = False,
 ) -> list[ToolSpec]:
     """Filter then rank tools by relevance to a free-text query."""
-    candidates = filter_tools(domain=domain, operation=operation, include_meta=include_meta)
+    candidates = filter_tools(
+        domain=domain,
+        operation=operation,
+        cx_module=cx_module,
+        include_meta=include_meta,
+    )
     if not query.strip():
         return candidates[:limit]
 
@@ -2015,19 +2061,28 @@ def discover_tools_result(
     query: str | None = None,
     domain: DomainFilter = "all",
     operation: OperationFilter = "all",
+    cx_module: CxModuleFilter = "all",
     limit: int = 20,
 ) -> dict[str, Any]:
     """Build the discover_tools MCP tool response payload."""
+    # Meta tools are hidden unless the caller filters cx_module=meta explicitly.
+    include_meta = cx_module == "meta"
     if query and query.strip():
         specs = search_tools(
             query,
             domain=domain,
             operation=operation,
+            cx_module=cx_module,
             limit=limit,
-            include_meta=False,
+            include_meta=include_meta,
         )
     else:
-        specs = filter_tools(domain=domain, operation=operation, include_meta=False)[:limit]
+        specs = filter_tools(
+            domain=domain,
+            operation=operation,
+            cx_module=cx_module,
+            include_meta=include_meta,
+        )[:limit]
 
     tools = [tool_to_dict(spec) for spec in specs]
     return {"count": len(tools), "tools": tools}

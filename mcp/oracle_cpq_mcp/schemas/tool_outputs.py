@@ -131,8 +131,40 @@ _TOOLS_WITHOUT_OUTPUT_SCHEMA = frozenset(
         "download_attachment",
         "download_task_file",
         "export_performance_logs",
-        "export_response_excel",
-        "export_response_word",
+    }
+)
+
+_EXPORT_RESPONSE_OUTPUT_SCHEMA = mcp_tool_output_schema(
+    data_schema={
+        "type": "object",
+        "properties": {
+            "message": {"type": "string"},
+            "filename": {"type": "string"},
+            "title": {"type": "string"},
+            "path": {"type": "string"},
+            "absolute_path": {"type": "string"},
+            "uri": {"type": "string"},
+            "sheet_count": {"type": "integer"},
+            "row_count": {"type": "integer"},
+            "format": {"type": "string"},
+            "template": {"type": "object"},
+            "diagrams_embedded": {"type": "integer"},
+            "diagrams_skipped": {
+                "type": "array",
+                "items": {"type": "object"},
+            },
+            "content": {
+                "type": "object",
+                "properties": {
+                    "paragraphs": {"type": "integer"},
+                    "tables": {"type": "integer"},
+                    "nonempty_text_chars": {"type": "integer"},
+                },
+                "additionalProperties": True,
+            },
+        },
+        "required": ["message"],
+        "additionalProperties": True,
     }
 )
 
@@ -230,6 +262,7 @@ TOOL_OUTPUT_SCHEMAS: dict[str, dict[str, Any] | None] = {
     "list_certificates": _READ_OUTPUT_SCHEMA,
     "get_certificate": _READ_OUTPUT_SCHEMA,
     "get_sso_configuration": _READ_OUTPUT_SCHEMA,
+    "get_fusion_access_token": _READ_OUTPUT_SCHEMA,
     "list_parts": _READ_OUTPUT_SCHEMA,
     "get_part": _READ_OUTPUT_SCHEMA,
     "search_parts": _READ_OUTPUT_SCHEMA,
@@ -249,8 +282,8 @@ TOOL_OUTPUT_SCHEMAS: dict[str, dict[str, Any] | None] = {
     "offer_use_local_data": _READ_OUTPUT_SCHEMA,
     "set_local_data_policy": _READ_OUTPUT_SCHEMA,
     "offer_export_response": _READ_OUTPUT_SCHEMA,
-    "export_response_excel": None,
-    "export_response_word": None,
+    "export_response_excel": _EXPORT_RESPONSE_OUTPUT_SCHEMA,
+    "export_response_word": _EXPORT_RESPONSE_OUTPUT_SCHEMA,
     "set_post_response_export": _READ_OUTPUT_SCHEMA,
     "ensure_prompt_studio": _READ_OUTPUT_SCHEMA,
     "sync_users_local": _READ_OUTPUT_SCHEMA,

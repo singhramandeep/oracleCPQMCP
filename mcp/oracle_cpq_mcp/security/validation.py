@@ -318,6 +318,10 @@ class DiscoverToolsInput(_StrictModel):
         default="all",
         description="Filter tools by operation, or all.",
     )
+    cx_module: Literal["cpq", "service", "meta", "all"] = Field(
+        default="all",
+        description="Filter tools by CX product module (cpq/service/meta), or all.",
+    )
     limit: int = Field(
         default=20,
         ge=1,
@@ -747,7 +751,8 @@ class ExportResponseWordInput(_StrictModel):
         max_length=8,
         description=(
             "Optional Word-only diagrams (max 8). Each item: title plus mermaid source "
-            "and/or image_path (PNG). Placed after notes, before tables. Excel ignores this."
+            "and/or image_path (PNG). Placed after notes and tables (best-effort Mermaid). "
+            "Excel ignores this."
         ),
     )
 
@@ -1116,6 +1121,16 @@ class GetCertificateInput(_StrictModel):
 
 class GetSsoConfigurationInput(_StrictModel):
     """No parameters — GET /ssoConfiguration."""
+
+
+class GetFusionAccessTokenInput(_StrictModel):
+    include_token: bool = Field(
+        default=False,
+        description=(
+            "When true, also return oauth_access_token (full Bearer value). "
+            "Default false returns access_token_masked only."
+        ),
+    )
 
 
 class GetPerformanceLogInput(_StrictModel):
@@ -2873,6 +2888,7 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "list_certificates": ListCertificatesInput,
     "get_certificate": GetCertificateInput,
     "get_sso_configuration": GetSsoConfigurationInput,
+    "get_fusion_access_token": GetFusionAccessTokenInput,
     "list_parts": ListPartsInput,
     "get_part": GetPartInput,
     "search_parts": SearchPartsInput,

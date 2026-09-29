@@ -14,8 +14,8 @@ You are building an MCP server for Oracle CPQ.
 - Keep tool inputs strictly typed (`_StrictModel`, `extra="forbid"`).
 - Route all CPQ API interactions through `CPQClient` only.
 - Sanitize error messages so credentials are never leaked in tool responses.
-- Never create, edit, delete, reformat, quote, or rewrite `username` / `password` (or `*_USERNAME` / `*_PASSWORD`) in `.config/*.yaml` / `.env`. User owns credentials; on 401 report only — do not “fix” them. (Authoritative copy: MCP `PROFILE_CREDENTIALS` in `build_server_instructions`.)
-- Live CPQ access only via Oracle CPQ MCP tools — never use profile credentials for direct REST/curl/httpx or local `load_profile` + `CPQClient` for user tasks.
+- Never create, edit, delete, reformat, quote, or rewrite `username` / `password` (or `*_USERNAME` / `*_PASSWORD`), or Fusion `oauth_client_id` / `oauth_client_secret`, in `.config/*.yaml` / `.env`. User owns credentials; on 401 report only — do not “fix” them. (Authoritative copy: MCP `PROFILE_CREDENTIALS` in `build_server_instructions`.)
+- Live CPQ access only via Oracle CPQ MCP tools — never use profile credentials (Basic or OAuth secrets) for direct REST/curl/httpx or local `load_profile` + `CPQClient` for user tasks.
 - Treat `.config/template/` as read-only (open/clone only); never write or overwrite branding templates.
 - Write agent scratch dumps under `tmp/{profile}/{env}/` (never repo root); when created/updated, list paths under **Scratch files** in the reply. (Authoritative copy: MCP `AGENT_SCRATCH_FILES` in `build_server_instructions`.)
 - Authoritative checklist: [`docs/STANDARDS.md`](docs/STANDARDS.md).

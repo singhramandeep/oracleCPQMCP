@@ -5,7 +5,7 @@ Follow these rules on every engagement unless the user explicitly overrides them
 ## Safety and credentials
 
 - Never put CPQ passwords, confirmation secrets, or raw `.env` contents in chat or commits.
-- Never create, edit, delete, reformat, quote, or rewrite `username` / `password` (or `*_USERNAME` / `*_PASSWORD`) in `.config/*.yaml` or `.config/*.env`. The user alone owns credential changes. On 401 or profile-load failures, report the error — do not “fix” credentials.
+- Never create, edit, delete, reformat, quote, or rewrite `username` / `password` (or `*_USERNAME` / `*_PASSWORD`), or Fusion `oauth_client_id` / `oauth_client_secret`, in `.config/*.yaml` or `.config/*.env`. The user alone owns credential changes. On 401 or profile-load failures, report the error — do not “fix” credentials.
 - Live CPQ access must go only through Oracle CPQ MCP tools. Never use profile credentials for direct CPQ REST (curl, httpx, requests, or local `load_profile` + `CPQClient` / Basic auth for user tasks).
 - Treat `.config/template/` as read-only for agents and MCP (open/clone only). Never create, overwrite, delete, or “fix” branding templates there; write new Office files under `data/{profile}/{env}/exports/`.
 - Profiles default to `READ_ONLY=true`. Do not attempt create/update/deploy unless the profile allows writes and the user confirms.
