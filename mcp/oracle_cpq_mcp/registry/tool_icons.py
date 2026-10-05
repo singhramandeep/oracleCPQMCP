@@ -102,6 +102,39 @@ _DOMAIN_ICON_SPECS: dict[str, IconSpec] = {
         'fill="none" stroke="#fff" stroke-width="3"/>'
         '<path d="M20 24l3 3 6-6" stroke="#fff" stroke-width="3" fill="none"/>',
     ),
+    "sales": _icon(
+        "#0369a1",
+        '<path d="M12 34V18l12-6 12 6v16" fill="none" stroke="#fff" '
+        'stroke-width="3"/>'
+        '<path d="M18 34V24h12v10" fill="none" stroke="#fff" stroke-width="3"/>',
+    ),
+    "prm": _icon(
+        "#1d4ed8",
+        '<circle cx="18" cy="20" r="6" fill="#fff"/>'
+        '<circle cx="32" cy="22" r="5" fill="#fff"/>'
+        '<path d="M10 36c0-6 4-9 8-9s8 3 8 9M26 36c0-5 3-8 6-8s6 3 6 8" '
+        'fill="none" stroke="#fff" stroke-width="3"/>',
+    ),
+    "service": _icon(
+        "#0f766e",
+        '<circle cx="24" cy="24" r="10" fill="none" stroke="#fff" stroke-width="3"/>'
+        '<path d="M24 18v8l5 3" stroke="#fff" stroke-width="3" fill="none"/>',
+    ),
+    "field_service": _icon(
+        "#047857",
+        '<path d="M10 32l14-18 14 18H10z" fill="none" stroke="#fff" stroke-width="3"/>'
+        '<path d="M24 20v14" stroke="#fff" stroke-width="3"/>',
+    ),
+    "subscription": _icon(
+        "#7c3aed",
+        '<rect x="12" y="14" width="24" height="20" rx="2" fill="none" '
+        'stroke="#fff" stroke-width="3"/>'
+        '<path d="M18 14v-3h12v3" stroke="#fff" stroke-width="3"/>',
+    ),
+    "incentive_compensation": _icon(
+        "#b45309",
+        '<path d="M24 12l4 8h8l-6 6 2 8-8-4-8 4 2-8-6-6h8l4-8z" fill="#fff"/>',
+    ),
     "meta": _icon(
         "#0f766e",
         '<circle cx="24" cy="24" r="14" fill="none" stroke="#fff" stroke-width="3"/>'

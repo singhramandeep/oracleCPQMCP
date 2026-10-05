@@ -5,6 +5,7 @@ from __future__ import annotations
 from oracle_cpq_mcp.registry.tool_registry import (
     TOOL_CATALOG,
     CPQ_API_TOOLS,
+    FUSION_CX_MODULE_NAMES,
     discover_tools_result,
     filter_tools,
     mcp_tool_kwargs,
@@ -49,7 +50,7 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "export_response_excel" in TOOL_CATALOG
     assert "export_response_word" in TOOL_CATALOG
     assert "set_post_response_export" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 123
+    assert len(TOOL_CATALOG) == 157
 
 
 def test_filter_users_read_tools() -> None:
@@ -250,7 +251,7 @@ def test_cx_module_defaults_and_filters() -> None:
         if spec.cx_module == "meta":
             assert spec.domain in {"meta", "admin"}, name
         else:
-            assert spec.cx_module in {"cpq", "service"}, name
+            assert spec.cx_module in {"cpq", *FUSION_CX_MODULE_NAMES}, name
 
     assert len(CPQ_API_TOOLS) == 101
     assert all(TOOL_CATALOG[n].cx_module == "cpq" for n in CPQ_API_TOOLS)
@@ -269,3 +270,46 @@ def test_cx_module_defaults_and_filters() -> None:
 
     empty_service = filter_tools(cx_module="service")
     assert empty_service == []
+    prm_specs = filter_tools(cx_module="prm")
+    assert {s.name for s in prm_specs} == {
+        "list_partners",
+        "get_partner",
+        "list_partner_lov",
+        "list_partner_contacts",
+        "get_partner_contact",
+        "list_deals",
+        "get_deal",
+        "list_partner_contact_addresses",
+        "get_partner_contact_address",
+        "list_partner_contact_attachments",
+        "get_partner_contact_attachment",
+        "list_partner_contact_contact_points",
+        "get_partner_contact_contact_point",
+        "list_partner_contact_user_details",
+        "get_partner_contact_user_detail",
+        "list_partner_programs",
+        "get_partner_program",
+    }
+
+    sales_specs = filter_tools(cx_module="sales")
+    assert {s.name for s in sales_specs} == {
+        "list_territories",
+        "get_territory",
+        "list_accounts",
+        "get_account",
+        "list_account_team",
+        "get_account_team_member",
+        "list_contacts",
+        "get_contact",
+        "list_leads",
+        "get_lead",
+        "list_lead_opportunities",
+        "get_lead_opportunity",
+        "list_products",
+        "get_product",
+    }
+    assert all(s.cx_module == "sales" for s in sales_specs)
+
+    from oracle_cpq_mcp.core.profile_yaml import FUSION_MODULE_SLUGS
+
+    assert FUSION_CX_MODULE_NAMES == set(FUSION_MODULE_SLUGS.values())

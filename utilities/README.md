@@ -16,7 +16,7 @@ pip install -e ".[dev]"
 | `lookup_user.py` | Look up a CPQ user by login |
 | `count_users_by_email.py` | Count users matching an email substring |
 | `compare_users_by_email.py` | Compare users across dev/test by email |
-| `fusion_oauth_token.py` | Standalone IDCS/Fusion OAuth **client_credentials** token (same helper MCP/`CPQClient` use when `mode: fusion`) |
+| `fusion_oauth_token.py` | Standalone IDCS/Fusion OAuth **client_credentials** token (same helper MCP/`CPQClient` use when CPQ `auth: bearer`) |
 | `stub_fusion_oauth_token.py` | Mock-only OAuth path check (no live IDCS) |
 | `stub_fusion_get_transaction.py` | Live: OAuth token then Bearer **GET** Fusion transaction (`/cpq/rest/v19/…`) |
 
@@ -33,7 +33,7 @@ python utilities/compare_users_by_email.py
 
 ### Fusion OAuth token (standalone)
 
-Obtains an Oracle IDCS access token via OAuth 2.0 client credentials. Thin CLI around `oracle_cpq_mcp.security.fusion_oauth` — the **same** helper MCP `get_fusion_access_token` and `CPQClient` use when profile `mode: fusion`. Prefer MCP tools for engagement work; use this CLI only for local debugging.
+Obtains an Oracle IDCS access token via OAuth 2.0 client credentials. Thin CLI around `oracle_cpq_mcp.security.fusion_oauth` — the **same** helper MCP `get_fusion_access_token` and `CPQClient` use when nested `cpq.auth: bearer`. Prefer MCP tools for engagement work; use this CLI only for local debugging. Fusion CX REST uses `CXClient` (not this script).
 
 ```bash
 python utilities/fusion_oauth_token.py \

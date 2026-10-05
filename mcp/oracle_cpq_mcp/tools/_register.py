@@ -230,4 +230,6 @@ def register_tool(mcp: Any, fn: F, spec_name: str) -> F:
                         duration_ms=duration_ms,
                     )
 
-    return mcp.tool(**mcp_tool_kwargs(spec))(safe_fn)
+    tool_kwargs = mcp_tool_kwargs(spec)
+    tool_kwargs["name"] = spec_name
+    return mcp.tool(**tool_kwargs)(safe_fn)

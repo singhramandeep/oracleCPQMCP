@@ -38,12 +38,15 @@ def register_admin_tools(mcp: Any, client: CPQClient) -> None:
 
     def get_fusion_access_token(include_token: bool = False) -> dict[str, Any]:
         profile = client.profile
-        if profile.mode != "fusion":
+        if not profile.uses_cpq_bearer:
             raise CPQAPIError(
-                f"Active profile mode is {profile.mode!r}; "
-                "get_fusion_access_token requires mode=fusion.",
+                f"Active profile cpq_auth={profile.cpq_auth!r}; "
+                "get_fusion_access_token requires CPQ auth: bearer.",
                 code="VALIDATION_ERROR",
-                hint="Use a profile YAML with mode: fusion and oauth_* env fields.",
+                hint=(
+                    "Set environments.<env>.cpq.auth: bearer and oauth_* fields "
+                    "(or hosted fusion with OAuth)."
+                ),
                 password=profile.sanitize_secret,
             )
         if not (
@@ -81,7 +84,8 @@ def register_admin_tools(mcp: Any, client: CPQClient) -> None:
             "expires_in": token.expires_in,
             "scope": token.scope,
             "access_token_masked": mask_access_token(token.access_token),
-            "mode": profile.mode,
+            "cpq_mode": profile.cpq_mode,
+            "fusion_enabled": profile.fusion_enabled,
             "environment": profile.environment,
         }
         if include_token:

@@ -4,15 +4,15 @@ Copy [`tool_scaffold.py.example`](tool_scaffold.py.example) pieces into the real
 
 ## Steps
 
-1. [ ] Add `ToolSpec` to `TOOL_CATALOG` in `mcp/oracle_cpq_mcp/registry/tool_registry.py` via `_spec(...)` with `description`, `title` (or accept name-derived default), `version="1.0.0"` (bump on later changes), optional `icons` (else domain default), and correct `cx_module` (`cpq` default for CPQ REST; `service` for CX Service REST; `meta` auto when `domain="meta"`)
+1. [ ] Add `ToolSpec` to `TOOL_CATALOG` in `mcp/oracle_cpq_mcp/registry/tool_registry.py` via `_spec(...)` with `description`, `title` (or accept name-derived default), `version="1.0.0"` (bump on later changes), optional `icons` (else domain default), and correct `cx_module` (`cpq` default for CPQ REST; Fusion slugs `sales`/`prm`/`service`/`field_service`/`subscription`/`incentive_compensation`; `meta` auto when `domain="meta"`)
 2. [ ] Add `_StrictModel` subclass in `mcp/oracle_cpq_mcp/security/validation.py` — every field has `Field(..., description="...")`
 3. [ ] Register the model in `TOOL_INPUT_MODELS`
-4. [ ] Implement handler in `mcp/oracle_cpq_mcp/tools/<domain>.py` (or new domain module)
-5. [ ] Call only `client.get` / `client.post` / `client.patch` / etc. via `CPQClient`
+4. [ ] Implement handler in `mcp/oracle_cpq_mcp/tools/<domain>.py` (CPQ) or `mcp/oracle_cpq_mcp/tools/cx/<product>.py` (CX). Wire CX via `register_cx_tools` (no empty stub modules).
+5. [ ] Call only `client.get` / `client.post` / `client.patch` / etc. via `CPQClient` (CPQ) or `CXClient` (Fusion CX)
 6. [ ] Return raw CPQ JSON or paginated payload (`enrich_pagination_hint` when applicable) — **do not** wrap the success envelope yourself
-7. [ ] Set `fn.__doc__ = TOOL_CATALOG["name"].description` and `register_tool(mcp, fn, "name")`
+7. [ ] Set `fn.__doc__ = TOOL_CATALOG["name"].description` and `register_tool(mcp, fn, "name")` (wrapper passes FastMCP `name=` from the catalog)
 8. [ ] Wire `register_<domain>_tools` from `server.py` if new domain
-9. [ ] Add unit tests + ensure contract tests still cover the catalog name
+9. [ ] Add unit tests + ensure contract tests still cover the catalog name (`tests/test_tool_contracts.py` `TOOL_KWARGS` + FakeCPQ / FakeCX as needed)
 10. [ ] Run `python scripts/lint_tool_schemas.py` and `pytest tests/ -q -m "not live_eval"`
 11. [ ] Regenerate `tool_manifest.json` if catalog changed (`python -c "from oracle_cpq_mcp.security.schema_integrity import write_manifest_file; write_manifest_file()"` with `PYTHONPATH=mcp`)
 12. [ ] Paste [`prompts/compliance_check.md`](../../prompts/compliance_check.md) into Cursor

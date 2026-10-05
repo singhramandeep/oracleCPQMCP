@@ -21,6 +21,12 @@ def test_format_method_and_urls_rest_and_local() -> None:
     assert cpq_l == "— (local / no CPQ REST)"
     assert fusion_l == "— (local / no CPQ REST)"
 
+    territories = TOOL_CATALOG["list_territories"]
+    method_t, cpq_t, fusion_t = gen.format_method_and_urls(territories)
+    assert method_t == "GET"
+    assert "CX" in cpq_t and "not CPQ" in cpq_t
+    assert fusion_t == "/crmRestApi/resources/11.13.18.05/territories"
+
 
 def test_format_method_and_endpoint_compat_shorthand() -> None:
     users = TOOL_CATALOG["list_users"]
@@ -41,6 +47,8 @@ def test_generate_tool_catalog_per_tool_tables(tmp_path: Path) -> None:
     assert "| **CX module** |" in text
     assert "| **CPQ REST URL** |" in text
     assert "| **Fusion REST URL** |" in text
+    assert "CRM REST" in text
+    assert "`/crmRestApi/" in text or "/crmRestApi/" in text
     assert "| **Endpoint** |" not in text
     assert "| **Parameters** |" in text
     assert "`/rest/{rest_api_version}/users`" in text

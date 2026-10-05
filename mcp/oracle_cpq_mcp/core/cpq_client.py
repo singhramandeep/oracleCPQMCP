@@ -80,7 +80,19 @@ class CPQClient:
         self._cached_token: str | None = None
         self._token_expires_at: float = 0.0
 
+    def _ensure_cpq_enabled(self) -> None:
+        if self.profile.cpq_enabled and self.profile.base_url:
+            return
+        raise CPQAPIError(
+            "CPQ is not enabled on this profile/environment. "
+            "Enable environments.<env>.cpq in the profile YAML.",
+            code="VALIDATION_ERROR",
+            hint="Set cpq.enabled: true and cpq.url, or switch to a CPQ-enabled profile.",
+            password=self.profile.sanitize_secret,
+        )
+
     def _build_url(self, path: str, params: dict[str, Any] | None = None) -> str:
+        self._ensure_cpq_enabled()
         normalized = path if path.startswith("/") else f"/{path}"
         url = f"{self.profile.rest_base}{normalized}"
         if params:
@@ -97,7 +109,7 @@ class CPQClient:
         logger.info("Equivalent curl: %s", curl)
 
     def _to_curl(self, method: str, url: str, body: Any = None) -> str:
-        if self.profile.mode == "fusion":
+        if self.profile.uses_cpq_bearer:
             return format_curl_command(
                 method, url, bearer=True, json_body=body
             )
@@ -159,7 +171,7 @@ class CPQClient:
         headers: dict[str, str] = {"Accept": accept}
         if content_type:
             headers["Content-Type"] = content_type
-        if self.profile.mode == "fusion":
+        if self.profile.uses_cpq_bearer:
             token = self._ensure_fusion_token()
             headers["Authorization"] = f"Bearer {token}"
             return None, headers

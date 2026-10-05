@@ -255,14 +255,17 @@ Field mapping and troubleshooting: [FAQ — How do I migrate from a legacy `.env
 
 ## Step 7 — Refresh profile knobs (keep passwords)
 
-Edit `.config/<profile>.yaml` and compare **non-secret** flags to [`.config/example.yaml`](../.config/example.yaml) (or [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) if `mode: fusion`). Do **not** copy the whole example over a live profile.
+Edit `.config/<profile>.yaml` and compare **non-secret** flags to [`.config/example.yaml`](../.config/example.yaml) (or [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) if Fusion-active). Do **not** copy the whole example over a live profile.
 
 | YAML key / legacy env key | Typical default | Purpose |
 |---------------------------|-----------------|--------|
-| `mode` | `cpq` | `cpq`/`standalone` → Basic + `/rest/…`; `fusion` → OAuth Bearer + `/cpq/rest/…` |
+| `cpq.hosted` / legacy `cpq_mode` | `standalone` | `standalone` → `/rest/…`; `fusion` → `/cpq/rest/…` |
+| `cpq.auth` / `cx.auth` | `basic` | `basic` (credentials) or `bearer` (`oauth_*`) per product |
+| `cx.modules` / `fusion_modules` (`CPQ_FUSION_MODULES` host) | blank | CX modules when `cx.enabled`; **Sales**/**PRM** register GET tools; other names reserved |
 | `debug_mode` / `DEBUG_MODE` | `true` | Redacted API traces → `logs/{profile}-{env}.log` |
 | `refined_prompt` / `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
 | `auto_save_refined_prompt` / `AUTO_SAVE_REFINED_PROMPT` | `true` in example profile | Auto-save refined prompts |
+| `frugal_mode` / `FRUGAL_MODE` (`CPQ_FRUGAL_MODE` host) | `false` | Shorter MCP instructions; forces refined off + `post_response_export=never` (no Prompt Studio ensure) |
 | `local_data_policy` / `LOCAL_DATA_POLICY` | `prefer` | Cache vs live CPQ before big lists (`ask` / `prefer` / `never`) — must be a **string**, not `true`/`false` |
 | `post_response_export` / `POST_RESPONSE_EXPORT` | `always_excel` | Post-response Excel (`ask` / `never` / `always_excel`) |
 | `rest_api_version` / `REST_API_VERSION` | site-specific | Prefer `v19` for metrics / collab / admin / saved searches if v18 404s |

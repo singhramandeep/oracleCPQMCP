@@ -1,9 +1,10 @@
 {
-  "tool_definitions_sha256": "a11763f801f7db15fe7148073e1c17cb0ad898753de73b8b6b711446cca9ee7b",
-  "tool_count": 123,
+  "tool_definitions_sha256": "676a9d59369c47cf673735e6b0fd7cc75c6d1271734bbbe0e2d8da9db446df6f",
+  "tool_count": 157,
   "tools": [
     "add_from_favorites",
     "add_transaction_lines",
+    "append_customer_knowledge",
     "clear_collab_operation_queue",
     "copy_transaction",
     "copy_transaction_lines",
@@ -17,6 +18,7 @@
     "display_transaction_history",
     "download_attachment",
     "download_task_file",
+    "ensure_customer_knowledge",
     "ensure_prompt_studio",
     "export_attachment",
     "export_bml_library_functions",
@@ -26,6 +28,8 @@
     "export_response_word",
     "export_users_excel",
     "generate_proposal",
+    "get_account",
+    "get_account_team_member",
     "get_all_bml_code",
     "get_array_set",
     "get_array_set_attribute",
@@ -42,31 +46,47 @@
     "get_config_attribute",
     "get_config_layout",
     "get_config_menu_item",
+    "get_contact",
+    "get_customer_knowledge",
     "get_datatable",
     "get_datatable_field",
     "get_datatable_rows",
+    "get_deal",
     "get_document_layout",
     "get_fusion_access_token",
     "get_group",
     "get_layout_cache_attributes",
+    "get_lead",
+    "get_lead_opportunity",
     "get_line_actions",
     "get_line_attributes",
     "get_local_data_status",
     "get_local_job",
     "get_model",
     "get_part",
+    "get_partner",
+    "get_partner_contact",
+    "get_partner_contact_address",
+    "get_partner_contact_attachment",
+    "get_partner_contact_contact_point",
+    "get_partner_contact_user_detail",
+    "get_partner_program",
     "get_performance_log",
+    "get_product",
     "get_product_family",
     "get_product_line",
     "get_saved_prompt",
     "get_saved_search",
     "get_sso_configuration",
     "get_task",
+    "get_territory",
     "get_transaction",
     "get_transaction_line",
     "get_user",
     "get_user_groups",
     "interact_transaction_line",
+    "list_account_team",
+    "list_accounts",
     "list_array_set_attributes",
     "list_array_sets",
     "list_bml_common_functions",
@@ -76,20 +96,34 @@
     "list_commerce_processes_table",
     "list_config_attributes",
     "list_config_menu_items",
+    "list_contacts",
     "list_datatable_fields",
     "list_datatables",
+    "list_deals",
     "list_group_users",
     "list_groups",
+    "list_lead_opportunities",
+    "list_leads",
     "list_local_data",
     "list_metrics",
     "list_models",
+    "list_partner_contact_addresses",
+    "list_partner_contact_attachments",
+    "list_partner_contact_contact_points",
+    "list_partner_contact_user_details",
+    "list_partner_contacts",
+    "list_partner_lov",
+    "list_partner_programs",
+    "list_partners",
     "list_parts",
     "list_performance_logs",
     "list_product_families",
     "list_product_hierarchy_table",
     "list_product_lines",
+    "list_products",
     "list_saved_prompts",
     "list_saved_searches",
+    "list_territories",
     "list_transaction_lines",
     "list_transactions",
     "list_users",
@@ -135,6 +169,10 @@
       "version": "1.0.1",
       "definition_sha256": "1e3eaf224a9ae4c294f2e072b78bb3441e5598abb187da0f76f877f7a86b0d1c"
     },
+    "append_customer_knowledge": {
+      "version": "1.0.0",
+      "definition_sha256": "163ddf5c4394217e6ce70e9b3366ea353bba4a99f661e24e4ce8f1efa1d88ca1"
+    },
     "clear_collab_operation_queue": {
       "version": "1.0.1",
       "definition_sha256": "3d5bc2e892ae72efa1482a12c8d086e475406a7f477fa04d1e3de2db507aa8fa"
@@ -172,8 +210,8 @@
       "definition_sha256": "7609443338cddf1ad3bd88d076cfbc7a2b30da87198b4281ef6853875354ba5a"
     },
     "discover_tools": {
-      "version": "1.0.1",
-      "definition_sha256": "2a793c1a74204681803bdb4aed6f23d0e8b70edd4cea92d31aca33d6748f8b55"
+      "version": "1.0.2",
+      "definition_sha256": "98fe19b466475272e627fa14f34fb9ebe9080dcc7c86a462acc23442e05c634e"
     },
     "display_transaction_history": {
       "version": "1.0.1",
@@ -186,6 +224,10 @@
     "download_task_file": {
       "version": "1.0.1",
       "definition_sha256": "4c83e13372f63d935ae12aea843134f994c10f3e8b266b2e5cffbb53422881c4"
+    },
+    "ensure_customer_knowledge": {
+      "version": "1.0.0",
+      "definition_sha256": "7108829677e573d71f36e772663da8c17d94eb2c32388f18701da9d1e97def1f"
     },
     "ensure_prompt_studio": {
       "version": "1.0.1",
@@ -222,6 +264,14 @@
     "generate_proposal": {
       "version": "1.0.1",
       "definition_sha256": "7c49ab249deb07bc9ba6a972ab0952b6d0222fc09ffbf8f8a8476bdfbd1debb1"
+    },
+    "get_account": {
+      "version": "1.0.0",
+      "definition_sha256": "b721a93a4c03791e40254dc8e0ed48bdc7196ba5f32578468741ef956712191e"
+    },
+    "get_account_team_member": {
+      "version": "1.0.0",
+      "definition_sha256": "85d9df602067dfb6a11fc6d898fff7cae0bbb2414c938161a7925d3d404233e2"
     },
     "get_all_bml_code": {
       "version": "1.4.1",
@@ -287,6 +337,14 @@
       "version": "1.0.1",
       "definition_sha256": "f36335b36d8795917eda97093c237e1c20a4d38f4ae3fad3beea58ec27d82cdc"
     },
+    "get_contact": {
+      "version": "1.0.0",
+      "definition_sha256": "06ab2fe8710cba86ac0b4893954f4ce141011155cb0b2df148736a8e18ce82e9"
+    },
+    "get_customer_knowledge": {
+      "version": "1.0.0",
+      "definition_sha256": "dd011d1485d4f8fb289a97e635a467ef6ee0d93b6f5a9d1687fa33d4858a68ff"
+    },
     "get_datatable": {
       "version": "1.0.1",
       "definition_sha256": "07005831c8f5a1c780fb15fbe6e60a2b48550b2a6af790407abb49abac4f7a6a"
@@ -299,13 +357,17 @@
       "version": "1.0.1",
       "definition_sha256": "25aee423537b14fc8d6a7abec62ae6617fda667cc2ba8c9f7be8da7b4fd4ee43"
     },
+    "get_deal": {
+      "version": "1.0.0",
+      "definition_sha256": "a47b36c559da680ecac95cb6990e67f659c4a1688ca965296077ffb258f21d1c"
+    },
     "get_document_layout": {
       "version": "1.0.1",
       "definition_sha256": "0eed50617f23c153018f9937a80b9686c67b1f55afea6a69efe7a0b21cd03605"
     },
     "get_fusion_access_token": {
       "version": "1.0.0",
-      "definition_sha256": "4b736fca19e4d5373662ad02aabf3074bbb881bf193f97d9aa892279ad027de8"
+      "definition_sha256": "72ea045ca63c755d68b3467493abfd449c28abd3f2888b492de6dcc19bf11a77"
     },
     "get_group": {
       "version": "1.0.1",
@@ -314,6 +376,14 @@
     "get_layout_cache_attributes": {
       "version": "1.0.1",
       "definition_sha256": "b40c247c7cfc15cbfa8b66d9fd4519033966a01f467569e895904a3464640512"
+    },
+    "get_lead": {
+      "version": "1.0.0",
+      "definition_sha256": "7d9eab4d74efea5ba1c946cb480bb277e6540e83e198cfdbc61671d57b78892b"
+    },
+    "get_lead_opportunity": {
+      "version": "1.0.0",
+      "definition_sha256": "696c7c6db2a6cc3f80d0ae702a5de6ca24f217cdd6d18beedf691e9973f52434"
     },
     "get_line_actions": {
       "version": "1.0.1",
@@ -339,9 +409,41 @@
       "version": "1.0.1",
       "definition_sha256": "027389cd2405663a080b8623736873f2ad4ff9e9fa5fed5ed84aaa453bf2b4fb"
     },
+    "get_partner": {
+      "version": "1.0.0",
+      "definition_sha256": "76e7bbe2919d7b84a8e6738e0dedc86b6f483952c5b4333b29b6cf0bc6492ef9"
+    },
+    "get_partner_contact": {
+      "version": "1.0.0",
+      "definition_sha256": "38a47bf1efcf661d2c215168a6d3b46e31c89458ffc204c243eb30a46f1bd50d"
+    },
+    "get_partner_contact_address": {
+      "version": "1.0.0",
+      "definition_sha256": "fcc0058bb06d99083b0010182a6b091bf590907d50730b0f616a740a4432141d"
+    },
+    "get_partner_contact_attachment": {
+      "version": "1.0.0",
+      "definition_sha256": "04dfc3e0ba26d1d12a91739d7af75b2e1760ad6cf89498b0c3fc36ddd34da844"
+    },
+    "get_partner_contact_contact_point": {
+      "version": "1.0.0",
+      "definition_sha256": "896370d77cbc49e8b1db3b2cf88162712ecd6c348210c56f9897a214dee38a8e"
+    },
+    "get_partner_contact_user_detail": {
+      "version": "1.0.0",
+      "definition_sha256": "454ce0cbbaeb5d97af0cb3628345500def0bf035f95b07bd1d522ea6b8da1e7e"
+    },
+    "get_partner_program": {
+      "version": "1.0.0",
+      "definition_sha256": "fc743215cd846c507dc31e12fb1372f14aef7a4dc11bdf1a43823641cce861f4"
+    },
     "get_performance_log": {
       "version": "1.0.1",
       "definition_sha256": "79d360d1e761bf3ddc3b4b27f1dc0a60b0e588429bf2acbf582274e1f00788ef"
+    },
+    "get_product": {
+      "version": "1.0.0",
+      "definition_sha256": "3a0eb1b9626d23403fc9ef98043acd5b8b705406dc0541985bd71093426ce281"
     },
     "get_product_family": {
       "version": "1.0.1",
@@ -367,6 +469,10 @@
       "version": "1.0.1",
       "definition_sha256": "0fd061fb852085753de1c9d79958a83f25cb9571daa0dbb27609746aaae49c05"
     },
+    "get_territory": {
+      "version": "1.0.0",
+      "definition_sha256": "b00d5183c191114d07ab02bc1deb74471ab3a24cab0ddc382b455f278a998769"
+    },
     "get_transaction": {
       "version": "1.0.1",
       "definition_sha256": "aeaef95975d9dc85373d6dc3095d9bc8d8af4c26939c2ae9adfdd55575d74c88"
@@ -386,6 +492,14 @@
     "interact_transaction_line": {
       "version": "1.0.1",
       "definition_sha256": "2416137ba125785ee10255470a1311e8d4f5de084055d1a33ac9a3fc4da286b2"
+    },
+    "list_account_team": {
+      "version": "1.0.0",
+      "definition_sha256": "e1a2f8d7d5e1669d53830df956014ca9f68554f109ad6558402297f0ce7dfdab"
+    },
+    "list_accounts": {
+      "version": "1.0.0",
+      "definition_sha256": "1cec5a896f8e722839589a694c0573ff18a9094fcf64f161c762dd7c152fccab"
     },
     "list_array_set_attributes": {
       "version": "1.0.1",
@@ -423,6 +537,10 @@
       "version": "1.0.1",
       "definition_sha256": "b879c03db8741fc8cac1ea2010e1cb52892f2eaf97cc485d7e6891ba28da3458"
     },
+    "list_contacts": {
+      "version": "1.0.0",
+      "definition_sha256": "35a27f27885546cbd6936a261101716ee84dbe473a2162ff97e5636e44e1fc6f"
+    },
     "list_datatable_fields": {
       "version": "1.0.1",
       "definition_sha256": "47f9d2a749c4ae11f4ae23f5ae963f4c2fef9e689de8a2c4848a30abad5a8fad"
@@ -431,6 +549,10 @@
       "version": "1.0.1",
       "definition_sha256": "2f0db155d4202e3c6b683fd601d84e576ba1ac6beb11ed6bc6d7419ef980da7a"
     },
+    "list_deals": {
+      "version": "1.0.0",
+      "definition_sha256": "552091f2cfc48c3c6c196f5c7138cebbda1fc7bfebeeb1f798b64af8aa040620"
+    },
     "list_group_users": {
       "version": "1.0.1",
       "definition_sha256": "45a4107d19250bb784d0e1cca5d4decdc55d539c2006083e913847c85b4e581a"
@@ -438,6 +560,14 @@
     "list_groups": {
       "version": "1.0.1",
       "definition_sha256": "e6098110709d245cfbdcf7e4fa6258f9ca4a2e3d67ddc003c56487cc5664a5b9"
+    },
+    "list_lead_opportunities": {
+      "version": "1.0.0",
+      "definition_sha256": "b6790a0e949f2c0014362ca4362e6e2bce6b3e5af99c8323cd6745feeb926d14"
+    },
+    "list_leads": {
+      "version": "1.0.0",
+      "definition_sha256": "3256f3e0ae4e0f5f5fb7858968077fdef2f53f56951f5359627c0916884c8404"
     },
     "list_local_data": {
       "version": "1.1.1",
@@ -450,6 +580,38 @@
     "list_models": {
       "version": "1.0.1",
       "definition_sha256": "8bd49c058992112aaa7990f22111535e4daae19959294c4d3fa98535b5ebe319"
+    },
+    "list_partner_contact_addresses": {
+      "version": "1.0.0",
+      "definition_sha256": "00d7e2af0d7f21d75e9b0227e0e89a20b1762ac8ee4120c7032e8254fdfed902"
+    },
+    "list_partner_contact_attachments": {
+      "version": "1.0.0",
+      "definition_sha256": "81826112432d550a339d649ac7712e27a1ce29dd9a83e9c6e80c90fefd88e815"
+    },
+    "list_partner_contact_contact_points": {
+      "version": "1.0.0",
+      "definition_sha256": "024276909d8deb0e3e0dd69e66443affb68246b7a699458bf95f9eaf0d113db7"
+    },
+    "list_partner_contact_user_details": {
+      "version": "1.0.0",
+      "definition_sha256": "7e967eeca95898bab2a5b0654e9425493096ad6044a76960b424b47f1506a822"
+    },
+    "list_partner_contacts": {
+      "version": "1.0.0",
+      "definition_sha256": "403a12daca0a4376b34fcebf0c7407779f19ea9aae82353684c82968362b3866"
+    },
+    "list_partner_lov": {
+      "version": "1.0.0",
+      "definition_sha256": "bdd1163bcc1814763878270ac6d4f9fc25eb6aedc92296afd1a4ec665dc5fb63"
+    },
+    "list_partner_programs": {
+      "version": "1.0.0",
+      "definition_sha256": "996509e67a871773243eb618480700ab9003d8963eecd3516a1765f526018f42"
+    },
+    "list_partners": {
+      "version": "1.0.0",
+      "definition_sha256": "9e42531c545ce787e8fe08a52045f331ac58c890b47c16d8fe22b00774566768"
     },
     "list_parts": {
       "version": "1.0.1",
@@ -471,6 +633,10 @@
       "version": "1.0.1",
       "definition_sha256": "5e0a391c671b7ea7df388657385be7d8809f8f7118905c96f27b1a9de9b63eeb"
     },
+    "list_products": {
+      "version": "1.0.0",
+      "definition_sha256": "98a9e14c91295c625e3b45b18a42f6c40a82a4b9e92ed444d8f24f9602489bb2"
+    },
     "list_saved_prompts": {
       "version": "1.1.1",
       "definition_sha256": "e4cff03e4a9e02fde4bbc198d028b67ea44415f53670631bed845f6583e9b694"
@@ -478,6 +644,10 @@
     "list_saved_searches": {
       "version": "1.0.1",
       "definition_sha256": "15e8825a1920b4018ac6e3ab6066ef6b15ab24eadef7a1de30b44d98269b2b4c"
+    },
+    "list_territories": {
+      "version": "1.0.0",
+      "definition_sha256": "c144f0a4bddfd83a02e99af53bb9b279a2ad09173ebcc17af9a55b3670f19a6a"
     },
     "list_transaction_lines": {
       "version": "1.0.1",

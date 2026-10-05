@@ -39,9 +39,10 @@ def test_server_startup_fusion_mode_without_basic_auth(
 ) -> None:
     """Fusion profiles have no username/password — startup must not access them."""
     yaml_text = """\
-version: 1.01
+version: 1.03
 customer_name: Fusion Startup
-mode: fusion
+cpq_mode: fusion
+fusion_enabled: true
 default_environment: dev
 rest_api_version: v19
 environments:
@@ -61,5 +62,7 @@ environments:
     import oracle_cpq_mcp.server as server_module
 
     reloaded = importlib.reload(server_module)
-    assert reloaded._profile.mode == "fusion"
+    assert reloaded._profile.cpq_mode == "fusion"
+    assert reloaded._profile.fusion_enabled is True
+    assert reloaded._profile.uses_fusion is True
     assert reloaded._profile.credentials == []

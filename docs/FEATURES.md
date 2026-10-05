@@ -6,7 +6,23 @@ Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related l
 
 ## Detailed features
 
-### MCP tool catalog (123 tools)
+### MCP tool catalog (157 tools)
+
+The **157** figure is the full `TOOL_CATALOG` (CPQ + meta + Sales + PRM). A live MCP process only **registers** CX tools for modules listed in `cx.modules` (reload after YAML changes). Cursor’s MCP panel may also list a host helper such as `mcp_auth` — that is not an Oracle catalog tool.
+
+```mermaid
+flowchart TB
+  agent[Agent_IDE]
+  mcp[Oracle_CPQ_MCP]
+  cpqClient[CPQClient]
+  cxClient[CXClient]
+  agent --> mcp
+  mcp --> cpqClient
+  mcp --> cxClient
+  cpqClient --> standalone["standalone_/rest/version"]
+  cpqClient --> fusionCpq["fusion_/cpq/rest/version"]
+  cxClient --> crm["cx.url_/crmRestApi/11.13.18.05"]
+```
 
 | Domain | What it covers |
 |--------|----------------|
@@ -17,12 +33,14 @@ Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related l
 | **Commerce** | Process/line attributes and actions; transactions (read + create/save/submit/version/reconfigure/favorites/history; line add/update/delete/copy/interact/reconfigure); commerce UI settings; saved searches; **`list_commerce_processes_table`** |
 | **Metrics** | Site metrics list with optional time filters and METRICS_* descriptions |
 | **Collab** | Collaborative quote operation queue get/clear |
-| **Admin** | Site certificates list/get; SSO configuration (PEM redacted); **`get_fusion_access_token`** (Fusion/IDCS OAuth when `mode: fusion`) |
+| **Admin** | Site certificates list/get; SSO configuration (PEM redacted); **`get_fusion_access_token`** (CPQ Bearer oauth_*) |
+| **Sales (CX)** | Territories, accounts (incl. account team), contacts, leads, products — GET tools in `tools/cx/sales.py` (requires `Sales` in `cx.modules`). |
+| **PRM (CX)** | Partners, partner contacts, deals, partner programs, partner-contact children (addresses, attachments, contact points, user details), and **`list_partner_lov`** to resolve partner LookupCode values — GET tools in `tools/cx/prm.py` (requires `PRM` in `cx.modules`). |
 | **Performance** | Performance log list/get/export |
 | **Parts** | Parts search and get |
 | **Tasks** | Get task status; download task file (async export follow-up) |
 | **Configuration** | productFamilies / layoutcache; **`list_product_hierarchy_table`** (family→line→model flat table) |
-| **Meta** | `discover_tools`, `get_local_job`, saved refined-prompt tools, `ensure_prompt_studio`, local `data/` sync and policy, post-response export |
+| **Meta** | `discover_tools`, `get_local_job`, saved refined-prompt tools, `ensure_prompt_studio`, customer knowledge, local `data/` sync and policy, post-response export |
 
 Regenerate the formal catalog after tool changes:
 
@@ -30,18 +48,47 @@ Regenerate the formal catalog after tool changes:
 python scripts/generate_tool_catalog.py
 ```
 
-Each tool table in [`TOOL_CATALOG.md`](TOOL_CATALOG.md) lists **CPQ REST URL** (`/rest/{version}…`) and **Fusion REST URL** (`/cpq/rest/{version}…`). `CPQClient` picks one from profile `mode`.
+Each tool table in [`TOOL_CATALOG.md`](TOOL_CATALOG.md) lists **CPQ REST URL** and **Fusion REST URL**. For CPQ tools those columns are `/rest/{version}…` vs `/cpq/rest/{version}…` (`CPQClient` from nested `cpq.hosted` / `cpq.auth`). For Sales/PRM tools the Fusion column is the **CRM REST** path (`/crmRestApi/resources/11.13.18.05/…`) on `cx.url`; the CPQ column is marked not-CPQ.
 
-### Profile modes (`cpq` vs `fusion`)
+### Fusion CX (Sales and PRM)
 
-| Mode | Auth | REST prefix | Profile sample |
-|------|------|-------------|----------------|
-| `cpq` (default; `standalone` alias) | Basic Auth | `/rest/{rest_api_version}` | [`.config/example.yaml`](../.config/example.yaml) |
-| `fusion` | OAuth client_credentials → Bearer | `/cpq/rest/{rest_api_version}` | [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) |
+Enable a nested `environments.<env>.cx` block (`enabled: true`, `url`, `auth`, required `modules`). `register_cx_tools` loads only those products. `discover_tools(cx_module="sales"|"prm")` filters the catalog. Service / Field Service / Subscription / Incentive Compensation remain **allowlist names only** (no handlers yet).
 
-- Same MCP tools and `api_path` values for both modes — only prefix + auth change.
-- Fusion requires per-env `oauth_token_url` / `oauth_client_id` / `oauth_client_secret` / `oauth_scope`; username/password unused.
-- Agents never edit oauth secrets (same rule as passwords). Optional explicit token: `get_fusion_access_token`.
+```mermaid
+flowchart LR
+  yaml["cx.enabled + modules"]
+  reg[register_cx_tools]
+  sales[tools/cx/sales.py]
+  prm[tools/cx/prm.py]
+  yaml --> reg
+  reg -->|"Sales"| sales
+  reg -->|"PRM"| prm
+```
+
+Partner status codes (example `PartnerProfilePEO_gnx_sls_Status_c`) are LookupCode values. Resolve them with **`list_partner_lov`** — do not guess Meaning from the code string.
+
+```mermaid
+flowchart TD
+  listP[list_partners_or_get_partner]
+  field["custom_field_LookupCode"]
+  lovName["lov_name_PartnerProfilePEO_LOVVA_For_suffix"]
+  lov[list_partner_lov]
+  meaning[Meaning_DisplayLabel]
+  listP --> field --> lovName --> lov --> meaning
+```
+
+Convention: field `PartnerProfilePEO_<suffix>` → `lov_name=PartnerProfilePEO_LOVVA_For_<suffix>`. If unknown, `get_partner(only_data=false)` and follow `rel=lov` links. Optional `lookup_code` filters `q=LookupCode="…"`. Partners are keyed by **CompanyNumber** (not display name).
+
+### Profile modes (`cpq.hosted` + `cpq.auth`)
+
+| Nested CPQ | Auth | REST prefix | Profile sample |
+|------------|------|-------------|----------------|
+| `hosted: standalone` (default) + `auth: basic` | Basic Auth | `/rest/{rest_api_version}` | [`.config/example.yaml`](../.config/example.yaml) |
+| `hosted: fusion` + `auth: bearer` | OAuth client_credentials → Bearer | `/cpq/rest/{rest_api_version}` | [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) |
+
+- Same MCP tools and `api_path` values — prefix from `hosted`, header from `auth`.
+- Bearer requires per-product `oauth_*`; Basic requires `credentials`.
+- Agents never edit oauth secrets (same rule as passwords). Optional explicit token: `get_fusion_access_token` (CPQ `auth: bearer`).
 
 ### Diagnostics
 
@@ -97,11 +144,24 @@ Lightweight FastAPI + static UI (**app 0.4.3+**) to browse/fill saved prompts, i
 ### Profiles and environments
 
 - Per-customer `.config/<profile>.yaml` (gitignored); templates [`.config/example.yaml`](../.config/example.yaml) (cpq) and [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) (fusion).
-- **Mode:** `cpq` / `standalone` (Basic + `/rest/…`) or `fusion` (OAuth Bearer + `/cpq/rest/…`) — see [Profile modes](#profile-modes-cpq-vs-fusion).
+- **`frugal_mode`:** when `true` (or host `CPQ_FRUGAL_MODE`), MCP instructions are shortened and refined-prompt footer / post-response export / `ensure_prompt_studio` are disabled to save agent context tokens.
+- **Customer knowledge memory:** MCP `ensure_customer_knowledge` / `get_customer_knowledge` / `append_customer_knowledge` manage `knowledge/{customer_id}.md` (or profile `customer_knowledge_file`). Discoveries survive across sessions; reload MCP so injected instructions refresh. Same-session: call `get_customer_knowledge`.
+
+```mermaid
+flowchart LR
+  ensure[ensure_customer_knowledge]
+  work[site_or_cache_discovery]
+  append[append_customer_knowledge]
+  reload[reload_MCP]
+  next[next_chat_instructions]
+  ensure --> work --> append --> reload --> next
+```
+- **CPQ hosted / auth:** nested `cpq.hosted` + `cpq.auth` — see [Profile modes](#profile-modes-cpqhosted--cpqauth).
+- **`cx.modules`:** required when `cx.enabled: true`. **Sales** and **PRM** register GET tools; other allowlisted names (`Service`, `Field Service`, `Subscription`, `Incentive Compensation`) are reserved. Host override `CPQ_FUSION_MODULES`.
 - Environments: `dev` / `test` / `prod` credential or oauth sets; `DEFAULT_ENVIRONMENT`.
 - Host-only: `CPQ_CUSTOMER_PROFILE`, `CPQ_CONFIG_DIR`, `CPQ_CONFIRMATION_SECRET`, `CPQ_ALLOW_PROD`, schema integrity flags.
 - **`DEBUG_MODE`** (default true) — appends timestamped, redacted CPQ request traces (curl + parameters) to `logs/{profile}-{environment}.log`. Override with `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`. Independent of `CPQ_VERBOSE` (stderr).
-- **Knowledge base** — shared [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md) is always injected into MCP server instructions; optional `CUSTOMER_KNOWLEDGE_FILE` (e.g. `focalpoint.md`) loads [`knowledge/{file}`](../knowledge/). Reload MCP after edits.
+- **Knowledge base** — shared [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md) is always injected into MCP server instructions; optional `customer_knowledge_file` (e.g. `focalpoint.md`) loads [`knowledge/{file}`](../knowledge/). Prefer MCP append tools over hand-editing; reload MCP after edits.
 - **Property aliases** — pair `COMMERCE_PROCESS_VAR_NAME` with `COMMERCE_PROCESS_ALIAS` (and `_1` / `_2` …), and `CUSTOM_DATA_TABLE_NAME` with `CUSTOM_DATA_TABLE_ALIAS`. Phrases like “base commerce process” resolve to the mapped var name in agent instructions. Optional `COMMERCE_PROCESS_ENABLED[_N]` (default true) omits disabled slots from defaults/aliases while keeping rows in the env; reload MCP after changes.
 
 ### Live testing status (honest scope)
@@ -131,7 +191,7 @@ Authoritative security docs: [`SECURITY.md`](../SECURITY.md), [`THREAT_MODEL.md`
 | **Output redaction** | Sensitive fields stripped from tool responses |
 | **Schema integrity** | Startup manifest hash (`CPQ_SCHEMA_INTEGRITY`) |
 | **Audit** | Structured events without secrets |
-| **CPQClient only** | All CPQ HTTP goes through one client (sanitized errors) |
+| **CPQClient / CXClient only** | CPQ HTTP via `CPQClient`; Fusion CX HTTP via `CXClient` (sanitized errors) |
 
 ### Human-in-the-loop (writes)
 

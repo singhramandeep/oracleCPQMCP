@@ -21,6 +21,7 @@ ALLOWED_TAGS = frozenset(
         "metrics",
         "collab",
         "admin",
+        "sales",
         "meta",
         *INTENT_TAGS,
     }

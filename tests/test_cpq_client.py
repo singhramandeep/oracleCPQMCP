@@ -291,7 +291,8 @@ def test_fusion_mode_bearer_and_cpq_rest_for_domain_paths(relative_path: str) ->
         base_url="https://fusion-dev.example.com",
         credentials=[],
         rest_version="v19",
-        mode="fusion",
+        cpq_mode="fusion",
+        fusion_enabled=True,
         oauth_token_url=token_url,
         oauth_client_id="cid",
         oauth_client_secret="csecret",
@@ -333,7 +334,8 @@ def test_fusion_mode_uses_bearer_and_cpq_rest_path() -> None:
         base_url="https://fusion-dev.example.com",
         credentials=[],
         rest_version="v19",
-        mode="fusion",
+        cpq_mode="fusion",
+        fusion_enabled=True,
         oauth_token_url=token_url,
         oauth_client_id="cid",
         oauth_client_secret="csecret",
@@ -341,6 +343,7 @@ def test_fusion_mode_uses_bearer_and_cpq_rest_path() -> None:
         read_only=True,
         debug_mode=False,
     )
+    assert profile.uses_fusion is True
     assert profile.rest_base == "https://fusion-dev.example.com/cpq/rest/v19"
     client = CPQClient(profile)
     respx.post(token_url).mock(

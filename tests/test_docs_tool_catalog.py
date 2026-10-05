@@ -8,17 +8,29 @@ from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 README = REPO_ROOT / "README.md"
+FEATURES = REPO_ROOT / "docs" / "FEATURES.md"
+FAQ = REPO_ROOT / "docs" / "FAQ.md"
 
 _CATALOG_DOMAINS = frozenset(spec.domain for spec in TOOL_CATALOG.values())
 
 
 def test_tool_catalog_count() -> None:
-    assert len(TOOL_CATALOG) == 123
+    assert len(TOOL_CATALOG) == 157
 
 
 def test_readme_documents_catalog_tool_count() -> None:
     text = README.read_text(encoding="utf-8")
     assert f"{len(TOOL_CATALOG)} MCP tools" in text
+
+
+def test_features_and_faq_document_catalog_tool_count() -> None:
+    n = len(TOOL_CATALOG)
+    features = FEATURES.read_text(encoding="utf-8")
+    faq = FAQ.read_text(encoding="utf-8")
+    assert f"MCP tool catalog ({n} tools)" in features
+    assert f"**{n}** MCP tools" in faq
+    assert "list_partner_lov" in features
+    assert "list_partner_lov" in faq
 
 
 def test_readme_documents_bml_commerce_and_performance() -> None:

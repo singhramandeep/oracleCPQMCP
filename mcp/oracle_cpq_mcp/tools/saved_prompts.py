@@ -409,6 +409,7 @@ def register_saved_prompt_tools(mcp: Any) -> None:
                         "metrics",
                         "collab",
                         "admin",
+                        "sales",
                         "meta",
                     ],
                     "hint": (

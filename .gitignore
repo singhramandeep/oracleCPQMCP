@@ -13,8 +13,8 @@
 .prompts
 .knowledge/
 # Customer-specific knowledge (local only; keep CPQBaseKnowledge.md tracked)
-knowledge/focalpoint.md
-knowledge/keste.md
+knowledge/*
+!knowledge/CPQBaseKnowledge.md
 exports/
 dat/
 data/
@@ -76,6 +76,10 @@ logs/
 
 # Credential / key material
 *.pem
+# Local diagnostic with inlined Hunter/Gentex oauth_* (never commit)
+utilities/compare_fusion_oauth_token.py
+# Throwaway Gentex Sales territories GET stub (Basic Auth — never commit)
+utilities/stub_gentex_territories_get.py
 *.key
 *.p12
 *.pfx

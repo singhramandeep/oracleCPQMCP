@@ -140,7 +140,7 @@ def test_get_fusion_access_token_requires_fusion_mode() -> None:
     register_admin_tools(mcp, client)  # type: ignore[arg-type]
     result = mcp.tools["get_fusion_access_token"]()
     assert result["status"] == "error"
-    assert "fusion" in result["message"].lower()
+    assert "bearer" in result["message"].lower()
 
 
 @respx.mock
@@ -155,7 +155,8 @@ def test_get_fusion_access_token_masked_and_full() -> None:
         base_url="https://fusion-dev.example.com",
         credentials=[],
         rest_version="v19",
-        mode="fusion",
+        cpq_mode="fusion",
+        fusion_enabled=True,
         oauth_token_url=token_url,
         oauth_client_id="cid",
         oauth_client_secret="csecret",

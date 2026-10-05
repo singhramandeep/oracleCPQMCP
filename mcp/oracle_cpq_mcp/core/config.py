@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from dotenv import dotenv_values
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from oracle_cpq_mcp.core.catalog import CatalogProductFamily
 
@@ -16,7 +16,9 @@ LocalDataPolicy = Literal["ask", "prefer", "never"]
 PostResponseExportPolicy = Literal["ask", "never", "always_excel"]
 CatalogSource = Literal["none", "env", "catalog_yaml", "profile_yaml"]
 ProfileFileKind = Literal["yaml", "env"]
-ProfileMode = Literal["cpq", "fusion"]
+ProfileMode = Literal["standalone", "fusion"]
+AuthMode = Literal["basic", "bearer"]
+HostedMode = Literal["standalone", "fusion"]
 
 
 class CredentialSet(BaseModel):
@@ -35,7 +37,20 @@ class CPQProfile(BaseModel):
     base_url: str
     rest_version: str
     company_login_name: str = "_host"
-    mode: ProfileMode = "cpq"
+    cpq_mode: ProfileMode = "standalone"
+    fusion_enabled: bool = False
+    fusion_modules: list[str] = Field(default_factory=list)
+    cpq_enabled: bool = True
+    cpq_auth: AuthMode = "basic"
+    cx_enabled: bool = False
+    cx_url: str | None = None
+    cx_auth: AuthMode = "basic"
+    cx_modules: list[str] = Field(default_factory=list)
+    cx_credentials: list[CredentialSet] = Field(default_factory=list)
+    cx_oauth_token_url: str | None = None
+    cx_oauth_client_id: str | None = None
+    cx_oauth_client_secret: str | None = Field(default=None, repr=False)
+    cx_oauth_scope: str | None = None
     credentials: list[CredentialSet] = Field(default_factory=list)
     credential_index: int = 0
     oauth_token_url: str | None = None
@@ -50,6 +65,7 @@ class CPQProfile(BaseModel):
     read_only: bool = True
     refined_prompt: bool = True
     auto_save_refined_prompt: bool = False
+    frugal_mode: bool = False
     debug_mode: bool = True
     local_data_policy: LocalDataPolicy = "prefer"
     post_response_export: PostResponseExportPolicy = "always_excel"
@@ -64,17 +80,41 @@ class CPQProfile(BaseModel):
     catalog_source: CatalogSource = "none"
     profile_file_kind: ProfileFileKind = "env"
 
+    @model_validator(mode="before")
+    @classmethod
+    def default_cpq_auth_from_hosted_fusion(cls, data: Any) -> Any:
+        """Legacy CPQProfile(...) constructors: Fusion-hosted + oauth → bearer."""
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        if "cpq_auth" not in out:
+            mode = out.get("cpq_mode") or "standalone"
+            fusion_on = bool(out.get("fusion_enabled"))
+            if mode == "fusion" and fusion_on:
+                out["cpq_auth"] = "bearer"
+        return out
+
     @field_validator("base_url")
     @classmethod
     def strip_trailing_slash(cls, value: str) -> str:
         return value.rstrip("/")
 
     @property
+    def uses_fusion(self) -> bool:
+        """True when Fusion-hosted CPQ REST prefix ``/cpq/rest`` is active."""
+        return self.cpq_enabled and self.cpq_mode == "fusion" and self.fusion_enabled
+
+    @property
+    def uses_cpq_bearer(self) -> bool:
+        """True when CPQ REST uses OAuth Bearer (independent of hosted prefix)."""
+        return self.cpq_enabled and self.cpq_auth == "bearer"
+
+    @property
     def username(self) -> str:
         if not self.credentials:
             raise RuntimeError(
                 f"Profile '{self.customer_id}' has no Basic Auth credentials "
-                f"(mode={self.mode})"
+                f"(cpq_auth={self.cpq_auth}, hosted={self.cpq_mode})"
             )
         return self.credentials[self.credential_index].username
 
@@ -83,7 +123,7 @@ class CPQProfile(BaseModel):
         if not self.credentials:
             raise RuntimeError(
                 f"Profile '{self.customer_id}' has no Basic Auth credentials "
-                f"(mode={self.mode})"
+                f"(cpq_auth={self.cpq_auth}, hosted={self.cpq_mode})"
             )
         return self.credentials[self.credential_index].password
 
@@ -97,14 +137,19 @@ class CPQProfile(BaseModel):
 
     @property
     def rest_base(self) -> str:
-        if self.mode == "fusion":
+        if not self.cpq_enabled or not self.base_url:
+            raise RuntimeError(
+                f"Profile '{self.customer_id}' does not have CPQ enabled for "
+                f"environment '{self.environment}'"
+            )
+        if self.uses_fusion:
             return f"{self.base_url}/cpq/rest/{self.rest_version}"
         return f"{self.base_url}/rest/{self.rest_version}"
 
     @property
     def sanitize_secret(self) -> str | None:
         """Secret to redact from error messages (password or OAuth client secret)."""
-        if self.mode == "fusion":
+        if self.uses_cpq_bearer:
             return self.oauth_client_secret
         if self.credentials:
             return self.credentials[self.credential_index].password
@@ -273,7 +318,12 @@ def _resolve_post_response_export(raw: dict[str, str | None]) -> PostResponseExp
 
 # Keys the MCP tools are allowed to rewrite in the active profile .env.
 PROFILE_ENV_WRITABLE_KEYS = frozenset(
-    {"AUTO_SAVE_REFINED_PROMPT", "LOCAL_DATA_POLICY", "POST_RESPONSE_EXPORT"}
+    {
+        "AUTO_SAVE_REFINED_PROMPT",
+        "LOCAL_DATA_POLICY",
+        "POST_RESPONSE_EXPORT",
+        "CUSTOMER_KNOWLEDGE_FILE",
+    }
 )
 
 
@@ -568,10 +618,9 @@ def _load_profile_from_yaml(
         raise ValueError(f"Invalid environment '{active_env}'. Use dev, test, or prod.")
 
     env_block = document.environments.get(active_env)
-    if env_block is None or not env_block.url:
+    if env_block is None:
         raise ValueError(
-            f"Profile '{customer_id}' is missing environments.{active_env}.url "
-            f"in {path}"
+            f"Profile '{customer_id}' is missing environments.{active_env} in {path}"
         )
     if not env_block.enabled:
         raise ValueError(
@@ -580,29 +629,78 @@ def _load_profile_from_yaml(
             "Pick another environment or set enabled: true."
         )
 
-    mode = document.mode
-    if mode == "fusion":
-        credentials: list[CredentialSet] = []
-        resolved_index = 0
-        oauth_token_url = env_block.oauth_token_url
-        oauth_client_id = env_block.oauth_client_id
-        oauth_client_secret = env_block.oauth_client_secret
-        oauth_scope = env_block.oauth_scope
-    else:
-        if not env_block.credentials:
+    cpq = env_block.cpq
+    cx = env_block.cx
+    cpq_on = cpq is not None and cpq.enabled
+    cx_on = cx is not None and cx.enabled
+    if not cpq_on and not cx_on:
+        raise ValueError(
+            f"Profile '{customer_id}' environment '{active_env}' has neither "
+            "cpq nor cx enabled."
+        )
+
+    credentials: list[CredentialSet] = []
+    resolved_index = 0
+    oauth_token_url = None
+    oauth_client_id = None
+    oauth_client_secret = None
+    oauth_scope = None
+    base_url = ""
+    cpq_auth: AuthMode = "basic"
+    cpq_mode: ProfileMode = "standalone"
+    fusion_enabled = False
+
+    if cpq_on:
+        assert cpq is not None
+        if not cpq.url:
             raise ValueError(
-                f"Profile '{customer_id}' is missing environments.{active_env}.credentials "
+                f"Profile '{customer_id}' is missing environments.{active_env}.cpq.url "
                 f"in {path}"
             )
-        credentials = [
-            CredentialSet(username=item.username, password=item.password)
-            for item in env_block.credentials
-        ]
-        resolved_index = _resolve_credential_index(credential_index, len(credentials))
-        oauth_token_url = None
-        oauth_client_id = None
-        oauth_client_secret = None
-        oauth_scope = None
+        base_url = cpq.url
+        cpq_auth = cpq.auth
+        cpq_mode = cpq.hosted
+        fusion_enabled = cpq.hosted == "fusion"
+        if cpq.auth == "bearer":
+            oauth_token_url = cpq.oauth_token_url
+            oauth_client_id = cpq.oauth_client_id
+            oauth_client_secret = cpq.oauth_client_secret
+            oauth_scope = cpq.oauth_scope
+        else:
+            if not cpq.credentials:
+                raise ValueError(
+                    f"Profile '{customer_id}' is missing "
+                    f"environments.{active_env}.cpq.credentials in {path}"
+                )
+            credentials = [
+                CredentialSet(username=item.username, password=item.password)
+                for item in cpq.credentials
+            ]
+            resolved_index = _resolve_credential_index(credential_index, len(credentials))
+
+    cx_credentials: list[CredentialSet] = []
+    cx_url = None
+    cx_auth: AuthMode = "basic"
+    cx_modules: list[str] = []
+    cx_oauth_token_url = None
+    cx_oauth_client_id = None
+    cx_oauth_client_secret = None
+    cx_oauth_scope = None
+    if cx_on:
+        assert cx is not None
+        cx_url = cx.url
+        cx_auth = cx.auth
+        cx_modules = list(cx.modules)
+        if cx.auth == "bearer":
+            cx_oauth_token_url = cx.oauth_token_url
+            cx_oauth_client_id = cx.oauth_client_id
+            cx_oauth_client_secret = cx.oauth_client_secret
+            cx_oauth_scope = cx.oauth_scope
+        else:
+            cx_credentials = [
+                CredentialSet(username=item.username, password=item.password)
+                for item in cx.credentials
+            ]
 
     catalog = document.as_catalog()
     commerce_names, commerce_aliases = commerce_from_catalog(catalog)
@@ -613,6 +711,9 @@ def _load_profile_from_yaml(
     )
 
     read_only = _host_bool_override("CPQ_READ_ONLY", document.read_only, default=True)
+    frugal_mode = _host_bool_override(
+        "CPQ_FRUGAL_MODE", document.frugal_mode, default=False
+    )
     refined_prompt = _host_bool_override(
         "CPQ_REFINED_PROMPT", document.refined_prompt, default=True
     )
@@ -643,14 +744,42 @@ def _load_profile_from_yaml(
             {"POST_RESPONSE_EXPORT": document.post_response_export}
         )
 
+    # Frugal mode forces token-heavy agent behaviors off (instructions + flags).
+    if frugal_mode:
+        refined_prompt = False
+        auto_save = False
+        export_policy = "never"
+
+    from oracle_cpq_mcp.core.profile_yaml import normalize_fusion_modules
+
+    if os.environ.get("CPQ_FUSION_MODULES") is not None:
+        fusion_modules = normalize_fusion_modules(os.environ.get("CPQ_FUSION_MODULES"))
+    elif cx_on and cx_modules:
+        fusion_modules = list(cx_modules)
+    else:
+        fusion_modules = list(document.fusion_modules)
+
     return CPQProfile(
         customer_name=document.customer_name or customer_id,
         customer_id=customer_id,
         environment=active_env,
-        base_url=env_block.url,
+        base_url=base_url,
         rest_version=document.rest_api_version or "v18",
         company_login_name=document.company_login_name or "_host",
-        mode=mode,
+        cpq_mode=cpq_mode,
+        fusion_enabled=fusion_enabled,
+        fusion_modules=fusion_modules,
+        cpq_enabled=cpq_on,
+        cpq_auth=cpq_auth,
+        cx_enabled=cx_on,
+        cx_url=cx_url,
+        cx_auth=cx_auth,
+        cx_modules=cx_modules,
+        cx_credentials=cx_credentials,
+        cx_oauth_token_url=cx_oauth_token_url,
+        cx_oauth_client_id=cx_oauth_client_id,
+        cx_oauth_client_secret=cx_oauth_client_secret,
+        cx_oauth_scope=cx_oauth_scope,
         credentials=credentials,
         credential_index=resolved_index,
         oauth_token_url=oauth_token_url,
@@ -665,6 +794,7 @@ def _load_profile_from_yaml(
         read_only=read_only,
         refined_prompt=refined_prompt,
         auto_save_refined_prompt=auto_save,
+        frugal_mode=frugal_mode,
         debug_mode=debug_mode,
         local_data_policy=local_policy,
         post_response_export=export_policy,
@@ -751,6 +881,26 @@ def _load_profile_from_env(
         product_families
     )
 
+    frugal_mode = _host_bool_override(
+        "CPQ_FRUGAL_MODE",
+        parse_bool_env(raw.get("FRUGAL_MODE"), default=False),
+        default=False,
+    )
+    refined_prompt = _resolve_refined_prompt(raw)
+    auto_save = _resolve_auto_save_refined_prompt(raw)
+    export_policy = _resolve_post_response_export(raw)
+    if frugal_mode:
+        refined_prompt = False
+        auto_save = False
+        export_policy = "never"
+
+    from oracle_cpq_mcp.core.profile_yaml import normalize_fusion_modules
+
+    if os.environ.get("CPQ_FUSION_MODULES") is not None:
+        fusion_modules = normalize_fusion_modules(os.environ.get("CPQ_FUSION_MODULES"))
+    else:
+        fusion_modules = normalize_fusion_modules(raw.get("FUSION_MODULES"))
+
     return CPQProfile(
         customer_name=raw.get("CUSTOMER_NAME") or customer_id,
         customer_id=customer_id,
@@ -758,7 +908,11 @@ def _load_profile_from_env(
         base_url=base_url,
         rest_version=raw.get("REST_API_VERSION") or "v18",
         company_login_name=raw.get("COMPANY_LOGIN_NAME") or "_host",
-        mode="cpq",
+        cpq_mode="standalone",
+        fusion_enabled=False,
+        fusion_modules=fusion_modules,
+        cpq_enabled=True,
+        cpq_auth="basic",
         credentials=credentials,
         credential_index=resolved_index,
         custom_data_table_names=table_names,
@@ -767,11 +921,12 @@ def _load_profile_from_env(
         commerce_process_aliases=commerce_aliases,
         custom_data_table_aliases=table_aliases,
         read_only=_resolve_read_only(raw),
-        refined_prompt=_resolve_refined_prompt(raw),
-        auto_save_refined_prompt=_resolve_auto_save_refined_prompt(raw),
+        refined_prompt=refined_prompt,
+        auto_save_refined_prompt=auto_save,
+        frugal_mode=frugal_mode,
         debug_mode=_resolve_debug_mode(raw),
         local_data_policy=_resolve_local_data_policy(raw),
-        post_response_export=_resolve_post_response_export(raw),
+        post_response_export=export_policy,
         http_timeout=_resolve_http_timeout(raw),
         metric_descriptions=metric_descriptions,
         product_families=product_families,

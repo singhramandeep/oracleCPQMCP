@@ -7,15 +7,16 @@ alwaysApply: false
 # Oracle CPQ MCP — tool changes
 
 Follow [`docs/STANDARDS.md`](docs/STANDARDS.md). Copy from [`docs/templates/`](docs/templates/).
+Authoritative checklist is STANDARDS (all IDEs). This file is a **Cursor-only** glob mirror — do not port it to Antigravity/VS Code.
 
 ## Required for every new/changed tool
 
 1. `ToolSpec` in `registry/tool_registry.py` via `_spec` — `description`, `title`, semver `version` (bump on change), icons or domain default; pagination / empty / “does not”.
 2. `_StrictModel` in `security/validation.py` — **every** field has `Field(..., description="...")`.
 3. Map name in `TOOL_INPUT_MODELS`.
-4. Handler uses `CPQClient` only; return raw/paginated data (wrapper stamps envelope).
-5. Register with `register_tool` only — never bypass sanitize / stamp / output validation.
-6. Wire into the domain `register_*_tools` + `server.py` if new domain.
+4. Handler uses `CPQClient` (CPQ) or `CXClient` (Fusion CX under `tools/cx/`); return raw/paginated data (wrapper stamps envelope).
+5. Register with `register_tool` only (`name=` from catalog) — never bypass sanitize / stamp / output validation.
+6. Wire into the domain `register_*_tools` + `server.py` if new domain. CX: add to `tools/cx/` and `_CX_MODULE_REGISTRARS` (gated on `cx.modules`).
 7. Tests: unit + contract coverage; run `python scripts/lint_tool_schemas.py`.
 8. Regenerate `tool_manifest.json` if the catalog changed (includes per-tool `tool_versions` hashes).
 

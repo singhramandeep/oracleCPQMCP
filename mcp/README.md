@@ -4,9 +4,9 @@ This folder contains the **Oracle CPQ MCP server** — the installable Python pa
 
 ```
 oracle_cpq_mcp/
-  core/        # Config, CPQClient, errors, pagination, filters
+  core/        # Config, CPQClient, CXClient, errors, pagination, filters
   registry/    # Tool catalog and discovery metadata
-  tools/       # MCP tool handlers
+  tools/       # MCP tool handlers (Fusion CX: tools/cx/)
   exporters/   # Excel helpers for MCP tools
   server.py    # FastMCP entrypoint
 ```

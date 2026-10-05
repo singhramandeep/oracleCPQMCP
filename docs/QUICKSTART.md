@@ -220,7 +220,7 @@ Credentials live in **one YAML file per customer**, never in MCP JSON.
 | Windows PowerShell / CMD | `copy .config\example.yaml .config\mycompany.yaml` |
 | macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml`   |
 
-**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) instead (`mode: fusion` + `oauth_*`). Same MCP tools; REST uses Bearer + `/cpq/rest/{version}`.
+**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) instead (`cpq.hosted: fusion`, `cpq.auth: bearer`, + `oauth_*`). Same CPQ MCP tools; REST uses Bearer + `/cpq/rest/{version}`. Enable nested `cx:` with `modules: [Sales, PRM]` for Fusion CX GET tools.
 
 Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.yaml` becomes `CPQ_CUSTOMER_PROFILE`.
 
@@ -482,7 +482,7 @@ Example `.cursor/mcp.json` (Windows — uses `mcp-server.cmd`):
 4. Ensure `.venv` exists (Step 2, run in IDE terminal).
 5. **Fully quit and restart Cursor** (MCP loads at startup).
 6. Open **Agent** mode chat.
-7. Ask: *"What can you do in Oracle CPQ? Use discover_tools to list tools by domain (users, groups, datatables, bml, commerce, performance, parts, tasks, configuration)."*
+7. Ask: *"What can you do in Oracle CPQ? Use discover_tools to list tools by domain (users, groups, datatables, bml, commerce, performance, parts, tasks, configuration, sales, prm)."*
 
 **Verify in Cursor:** Settings → MCP — `oracle-cpq` should show connected with tools listed.
 
@@ -531,13 +531,15 @@ Edit `.vscode/mcp.json` if needed (profile name, env vars). Example shape:
 
 **Steps:**
 
-1. Install [VS Code](https://code.visualstudio.com/) and enable **GitHub Copilot** with Agent mode.
-2. Open the `oracleCPQMCP` folder.
-3. Select the workspace Python interpreter: `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python` (Command Palette → *Python: Select Interpreter*).
-4. Create `.vscode/mcp.json` from the example (above).
-5. Reload VS Code (Command Palette → *Developer: Reload Window*).
-6. Open Copilot Chat → switch to **Agent** mode.
-7. Ask: *"Show me the first 5 active CPQ users."*
+1. Install [VS Code](https://code.visualstudio.com/).
+2. Install the **GitHub Copilot** and **GitHub Copilot Chat** extensions (Extensions view → search “GitHub Copilot” → Install). Official: [VS Code Copilot setup](https://code.visualstudio.com/docs/copilot/setup).
+3. Sign in: Command Palette → **GitHub Copilot: Sign In** (or Accounts → Sign in to GitHub). Complete browser OAuth; confirm the status bar / Copilot icon shows signed in (active Copilot subscription required).
+4. Open the `oracleCPQMCP` folder.
+5. Select the workspace Python interpreter: `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python` (Command Palette → *Python: Select Interpreter*).
+6. Create `.vscode/mcp.json` from the example (above).
+7. Reload VS Code (Command Palette → *Developer: Reload Window*).
+8. Open Copilot Chat → switch to **Agent** mode (required for MCP tools).
+9. Ask: *"Show me the first 5 active CPQ users."*
 
 **Alternative:** Command Palette → **MCP: Open Workspace Folder Configuration** to edit the file in UI.
 
@@ -547,7 +549,7 @@ Edit `.vscode/mcp.json` if needed (profile name, env vars). Example shape:
 
 ## Step 6 — Sample checks in Agent chat
 
-After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you. When profile `REFINED_PROMPT` is not `false` (default **true**), answers from **real site/cache data work** (live CPQ tools and/or `data/{profile}/{env}/`) should end with **`### Refined prompt (Better token usage)`**: **Title**, **Tags**, **Output format** (chat text / json / excel download; default chat text), **Cached data** (yes/no/mixed), a generic prose prompt with `{{placeholders}}` (including `{{output_format}}`), a **Variables** legend, a **Tools (for the agent)** list (or `none (local file read only)` when site/cache data came from local files), then **Turn metrics** (**Elapsed** best-effort wall-clock, and **Tokens** only if the platform surfaces usage — otherwise `not available`; do not invent counts). **Coding, reviews, plans, and other work on this repo skip the footer** — it is not for every chat command.
+After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you. When profile `REFINED_PROMPT` is not `false` (default **true**), answers from **real site/cache data work** (live CPQ tools and/or `data/{profile}/{env}/`) should end with **`### Refined prompt (Better token usage)`**: **Title**, **Tags**, **Output format** (chat text / json / excel download; default chat text), **Cached data** (yes/no/mixed), a generic prose prompt with `{{placeholders}}` (including `{{output_format}}`), a **Variables** legend, a **Tools (for the agent)** list (or `none (local file read only)` when site/cache data came from local files), then **Turn metrics** (**Elapsed** best-effort wall-clock only — do not include token counts in the footer). **Coding, reviews, plans, and other work on this repo skip the footer** — it is not for every chat command.
 
 **Saving refined prompts (MCP tools — do not invent scripts):**
 - Example profile sets `AUTO_SAVE_REFINED_PROMPT=true` (auto-save after each YES-gate footer; dedupes by hash).
@@ -615,7 +617,7 @@ Full detail: [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) a
 
 ### 6.1 Explore what CPQ actions are available
 
-> What can you do in Oracle CPQ? Use discover_tools to list the read-only actions you have access to, grouped by domain (users, groups, datatables, bml, commerce, performance, parts, tasks, configuration).
+> What can you do in Oracle CPQ? Use discover_tools to list the read-only actions you have access to, grouped by domain (users, groups, datatables, bml, commerce, performance, parts, tasks, configuration, sales, prm).
 
 Note: **tasks** and **configuration** (productFamilies), plus newer datatable create/export and BML extension tools, are implemented but **untested against live CPQ** — see the testing-status table in [README.md](../README.md).
 
@@ -692,6 +694,14 @@ New tools: `export_datatables` / `export_bml_library_functions` → `get_task` �
 New `configuration` domain (`list_product_families`, scoped attributes/array sets/layouts, `get_layout_cache_attributes`). Covered by offline tests only; **not yet verified on a live CPQ site**.
 
 > (When ready to smoke-test) List product families, then list configuration attributes for the first family using scope=family.
+
+### 6.12 Fusion CX Sales / PRM (needs `cx.enabled` + modules)
+
+Requires a nested `cx:` block and `Sales` and/or `PRM` in `cx.modules`. Live GETs have been used on Fusion CX; some ADF `q` / `fields`+`expand` combinations return 400. Resolve partner LookupCode values with `list_partner_lov` (do not invent Meaning). Diagrams: [FEATURES — Fusion CX](FEATURES.md#fusion-cx-sales-and-prm).
+
+> List Fusion CX territories (one page) and summarize Status / TypeCode.
+
+> Find partner “example dealer” by name, then show CompanyNumber and resolve its status LookupCode via list_partner_lov.
 
 ---
 

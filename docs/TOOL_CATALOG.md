@@ -8,11 +8,11 @@
 > # or: python scripts/generate_tool_catalog.py
 > ```
 
-**Total tools:** 123
+**Total tools:** 157
 
 This document is the formal per-tool reference for the GitHub repository. Each domain lists **Read tools** then **Write tools**. Every tool has one property table (Version, CX module, Op/Risk, Method, CPQ REST URL, Fusion REST URL, Tags, Parameters, Filters, Output, Description) so API path and inputs stay together.
 
-**CPQ REST URL** and **Fusion REST URL** are paths relative to the site base URL. Standalone/cpq (`mode` omitted, `cpq`, or `standalone`): use **CPQ REST URL** (`/rest/{rest_api_version}` + API path). Fusion (`mode: fusion`): use **Fusion REST URL** (`/cpq/rest/{rest_api_version}` + API path). `{rest_api_version}` comes from the profile (e.g. `v18` / `v19`). Full URL = `{site_base}` + the column path (applied automatically by `CPQClient` from profile `mode`). Tools that do not call CPQ REST show `— (local / no CPQ REST)` in both columns.
+**CPQ REST URL** and **Fusion REST URL** are paths relative to the site base URL. Standalone (`cpq.hosted: standalone` or omitted): **CPQ REST URL** (`/rest/{rest_api_version}` + API path). Fusion-hosted CPQ (`cpq.hosted: fusion`): **Fusion REST URL** (`/cpq/rest/{rest_api_version}` + API path). `{rest_api_version}` comes from the profile (e.g. `v18` / `v19`). `CPQClient` applies the prefix from nested `cpq.hosted` / `cpq.auth` (legacy `cpq_mode` / `fusion_enabled` still migrate). Sales/PRM tools put the **CRM REST** path (`/crmRestApi/resources/11.13.18.05/…`) in the Fusion REST URL column (base `cx.url`); the CPQ column is `— (CX … REST; not CPQ)`. Local/meta tools show `— (local / no CPQ REST)` in both columns.
 
 ## Domains
 
@@ -25,10 +25,12 @@ This document is the formal per-tool reference for the GitHub repository. Each d
 - [parts](#parts)
 - [tasks](#tasks)
 - [configuration](#configuration)
-- [meta](#meta)
-- [admin](#admin)
-- [collab](#collab)
 - [metrics](#metrics)
+- [collab](#collab)
+- [admin](#admin)
+- [sales](#sales)
+- [prm](#prm)
+- [meta](#meta)
 
 ## users
 
@@ -1640,19 +1642,686 @@ _17 tool(s)_
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List product lines under a product family. |
 
-## meta
+## metrics
 
-_21 tool(s)_
+_1 tool(s)_
 
-- **Read:** [`discover_tools`](#discover-tools), [`ensure_prompt_studio`](#ensure-prompt-studio), [`export_response_excel`](#export-response-excel), [`export_response_word`](#export-response-word), [`get_local_data_status`](#get-local-data-status), [`get_local_job`](#get-local-job), [`get_saved_prompt`](#get-saved-prompt), [`list_local_data`](#list-local-data), [`list_saved_prompts`](#list-saved-prompts), [`load_local_data`](#load-local-data), [`offer_export_response`](#offer-export-response), [`offer_save_refined_prompt`](#offer-save-refined-prompt), [`offer_use_local_data`](#offer-use-local-data), [`record_prompt_use`](#record-prompt-use), [`save_refined_prompt`](#save-refined-prompt), [`search_saved_prompts`](#search-saved-prompts), [`set_auto_save_refined_prompt`](#set-auto-save-refined-prompt), [`set_local_data_policy`](#set-local-data-policy), [`set_post_response_export`](#set-post-response-export), [`set_saved_prompt_enabled`](#set-saved-prompt-enabled), [`start_prompt_picker`](#start-prompt-picker)
+- **Read:** [`list_metrics`](#list-metrics)
 
 ### Read tools
+
+#### `list_metrics`
+
+| | |
+|---|---|
+| **Version** | `1.0.1` |
+| **CX module** | `cpq` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | `/rest/{rest_api_version}/metrics` |
+| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/metrics` |
+| **Tags** | `cpq`, `metrics`, `paginated`, `read` |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True) |
+| **Filters** | `name` (str \| None, default None)<br>`start_time` (str \| None, default None)<br>`end_time` (str \| None, default None)<br>`date_modified_from` (str \| None, default None)<br>`date_modified_to` (str \| None, default None)<br>`date_added_from` (str \| None, default None)<br>`date_added_to` (str \| None, default None) |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Oracle CPQ site metrics (GET /metrics). Returns one page of items (name, value, startTime, endTime, dateModified, dateAdded). Optional filters: name (exact), start_time/end_time, date_modified_from/to, date_added_f… |
+
+## collab
+
+_2 tool(s)_
+
+- **Read:** [`get_collab_operation_queue`](#get-collab-operation-queue)
+- **Write:** [`clear_collab_operation_queue`](#clear-collab-operation-queue)
+
+### Read tools
+
+#### `get_collab_operation_queue`
+
+| | |
+|---|---|
+| **Version** | `1.0.1` |
+| **CX module** | `cpq` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | `/rest/{rest_api_version}/collabOperationQueues/{bs_id}` |
+| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/collabOperationQueues/{bs_id}` |
+| **Tags** | `collab`, `cpq`, `queue`, `read` |
+| **Parameters** | `bs_id` (int, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get the collaborative quote operation queue for a commerce document (GET /collabOperationQueues/{bs_id}). Returns queuedOperations, currentlyExecutingOperation, operationCount, and node. Requires a REST version that exp… |
+
+### Write tools
+
+#### `clear_collab_operation_queue`
+
+| | |
+|---|---|
+| **Version** | `1.0.1` |
+| **CX module** | `cpq` |
+| **Op / Risk** | `write` / `DESTRUCTIVE` |
+| **Method** | `POST` |
+| **CPQ REST URL** | `/rest/{rest_api_version}/collabOperationQueues/{bs_id}/actions/clearCurrentQueue` |
+| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/collabOperationQueues/{bs_id}/actions/clearCurrentQueue` |
+| **Tags** | `collab`, `confirmation`, `cpq`, `dry_run`, `queue`, `write` |
+| **Parameters** | `bs_id` (int, required)<br>`dry_run` (bool, default True)<br>`confirmation_token` (str \| None, default None) |
+| **Filters** | — |
+| **Output** | write envelope `{status, tool, data}` |
+| **Description** | Clear the collaborative quote operation queue for a commerce document (POST /collabOperationQueues/{bs_id}/actions/clearCurrentQueue). Destructive — removes queued/current collab operations for that bs_id. Safe executio… |
+
+## admin
+
+_4 tool(s)_
+
+- **Read:** [`get_certificate`](#get-certificate), [`get_fusion_access_token`](#get-fusion-access-token), [`get_sso_configuration`](#get-sso-configuration), [`list_certificates`](#list-certificates)
+
+### Read tools
+
+#### `get_certificate`
+
+| | |
+|---|---|
+| **Version** | `1.0.1` |
+| **CX module** | `cpq` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | `/rest/{rest_api_version}/certificates/{name}` |
+| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/certificates/{name}` |
+| **Tags** | `admin`, `certificates`, `cpq`, `read` |
+| **Parameters** | `name` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one site certificate by name (GET /certificates/{name}). PEM/certificate material is redacted ([REDACTED]) in MCP responses. Docs target REST v19. Read-only. |
+
+#### `get_fusion_access_token`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `meta` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | — |
+| **CPQ REST URL** | — (local / no CPQ REST) |
+| **Fusion REST URL** | — (local / no CPQ REST) |
+| **Tags** | `admin`, `fusion`, `meta`, `oauth`, `read` |
+| **Parameters** | `include_token` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Obtain an IDCS/Fusion OAuth access token for the active profile when cpq_mode=fusion and fusion_enabled=true (client_credentials using oauth_* fields from the current environment). Returns token_type, expires_in, scope,… |
+
+#### `get_sso_configuration`
+
+| | |
+|---|---|
+| **Version** | `1.0.1` |
+| **CX module** | `cpq` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | `/rest/{rest_api_version}/ssoConfiguration` |
+| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/ssoConfiguration` |
+| **Tags** | `admin`, `cpq`, `read`, `sso` |
+| **Parameters** | — |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get site SSO configuration (GET /ssoConfiguration). IdP certificate and SAML keystore fields are redacted ([REDACTED]) in MCP responses. Docs target REST v19. Read-only; does not change SSO settings. |
+
+#### `list_certificates`
+
+| | |
+|---|---|
+| **Version** | `1.0.1` |
+| **CX module** | `cpq` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | `/rest/{rest_api_version}/certificates` |
+| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/certificates` |
+| **Tags** | `admin`, `certificates`, `cpq`, `read` |
+| **Parameters** | — |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List site certificates (GET /certificates). PEM/certificate material in responses is redacted ([REDACTED]) before reaching the LLM. Docs target REST v19 (set REST_API_VERSION=v19 if v18 returns 404). Read-only; does not… |
+
+## sales
+
+_14 tool(s)_
+
+- **Read:** [`get_account`](#get-account), [`get_account_team_member`](#get-account-team-member), [`get_contact`](#get-contact), [`get_lead`](#get-lead), [`get_lead_opportunity`](#get-lead-opportunity), [`get_product`](#get-product), [`get_territory`](#get-territory), [`list_account_team`](#list-account-team), [`list_accounts`](#list-accounts), [`list_contacts`](#list-contacts), [`list_lead_opportunities`](#list-lead-opportunities), [`list_leads`](#list-leads), [`list_products`](#list-products), [`list_territories`](#list-territories)
+
+### Read tools
+
+#### `get_account`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}` |
+| **Tags** | `accounts`, `cx`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one Fusion CX Sales account by party_number (PartyNumber). Requires Sales in cx.modules. |
+
+#### `get_account_team_member`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/AccountTeam/{AccountTeamUniqId}` |
+| **Tags** | `accounts`, `cx`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`account_team_uniq_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one account team member by party_number and account_team_uniq_id. |
+
+#### `get_contact`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/contacts/{PartyNumber}` |
+| **Tags** | `contacts`, `cx`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one contact by party_number. |
+
+#### `get_lead`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/leads/{leadsUniqID}` |
+| **Tags** | `cx`, `leads`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`leads_uniq_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one lead by leads_uniq_id from the leads collection (ADF uniq id in links). |
+
+#### `get_lead_opportunity`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/leads/{leadsUniqID}/child/LeadOpportunity/{LeadNumber}` |
+| **Tags** | `cx`, `leads`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`leads_uniq_id` (str, required)<br>`lead_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one lead opportunity by leads_uniq_id and lead_number. |
+
+#### `get_product`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/products/{InventoryItemId}` |
+| **Tags** | `cx`, `products`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`inventory_item_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one product by inventory_item_id. |
+
+#### `get_territory`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/territories/{TerritoryVersionId}` |
+| **Tags** | `cx`, `read`, `sales`, `territories` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`territory_version_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one Fusion CX Sales territory by territory_version_id (TerritoryVersionId path key). Requires cx.enabled and Sales in cx.modules. Optional fields, only_data, expand. |
+
+#### `list_account_team`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/AccountTeam` |
+| **Tags** | `accounts`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List account team members for an account (child AccountTeam). Requires Sales in cx.modules. |
+
+#### `list_accounts`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts` |
+| **Tags** | `accounts`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Sales accounts (GET accounts collection). Requires Sales in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, total_results. |
+
+#### `list_contacts`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/contacts` |
+| **Tags** | `contacts`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Sales contacts. Requires Sales in cx.modules. Paginated collection filters. |
+
+#### `list_lead_opportunities`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/leads/{leadsUniqID}/child/LeadOpportunity` |
+| **Tags** | `cx`, `leads`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`leads_uniq_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List lead opportunities for a lead (child LeadOpportunity). |
+
+#### `list_leads`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/leads` |
+| **Tags** | `cx`, `leads`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | `effective_date` (str \| None, default None) |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Sales leads. Optional effective_date (yyyy-MM-dd). leads_uniq_id for get_lead comes from collection links — do not invent. |
+
+#### `list_products`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/products` |
+| **Tags** | `cx`, `paginated`, `products`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Sales products (inventory items). Paginated. |
+
+#### `list_territories`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/territories` |
+| **Tags** | `cx`, `paginated`, `read`, `sales`, `territories` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Sales territories (GET /crmRestApi/resources/11.13.18.05/territories) via the profile cx: connection (Basic or Bearer). Requires cx.enabled and Sales in cx.modules. Returns one page; if hasMore is true, c… |
+
+## prm
+
+_17 tool(s)_
+
+- **Read:** [`get_deal`](#get-deal), [`get_partner`](#get-partner), [`get_partner_contact`](#get-partner-contact), [`get_partner_contact_address`](#get-partner-contact-address), [`get_partner_contact_attachment`](#get-partner-contact-attachment), [`get_partner_contact_contact_point`](#get-partner-contact-contact-point), [`get_partner_contact_user_detail`](#get-partner-contact-user-detail), [`get_partner_program`](#get-partner-program), [`list_deals`](#list-deals), [`list_partner_contact_addresses`](#list-partner-contact-addresses), [`list_partner_contact_attachments`](#list-partner-contact-attachments), [`list_partner_contact_contact_points`](#list-partner-contact-contact-points), [`list_partner_contact_user_details`](#list-partner-contact-user-details), [`list_partner_contacts`](#list-partner-contacts), [`list_partner_lov`](#list-partner-lov), [`list_partner_programs`](#list-partner-programs), [`list_partners`](#list-partners)
+
+### Read tools
+
+#### `get_deal`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/deals/{dealsUniqID}` |
+| **Tags** | `cx`, `deals`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`deals_uniq_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one deal registration by deals_uniq_id from the deals collection. |
+
+#### `get_partner`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`company_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner by company_number. |
+
+#### `get_partner_contact`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner contact by party_number. |
+
+#### `get_partner_contact_address`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/addresses/{AddressNumber}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`address_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner-contact address by party_number and address_number. |
+
+#### `get_partner_contact_attachment`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/attachments/{attachmentsUniqID}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`attachments_uniq_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner-contact attachment by party_number and attachments_uniq_id (from attachments collection links). Does not invent hash keys. |
+
+#### `get_partner_contact_contact_point`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/contactPoints/{ContactPointId}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`contact_point_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner-contact contact point by party_number and contact_point_id. |
+
+#### `get_partner_contact_user_detail`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/userdetails/{Username}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`username` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner-contact user-detail row by party_number and username (Username path key; @ is URL-encoded). |
+
+#### `get_partner_program`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerPrograms/{ProgramNumber}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`program_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner program by program_number (ProgramNumber path key). |
+
+#### `list_deals`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/deals` |
+| **Tags** | `cx`, `deals`, `paginated`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | `effective_date` (str \| None, default None) |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List PRM deal registrations. Optional effective_date. deals_uniq_id for get_deal comes from collection links — do not invent. |
+
+#### `list_partner_contact_addresses`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/addresses` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List addresses for a PRM partner contact (child addresses). Requires party_number and PRM in cx.modules. Paginated ADF collection filters. |
+
+#### `list_partner_contact_attachments`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/attachments` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List attachment metadata for a PRM partner contact (child attachments). attachments_uniq_id for get_partner_contact_attachment comes from collection links — do not invent. Does not download attachment binary content. |
+
+#### `list_partner_contact_contact_points`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/contactPoints` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List contact points (phone/email) for a PRM partner contact (child contactPoints). Requires party_number and PRM in cx.modules. |
+
+#### `list_partner_contact_user_details`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/userdetails` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List user-account details for a PRM partner contact (child userdetails). Requires party_number and PRM in cx.modules. |
+
+#### `list_partner_contacts`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List PRM partner contacts (partnerContacts collection). Requires PRM in cx.modules. |
+
+#### `list_partner_lov`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}/lov/{LovName}` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`company_number` (str, required)<br>`lov_name` (str, required) |
+| **Filters** | `lookup_code` (str \| None, default None) |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX PRM partner ADF LOV rows (GET partners/{CompanyNumber}/lov/{LovName}). Use after list_partners/get_partner to resolve LookupCode values to Meaning/DisplayLabel. For field PartnerProfilePEO_<suffix>, lov_n… |
+
+#### `list_partner_programs`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerPrograms` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX PRM partner programs (GET partnerPrograms). Requires PRM in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, total_results. |
+
+#### `list_partners`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partners` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX PRM partners. Requires PRM in cx.modules. |
+
+## meta
+
+_24 tool(s)_
+
+- **Read:** [`append_customer_knowledge`](#append-customer-knowledge), [`discover_tools`](#discover-tools), [`ensure_customer_knowledge`](#ensure-customer-knowledge), [`ensure_prompt_studio`](#ensure-prompt-studio), [`export_response_excel`](#export-response-excel), [`export_response_word`](#export-response-word), [`get_customer_knowledge`](#get-customer-knowledge), [`get_local_data_status`](#get-local-data-status), [`get_local_job`](#get-local-job), [`get_saved_prompt`](#get-saved-prompt), [`list_local_data`](#list-local-data), [`list_saved_prompts`](#list-saved-prompts), [`load_local_data`](#load-local-data), [`offer_export_response`](#offer-export-response), [`offer_save_refined_prompt`](#offer-save-refined-prompt), [`offer_use_local_data`](#offer-use-local-data), [`record_prompt_use`](#record-prompt-use), [`save_refined_prompt`](#save-refined-prompt), [`search_saved_prompts`](#search-saved-prompts), [`set_auto_save_refined_prompt`](#set-auto-save-refined-prompt), [`set_local_data_policy`](#set-local-data-policy), [`set_post_response_export`](#set-post-response-export), [`set_saved_prompt_enabled`](#set-saved-prompt-enabled), [`start_prompt_picker`](#start-prompt-picker)
+
+### Read tools
+
+#### `append_customer_knowledge`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `meta` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | — |
+| **CPQ REST URL** | — (local / no CPQ REST) |
+| **Fusion REST URL** | — (local / no CPQ REST) |
+| **Tags** | `knowledge`, `memory`, `meta`, `read` |
+| **Parameters** | `summary` (str, required)<br>`title` (str \| None, default None)<br>`tags` (list[str] \| None, default None) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Append a dated markdown discovery entry to the active profile customer knowledge file (env-tagged). Rejects secret-like content. Caps entry size. Auto-ensures stub + profile field when missing. Does not call Oracle CPQ.… |
 
 #### `discover_tools`
 
 | | |
 |---|---|
-| **Version** | `1.0.1` |
+| **Version** | `1.0.2` |
 | **CX module** | `meta` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | — |
@@ -1660,9 +2329,25 @@ _21 tool(s)_
 | **Fusion REST URL** | — (local / no CPQ REST) |
 | **Tags** | `discovery`, `meta`, `read` |
 | **Parameters** | `limit` (int, default 20) |
-| **Filters** | `query` (str \| None, default None)<br>`domain` (Literal['users', 'groups', 'datatables', 'bml', 'commerce', 'performance', …], default 'all')<br>`operation` (Literal['read', 'write', 'all'], default 'all')<br>`cx_module` (Literal['cpq', 'service', 'meta', 'all'], default 'all') |
+| **Filters** | `query` (str \| None, default None)<br>`domain` (Literal['users', 'groups', 'datatables', 'bml', 'commerce', 'performance', …], default 'all')<br>`operation` (Literal['read', 'write', 'all'], default 'all')<br>`cx_module` (Literal['cpq', 'sales', 'prm', 'service', 'field_service', 'subscription', …], default 'all') |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | Search and filter the Oracle CPQ MCP tool catalog by domain (users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/metrics/collab/admin), cx_module (cpq/service/meta), operation, or free-text query.… |
+| **Description** | Search and filter the Oracle CPQ MCP tool catalog by domain (users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/metrics/collab/admin/sales/prm/…), cx_module (cpq/sales/prm/service/field_service/s… |
+
+#### `ensure_customer_knowledge`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `meta` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | — |
+| **CPQ REST URL** | — (local / no CPQ REST) |
+| **Fusion REST URL** | — (local / no CPQ REST) |
+| **Tags** | `knowledge`, `memory`, `meta`, `read` |
+| **Parameters** | — |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Create knowledge/{customer_id}.md stub if missing and set profile customer_knowledge_file when unset (allowlisted YAML/.env rewrite). Idempotent when already configured. Does not call Oracle CPQ. Reload MCP so injected… |
 
 #### `ensure_prompt_studio`
 
@@ -1711,6 +2396,22 @@ _21 tool(s)_
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Build a Word (.docx) from structured sheets (optional notes) and optional diagrams [{title, mermaid?, image_path?, caption?}] and write under data/{profile}/{env}/exports/. Mermaid is rasterized locally via mmdc (@merma… |
+
+#### `get_customer_knowledge`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `meta` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | — |
+| **CPQ REST URL** | — (local / no CPQ REST) |
+| **Fusion REST URL** | — (local / no CPQ REST) |
+| **Tags** | `knowledge`, `memory`, `meta`, `read` |
+| **Parameters** | — |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Read the active profile's customer knowledge markdown under knowledge/ (cross-session engagement memory). Returns path, text, and character_count. Does not call Oracle CPQ. Use before repeating discovery work. |
 
 #### `get_local_data_status`
 
@@ -1983,145 +2684,6 @@ _21 tool(s)_
 | **Filters** | `query` (str \| None, default None)<br>`tag` (str \| None, default None)<br>`tool_domain` (str \| None, default None)<br>`tool` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Interactively pick an enabled saved refined prompt: all (by title), search, by_tag, by_tool (also last5 / by_domain). Omit mode for the top-level menu; pass prompt_id to load and record use. Disabled prompts are hidden.… |
-
-## admin
-
-_4 tool(s)_
-
-- **Read:** [`get_certificate`](#get-certificate), [`get_fusion_access_token`](#get-fusion-access-token), [`get_sso_configuration`](#get-sso-configuration), [`list_certificates`](#list-certificates)
-
-### Read tools
-
-#### `get_certificate`
-
-| | |
-|---|---|
-| **Version** | `1.0.1` |
-| **CX module** | `cpq` |
-| **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
-| **CPQ REST URL** | `/rest/{rest_api_version}/certificates/{name}` |
-| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/certificates/{name}` |
-| **Tags** | `admin`, `certificates`, `cpq`, `read` |
-| **Parameters** | `name` (str, required) |
-| **Filters** | — |
-| **Output** | read envelope `{status, tool, data}` |
-| **Description** | Get one site certificate by name (GET /certificates/{name}). PEM/certificate material is redacted ([REDACTED]) in MCP responses. Docs target REST v19. Read-only. |
-
-#### `get_fusion_access_token`
-
-| | |
-|---|---|
-| **Version** | `1.0.0` |
-| **CX module** | `meta` |
-| **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | — |
-| **CPQ REST URL** | — (local / no CPQ REST) |
-| **Fusion REST URL** | — (local / no CPQ REST) |
-| **Tags** | `admin`, `fusion`, `meta`, `oauth`, `read` |
-| **Parameters** | `include_token` (bool, default False) |
-| **Filters** | — |
-| **Output** | read envelope `{status, tool, data}` |
-| **Description** | Obtain an IDCS/Fusion OAuth access token for the active profile when mode=fusion (client_credentials using oauth_* fields from the current environment). Returns token_type, expires_in, scope, and access_token_masked by… |
-
-#### `get_sso_configuration`
-
-| | |
-|---|---|
-| **Version** | `1.0.1` |
-| **CX module** | `cpq` |
-| **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
-| **CPQ REST URL** | `/rest/{rest_api_version}/ssoConfiguration` |
-| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/ssoConfiguration` |
-| **Tags** | `admin`, `cpq`, `read`, `sso` |
-| **Parameters** | — |
-| **Filters** | — |
-| **Output** | read envelope `{status, tool, data}` |
-| **Description** | Get site SSO configuration (GET /ssoConfiguration). IdP certificate and SAML keystore fields are redacted ([REDACTED]) in MCP responses. Docs target REST v19. Read-only; does not change SSO settings. |
-
-#### `list_certificates`
-
-| | |
-|---|---|
-| **Version** | `1.0.1` |
-| **CX module** | `cpq` |
-| **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
-| **CPQ REST URL** | `/rest/{rest_api_version}/certificates` |
-| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/certificates` |
-| **Tags** | `admin`, `certificates`, `cpq`, `read` |
-| **Parameters** | — |
-| **Filters** | — |
-| **Output** | read envelope `{status, tool, data}` |
-| **Description** | List site certificates (GET /certificates). PEM/certificate material in responses is redacted ([REDACTED]) before reaching the LLM. Docs target REST v19 (set REST_API_VERSION=v19 if v18 returns 404). Read-only; does not… |
-
-## collab
-
-_2 tool(s)_
-
-- **Read:** [`get_collab_operation_queue`](#get-collab-operation-queue)
-- **Write:** [`clear_collab_operation_queue`](#clear-collab-operation-queue)
-
-### Read tools
-
-#### `get_collab_operation_queue`
-
-| | |
-|---|---|
-| **Version** | `1.0.1` |
-| **CX module** | `cpq` |
-| **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
-| **CPQ REST URL** | `/rest/{rest_api_version}/collabOperationQueues/{bs_id}` |
-| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/collabOperationQueues/{bs_id}` |
-| **Tags** | `collab`, `cpq`, `queue`, `read` |
-| **Parameters** | `bs_id` (int, required) |
-| **Filters** | — |
-| **Output** | read envelope `{status, tool, data}` |
-| **Description** | Get the collaborative quote operation queue for a commerce document (GET /collabOperationQueues/{bs_id}). Returns queuedOperations, currentlyExecutingOperation, operationCount, and node. Requires a REST version that exp… |
-
-### Write tools
-
-#### `clear_collab_operation_queue`
-
-| | |
-|---|---|
-| **Version** | `1.0.1` |
-| **CX module** | `cpq` |
-| **Op / Risk** | `write` / `DESTRUCTIVE` |
-| **Method** | `POST` |
-| **CPQ REST URL** | `/rest/{rest_api_version}/collabOperationQueues/{bs_id}/actions/clearCurrentQueue` |
-| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/collabOperationQueues/{bs_id}/actions/clearCurrentQueue` |
-| **Tags** | `collab`, `confirmation`, `cpq`, `dry_run`, `queue`, `write` |
-| **Parameters** | `bs_id` (int, required)<br>`dry_run` (bool, default True)<br>`confirmation_token` (str \| None, default None) |
-| **Filters** | — |
-| **Output** | write envelope `{status, tool, data}` |
-| **Description** | Clear the collaborative quote operation queue for a commerce document (POST /collabOperationQueues/{bs_id}/actions/clearCurrentQueue). Destructive — removes queued/current collab operations for that bs_id. Safe executio… |
-
-## metrics
-
-_1 tool(s)_
-
-- **Read:** [`list_metrics`](#list-metrics)
-
-### Read tools
-
-#### `list_metrics`
-
-| | |
-|---|---|
-| **Version** | `1.0.1` |
-| **CX module** | `cpq` |
-| **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
-| **CPQ REST URL** | `/rest/{rest_api_version}/metrics` |
-| **Fusion REST URL** | `/cpq/rest/{rest_api_version}/metrics` |
-| **Tags** | `cpq`, `metrics`, `paginated`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True) |
-| **Filters** | `name` (str \| None, default None)<br>`start_time` (str \| None, default None)<br>`end_time` (str \| None, default None)<br>`date_modified_from` (str \| None, default None)<br>`date_modified_to` (str \| None, default None)<br>`date_added_from` (str \| None, default None)<br>`date_added_to` (str \| None, default None) |
-| **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Oracle CPQ site metrics (GET /metrics). Returns one page of items (name, value, startTime, endTime, dateModified, dateAdded). Optional filters: name (exact), start_time/end_time, date_modified_from/to, date_added_f… |
 
 ---
 

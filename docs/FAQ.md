@@ -29,11 +29,11 @@ Common questions for installing, connecting, securing, and using this MCP server
 
 ### What does Oracle CPQ MCP do?
 
-It is an **MCP (Model Context Protocol) server** that exposes Oracle CPQ REST APIs to AI agents as typed tools. Agents can list users, inspect groups, read data tables, export BML, explore commerce metadata/transactions, and more — without you pasting credentials into chat.
+It is an **MCP (Model Context Protocol) server** that exposes Oracle CPQ REST APIs (and, when enabled, Fusion CX Sales/PRM REST) to AI agents as typed tools. Agents can list users, inspect groups, read data tables, export BML, explore commerce metadata/transactions, list CX territories/partners, and more — without you pasting credentials into chat.
 
 ### What CPQ areas are covered?
 
-Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), plus meta tools (discovery, saved prompts, local `data/` sync, `ensure_prompt_studio`). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (**122** tools). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
+Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), **Fusion CX Sales** (territories, accounts, contacts, leads, products) and **PRM** (partners, deals, programs, partner-contact children, partner LOVs) when `cx.modules` includes those products, plus meta tools (discovery, saved prompts, customer knowledge, local `data/` sync, `ensure_prompt_studio`). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (**157** tools in the catalog). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Which IDE should I use?
 
@@ -82,7 +82,7 @@ pip install -e ".[dev]"
 oracle-cpq-smoke --profile mycompany --env dev
 ```
 
-Replace `mycompany` with your profile id (the name of `.config/mycompany.env` without `.env`).
+Replace `mycompany` with your profile id (the name of `.config/mycompany.yaml` without `.yaml`).
 
 ### Do I need to run the server manually?
 
@@ -196,16 +196,33 @@ Use the migrate script so secrets, flags, commerce processes, data tables, metri
 
 **Never** put CPQ passwords in MCP JSON, chat, commits, or screenshots.
 
-### What is Fusion mode (`mode: fusion`)?
+### What is Fusion mode (`cpq_mode` + `fusion_enabled`)?
 
-Oracle CPQ can be reached in two profile modes (same MCP tools; only auth + URL prefix change):
+Format **1.06** prefers nested `environments.<env>.cpq` / `cx` blocks. Legacy top-level `cpq_mode` / `fusion_enabled` still migrate into `cpq.hosted` / `cpq.auth`.
 
-| Mode | Auth | REST path prefix | Sample |
-|------|------|------------------|--------|
-| `cpq` (default; `standalone` alias) | Basic Auth | `/rest/{rest_api_version}` | [`.config/example.yaml`](../.config/example.yaml) |
-| `fusion` | OAuth client_credentials → Bearer | `/cpq/rest/{rest_api_version}` | [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) |
+| Nested CPQ | Auth | REST prefix | Sample |
+|------------|------|-------------|--------|
+| `hosted: standalone` + `auth: basic` | Basic Auth | `/rest/{rest_api_version}` | [`.config/example.yaml`](../.config/example.yaml) |
+| `hosted: fusion` + `auth: bearer` | OAuth client_credentials → Bearer | `/cpq/rest/{rest_api_version}` | [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) |
 
-Copy the fusion sample, set `mode: fusion`, fill per-env `oauth_*` fields, and leave `credentials` commented. Agents must never edit oauth secrets. `CPQClient` applies the prefix automatically — do not call Fusion REST with profile secrets via curl. Optional explicit token: MCP `get_fusion_access_token`. Per-tool paths appear as **CPQ REST URL** and **Fusion REST URL** rows in [`TOOL_CATALOG.md`](TOOL_CATALOG.md).
+Copy the fusion sample, set `cpq.hosted: fusion` and `cpq.auth: bearer`, fill per-env `oauth_*` fields. Agents must never edit oauth secrets. `CPQClient` applies the prefix from `hosted` and the header from `auth`. Optional explicit token: MCP `get_fusion_access_token` (requires CPQ `auth: bearer`). Legacy YAML `mode: fusion` (without `fusion_enabled`) still loads as Fusion-hosted for migration.
+
+### What is `fusion_modules` / `cx.modules`?
+
+CX Fusion modules live on `environments.<env>.cx.modules` (required when `cx.enabled: true`). Top-level `fusion_modules` is a legacy alias / host `CPQ_FUSION_MODULES` override.
+
+- Allowed (case-insensitive): `Sales`, `PRM`, `Service`, `Field Service`, `Subscription`, `Incentive Compensation`
+- **Registered today:** `Sales` → `tools/cx/sales.py`; `PRM` → `tools/cx/prm.py` (including `list_partner_lov`). Other names are reserved — no handlers yet.
+- Reload MCP after changing `cx.enabled` or `modules`. Filter with `discover_tools(cx_module="sales"|"prm")`.
+
+### How do I resolve a partner LookupCode (for example SUBMITTED_CREDIT)?
+
+1. `list_partners` / `get_partner` for the **CompanyNumber** (not the display name).
+2. Read the custom field (example `PartnerProfilePEO_gnx_sls_Status_c`).
+3. Call `list_partner_lov` with `lov_name=PartnerProfilePEO_LOVVA_For_<suffix>` (field `PartnerProfilePEO_<suffix>`). Optional `lookup_code` filters that code.
+4. Use **Meaning** / **DisplayLabel** from the LOV rows — do not invent labels from the code. If `lov_name` is unknown, `get_partner(only_data=false)` and follow `rel=lov` links.
+
+Architecture diagrams: [FEATURES.md — Fusion CX](FEATURES.md#fusion-cx-sales-and-prm).
 
 ### What is `CPQ_CUSTOMER_PROFILE`?
 
@@ -226,8 +243,8 @@ Set `REST_API_VERSION` in the profile to match your CPQ site (template mentions 
 ### What is the knowledge base?
 
 - Shared rules: [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md) — loaded into MCP instructions for every customer.
-- Customer notes: set `CUSTOMER_KNOWLEDGE_FILE=focalpoint.md` (basename only) to also load [`knowledge/focalpoint.md`](../knowledge/focalpoint.md).
-- Missing customer files log a warning and are skipped (MCP still starts). Reload MCP after editing knowledge or aliases.
+- Customer notes: profile `customer_knowledge_file` (e.g. `acme.md`) loads [`knowledge/{file}`](../knowledge/). Prefer MCP `ensure_customer_knowledge` / `append_customer_knowledge` over hand-edits.
+- Missing customer files log a warning and are skipped (MCP still starts). Reload MCP after editing knowledge or aliases so the next chat injects the file.
 
 ### What are property aliases?
 
@@ -389,7 +406,7 @@ Reload / restart MCP servers (or the IDE). Tool catalogs and descriptions are lo
 
 ### Where are DEBUG_MODE API logs?
 
-When `DEBUG_MODE=true` (default if omitted; override with host `CPQ_DEBUG_MODE`), every CPQ HTTP call through `CPQClient` appends a timestamped block to **`logs/{profile}-{environment}.log`** (for example `logs/focalpoint-dev.log`). Each block includes a redacted `curl` (password as `***`) and a per-parameter list. Response bodies are not written. Override the directory with `CPQ_DEBUG_LOG_DIR`. The `logs/` folder is gitignored — treat files as sensitive (usernames and business query strings). Reload MCP after changing the flag. This is separate from `CPQ_VERBOSE` (console/stderr curl traces).
+When `DEBUG_MODE=true` (default if omitted; override with host `CPQ_DEBUG_MODE`), CPQ HTTP calls through `CPQClient` append a timestamped block to **`logs/{profile}-{environment}.log`** (for example `logs/focalpoint-dev.log`). Each block includes a redacted `curl` (password as `***`) and a per-parameter list. Response bodies are not written. Override the directory with `CPQ_DEBUG_LOG_DIR`. The `logs/` folder is gitignored — treat files as sensitive (usernames and business query strings). Reload MCP after changing the flag. This is separate from `CPQ_VERBOSE` (console/stderr curl traces).
 
 Browse, filter, and copy these logs in **Prompt Studio → API logs** (status/latency charts, curl / block / JSON copy, download raw). Restart Studio after upgrading so app version **0.4.3+** is loaded (API logs shipped in **0.3.2**; version badge is always in the header).
 
@@ -429,11 +446,15 @@ See [.gitignore](../.gitignore) and [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md)
 
 ### How many tools are there?
 
-**122** MCP tools (regenerate the catalog after tool changes with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md).
+**157** MCP tools in `TOOL_CATALOG` (regenerate after tool changes with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md). A running server registers CX tools only for enabled `cx.modules`. Some IDEs also list a host `mcp_auth` helper — that extra name is not in the Oracle catalog.
+
+### Why does Cursor show fewer tools than 157?
+
+The catalog count includes every CPQ + meta + Sales + PRM spec. Handshake lists **registered** tools for this process (CX modules off → no Sales/PRM tools) plus any host-injected names. After adding a tool, **Restart** the MCP server (a new Agent chat if the panel stays stale). `register_tool` passes the catalog `name=` so FastMCP does not silently use a different function name.
 
 ### How do I find the right tool?
 
-Ask the agent to call `discover_tools` with a domain (`users`, `groups`, `datatables`, `bml`, `commerce`, `performance`, `parts`, `tasks`, `configuration`, `metrics`, `collab`, `admin`) and/or `operation` (`read` / `write`), or a free-text query.
+Ask the agent to call `discover_tools` with a domain (`users`, `groups`, `datatables`, `bml`, `commerce`, `performance`, `parts`, `tasks`, `configuration`, `metrics`, `collab`, `admin`, `sales`, `prm`) and/or `cx_module` (`cpq` / `sales` / `prm` / …) and/or `operation` (`read` / `write`), or a free-text query.
 
 ### Which areas are untested against live CPQ?
 
@@ -618,7 +639,22 @@ After **real site/cache data work** (live CPQ MCP tools that read/write CPQ or l
 
 with title, tags, output format, cached-data flag, prose with `{{placeholders}}`, variables, and tools.
 
-**Not every chat in this repo.** Coding, reviews, plans, docs, and “how does the server work” turns should **skip** the footer (and skip `offer_save_refined_prompt` / `save_refined_prompt`). Disable globally with profile `REFINED_PROMPT=false`.
+**Not every chat in this repo.** Coding, reviews, plans, docs, and “how does the server work” turns should **skip** the footer (and skip `offer_save_refined_prompt` / `save_refined_prompt`). Disable globally with profile `refined_prompt: false` (or legacy `REFINED_PROMPT=false`).
+
+### What does `frugal_mode` do?
+
+Set `frugal_mode: true` on the profile YAML (or host `CPQ_FRUGAL_MODE=true`) to inject a **short** MCP instruction set and force `refined_prompt` off and `post_response_export=never`. Agents must not emit the refined footer, auto-export tabular answers, or call `ensure_prompt_studio`. Prefer cache and concise answers (list `limit` ≤ 25 unless you ask for more). Credential / READ_ONLY / dry-run safety still apply. Reload MCP after changing the flag.
+
+### How do I retain discoveries across sessions?
+
+Chat context is **not** kept between sessions. Use profile-scoped **customer knowledge**:
+
+1. Call `ensure_customer_knowledge` once (creates `knowledge/{customer_id}.md` and sets `customer_knowledge_file` on the profile if unset).
+2. After useful site discoveries, call `append_customer_knowledge` with a short bullet summary (point to `data/` for large dumps — do not paste passwords/tokens).
+3. In the **same** chat, call `get_customer_knowledge` before repeating discovery.
+4. **Reload/restart** Oracle CPQ MCP so the next chat injects updated **Customer knowledge** into server instructions.
+
+Raw CPQ snapshots stay under `data/{profile}/{env}/`; judgments and gotchas belong in knowledge markdown.
 
 ### How do I save and reuse prompts?
 
@@ -745,7 +781,7 @@ Security-focused notes: [SECURITY_TESTING.md](../SECURITY_TESTING.md).
 
 ### What standards apply to new tools?
 
-[STANDARDS.md](STANDARDS.md) — strict Pydantic models (`extra=forbid`), route HTTP only through `CPQClient`, sanitize errors, dry-run + confirmation for writes. After tool changes, use [prompts/compliance_check.md](../prompts/compliance_check.md).
+[STANDARDS.md](STANDARDS.md) — strict Pydantic models (`extra=forbid`), route CPQ HTTP through `CPQClient` and Fusion CX HTTP through `CXClient`, sanitize errors, dry-run + confirmation for writes. After tool changes, use [prompts/compliance_check.md](../prompts/compliance_check.md).
 
 ### How do I refresh docs after tool changes?
 
@@ -764,9 +800,9 @@ Follow [README — Update the package version](../README.md#update-the-package-v
 
 ```
 mcp/oracle_cpq_mcp/   # server package
-  core/                # config, CPQClient, errors, local data
+  core/                # config, CPQClient, CXClient, errors, local data
   security/            # policy, validation, confirmation, audit
-  tools/               # MCP tool handlers
+  tools/               # MCP tool handlers (CX under tools/cx/)
   registry/            # tool catalog
 apps/prompt_studio/    # local Prompt Studio UI
 ```

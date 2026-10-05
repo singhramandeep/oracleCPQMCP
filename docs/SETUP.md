@@ -99,13 +99,29 @@ Extras are defined in `pyproject.toml`. Pip troubleshooting → [Full setup guid
 
 ---
 
-## Step 5 — Install Prompt Studio
+## Step 5 — Install and run Prompt Studio
+
+Prompt Studio is a local UI for saved refined prompts and DEBUG API logs (does **not** call Oracle CPQ). Use the **project venv** from Steps 3–4.
+
+1. **Install** (repo root, venv active):
 
 ```bash
 pip install -e ".[prompt-studio]"
 ```
 
-Start later with `python -m apps.prompt_studio` → [http://127.0.0.1:8765](http://127.0.0.1:8765). Restart scripts and deep detail → [Full setup guide](QUICKSTART.md#prompt-studio-local-ui-for-saved-prompts) · [apps/prompt_studio/README.md](../apps/prompt_studio/README.md).
+2. **Run** (leave this terminal open while using Studio):
+
+| Shell | Command |
+|-------|---------|
+| Windows (venv active) | `python -m apps.prompt_studio` |
+| Windows without activate | `.\.venv\Scripts\python.exe -m apps.prompt_studio` |
+| macOS / Linux (venv active) | `python -m apps.prompt_studio` |
+| macOS / Linux without activate | `./.venv/bin/python -m apps.prompt_studio` |
+
+3. **Open** [http://127.0.0.1:8765](http://127.0.0.1:8765) and confirm the header version badge (app **0.4.3+**).
+4. **Later:** MCP tool `ensure_prompt_studio` can auto-start Studio when it is down; a manual start once during setup is still recommended. To restart a live process: `python -m apps.prompt_studio restart`, or `.\scripts\restart-prompt-studio.cmd` (Windows) / `./scripts/restart-prompt-studio.sh` (macOS/Linux), then hard-refresh the browser (**Ctrl+F5**).
+
+Deep detail → [Full setup guide — Prompt Studio](QUICKSTART.md#prompt-studio-local-ui-for-saved-prompts) · [FEATURES — enable and run](FEATURES.md#prompt-studio-enable-and-run) · [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
 
 ---
 
@@ -120,16 +136,33 @@ Copy the template and name it after your customer id:
 
 Edit `.config/mycompany.yaml` — set CPQ URL and credentials under `environments.dev` (you own passwords; never commit this file). The filename without `.yaml` is `CPQ_CUSTOMER_PROFILE`.
 
-Top-level `version` is the profile **format** version (currently **1.02**). Bump it when you copy a newer template so you can tell at a glance whether a customer file is up to date.
+Top-level `version` is the profile **format** version (currently **1.06**). Bump it when you copy a newer template so you can tell at a glance whether a customer file is up to date.
 
 **One YAML layout** for both modes (see [`.config/example.yaml`](../.config/example.yaml) and [`.config/example_fusion.yaml`](../.config/example_fusion.yaml)):
 
-- Shared top-level flags (`mode`, `read_only`, `local_data_policy`, …) and catalog sections
-- Per environment: `url`, `enabled`, then **either** `credentials` **or** `oauth_*` filled; leave the unused auth block commented or omitted
-  - `mode: cpq` or `mode: standalone` (or omit `mode`) → fill `credentials` (Basic Auth + `/rest/{version}`); missing/`standalone` normalize to standalone/cpq
-  - `mode: fusion` → fill `oauth_token_url` / `oauth_client_id` / `oauth_client_secret` / `oauth_scope` (Bearer + `/cpq/rest/{version}`)
+- Nested per-environment `cpq:` and/or `cx:` blocks (each with its own `url` and `auth: basic|bearer`)
+- Shared flags (`frugal_mode`, `read_only`, `local_data_policy`, …) and catalog sections
+- Per product connection:
+  - `auth: basic` (default) → `credentials` (username/password)
+  - `auth: bearer` → `oauth_token_url` / `oauth_client_id` / `oauth_client_secret` / `oauth_scope`
+  - CPQ `hosted: standalone` → `/rest/{version}`; `hosted: fusion` → `/cpq/rest/{version}` (independent of Basic vs Bearer)
+  - CX `modules` required when `cx.enabled: true`. **Sales** and **PRM** register GET MCP tools; `Service`, `Field Service`, `Subscription`, `Incentive Compensation` are reserved names only.
+  - Optional `frugal_mode: true` shortens MCP agent instructions; host override `CPQ_FRUGAL_MODE`
+- Legacy flat `environments.dev.url` + `credentials` / `oauth_*` still load (migrated into `cpq:`)
 
-**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml), set `mode: fusion`, and fill oauth fields (username/password unused). Agents must never edit OAuth secrets. All CPQ REST tools go through `CPQClient`, which applies Bearer + `/cpq/rest/{version}` when `mode: fusion` (otherwise Basic + `/rest/{version}`).
+```mermaid
+flowchart LR
+  yaml[profile_YAML]
+  cpqBlk[environments.env.cpq]
+  cxBlk[environments.env.cx]
+  yaml --> cpqBlk
+  yaml --> cxBlk
+  cpqBlk --> cpqTools[CPQ_REST_tools]
+  cxBlk -->|"modules Sales"| sales[sales_GET_tools]
+  cxBlk -->|"modules PRM"| prm[prm_GET_tools]
+```
+
+**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml), set `cpq.hosted: fusion` and `cpq.auth: bearer`, and fill oauth fields. Agents must never edit OAuth secrets. `CPQClient` uses `/cpq/rest/{version}` when `hosted: fusion` and Bearer when `auth: bearer` (Basic + `/cpq/rest` is also valid).
 
 Field-by-field tour and `.env` migration → [Full setup guide](QUICKSTART.md#step-3--create-your-cpq-credential-profile) · [FAQ](FAQ.md#how-do-i-migrate-from-a-legacy-env-to-yaml).
 
@@ -138,6 +171,14 @@ Field-by-field tour and `.env` migration → [Full setup guide](QUICKSTART.md#st
 ## Step 7 — Connect the IDE (MCP)
 
 Never put CPQ passwords in MCP JSON — only profile name and paths. Dual env (dev+test) examples → [Full setup guide](QUICKSTART.md#step-5--connect-your-ide--llm-client).
+
+### Rules across IDEs
+
+**Connecting Oracle CPQ MCP is how agents get runtime rules** (refined prompts, exports, document templates, credentials, scratch files, knowledge, aliases). Those instructions are built by `build_server_instructions` and delivered to **Antigravity, Cursor, and VS Code** the same way.
+
+- Do **not** copy [`.cursor/rules/`](../.cursor/rules/) into Antigravity or VS Code — those hosts do not load Cursor `.mdc` files.
+- Portable overview: root [`AGENTS.md`](../AGENTS.md). Tool-authoring checklist: [`STANDARDS.md`](STANDARDS.md).
+- After changing MCP instruction text or profile flags that feed it, **reload / restart** the Oracle CPQ MCP server in your IDE.
 
 ### 7a. Google Antigravity
 
@@ -158,9 +199,18 @@ Docs: [Cursor](https://cursor.com/) · detail: [Full setup guide — Cursor](QUI
 
 ### 7c. VS Code (Copilot Agent)
 
+#### Sign in to GitHub Copilot
+
+1. Install the **GitHub Copilot** and **GitHub Copilot Chat** extensions (Extensions view → search “GitHub Copilot” → Install). Official setup: [VS Code Copilot](https://code.visualstudio.com/docs/copilot/setup).
+2. Open Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) → **GitHub Copilot: Sign In** (or use the Accounts menu → Sign in to GitHub).
+3. Complete browser OAuth. Confirm the status bar / Copilot icon shows signed in (an active Copilot subscription is required).
+4. Open the **Chat** view and select **Agent** mode (required for MCP tools).
+
+#### Connect Oracle CPQ MCP
+
 1. Copy [`.vscode/mcp.json.example`](../.vscode/mcp.json.example) (Windows) or [`.vscode/mcp.json.unix.example`](../.vscode/mcp.json.unix.example) → `.vscode/mcp.json`.
 2. VS Code uses `"servers"` (not `mcpServers`) and requires `"type": "stdio"`.
-3. Set `CPQ_CUSTOMER_PROFILE`. Reload window. Open Copilot Chat → **Agent** mode.
+3. Set `CPQ_CUSTOMER_PROFILE`. Reload window (**Developer: Reload Window**). Confirm the MCP server is connected, then use Copilot Chat → **Agent** mode.
 
 Docs: [VS Code](https://code.visualstudio.com/) · detail: [Full setup guide — VS Code](QUICKSTART.md#vs-code-github-copilot-agent-needs-testing).
 
@@ -174,6 +224,6 @@ Docs: [VS Code](https://code.visualstudio.com/) · detail: [Full setup guide —
 oracle-cpq-smoke --profile mycompany --env dev
 ```
 
-**Agent chat:** *“Discover CPQ tools and list 5 users.”*
+**Agent chat:** *“Discover CPQ tools and list 5 users.”* If CX is enabled: *“Discover tools with cx_module sales”* or *“List partners and resolve status codes with list_partner_lov.”*
 
 Failures / DEBUG logs → [Full setup guide](QUICKSTART.md#step-4--smoke-test-verify-cpq-connectivity) · [FAQ](FAQ.md).

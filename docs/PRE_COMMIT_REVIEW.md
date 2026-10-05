@@ -20,6 +20,7 @@ Confirm these stay **untracked / ignored**:
 - [ ] `apps/prompt_studio/` (+ `apps/__init__.py`), including `log_viewer.py` and `profile_config_viewer.py`
 - [ ] `mcp/oracle_cpq_mcp/cli/` (`oracle-cpq` maintainer entrypoints)
 - [ ] `mcp/oracle_cpq_mcp/prompts/`, `tools/local_data.py`, `tools/saved_prompts.py`, `core/local_data.py`
+- [ ] `mcp/oracle_cpq_mcp/core/cx_client.py`, `tools/cx/`, `tools/customer_knowledge.py` when those domains change
 - [ ] Registry / validation / `tool_manifest.json` / schema integrity updates
 - [ ] `scripts/generate_tool_catalog.py` (thin wrapper), `docs/TOOL_CATALOG.md`
 - [ ] `docs/FEATURES.md`, `docs/FAQ.md`, `docs/RELEASE_NOTES.md`, `docs/QUICKSTART.md`, `README.md`
@@ -37,7 +38,7 @@ Confirm these stay **untracked / ignored**:
 .\.venv\Scripts\python.exe -m pytest -q -m "not live_eval"
 ```
 
-- [ ] Catalog tool count matches README / FEATURES / FAQ (currently **122**; see `docs/TOOL_CATALOG.md`)
+- [ ] Catalog tool count matches README / FEATURES / FAQ (currently **157**; see `docs/TOOL_CATALOG.md`)
 - [ ] `tool_manifest.json` regenerated/updated with new tools (schema integrity)
 - [ ] No failing unit tests; launcher example tests if you changed MCP JSON examples
 

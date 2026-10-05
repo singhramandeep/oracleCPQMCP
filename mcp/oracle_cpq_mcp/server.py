@@ -11,6 +11,7 @@ from fastmcp import FastMCP
 from oracle_cpq_mcp import __version__
 from oracle_cpq_mcp.core.config import CPQProfile, connection_mode_message, load_profile
 from oracle_cpq_mcp.core.cpq_client import CPQClient
+from oracle_cpq_mcp.core.cx_client import CXClient
 from oracle_cpq_mcp.core.knowledge import load_base_knowledge, load_customer_knowledge
 from oracle_cpq_mcp.security.schema_integrity import verify_schema_integrity
 from oracle_cpq_mcp.security.settings import load_security_settings
@@ -23,11 +24,13 @@ from oracle_cpq_mcp.tools.bml import register_bml_tools
 from oracle_cpq_mcp.tools.collab import register_collab_tools
 from oracle_cpq_mcp.tools.commerce import register_commerce_tools
 from oracle_cpq_mcp.tools.configuration import register_configuration_tools
+from oracle_cpq_mcp.tools.customer_knowledge import register_customer_knowledge_tools
 from oracle_cpq_mcp.tools.datatables import register_datatable_tools
 from oracle_cpq_mcp.tools.discovery import register_discovery_tools
 from oracle_cpq_mcp.tools.groups import register_group_tools
 from oracle_cpq_mcp.tools.local_data import register_local_data_tools
 from oracle_cpq_mcp.tools.metrics import register_metrics_tools
+from oracle_cpq_mcp.tools.cx import register_cx_tools
 from oracle_cpq_mcp.tools.parts import register_parts_tools
 from oracle_cpq_mcp.tools.performance import register_performance_tools
 from oracle_cpq_mcp.tools.response_export import register_response_export_tools
@@ -53,18 +56,28 @@ def _load_startup_profile() -> CPQProfile:
     logging.getLogger(__name__).info("Oracle CPQ MCP server version %s", __version__)
     auth_user = (
         "(oauth)"
-        if profile.mode == "fusion"
+        if profile.uses_cpq_bearer
         else (profile.username if profile.credentials else "(none)")
     )
     logging.getLogger(__name__).info(
-        "Loaded profile %s (%s) mode=%s env=%s rest=%s credentials=%d active_index=%d "
+        "Loaded profile %s (%s) cpq_enabled=%s cpq_mode=%s cpq_auth=%s "
+        "fusion_enabled=%s fusion_modules=%s cx_enabled=%s cx_modules=%s "
+        "frugal_mode=%s env=%s rest=%s "
+        "credentials=%d active_index=%d "
         "user=%s read_only=%s refined_prompt=%s auto_save_refined_prompt=%s "
         "local_data_policy=%s post_response_export=%s knowledge_file=%s "
         "commerce_aliases=%d table_aliases=%d catalog_source=%s "
         "profile_file=%s product_family_aliases=%d",
         profile.customer_id,
         profile.customer_name,
-        profile.mode,
+        profile.cpq_enabled,
+        profile.cpq_mode,
+        profile.cpq_auth,
+        profile.fusion_enabled,
+        profile.fusion_modules,
+        profile.cx_enabled,
+        profile.cx_modules,
+        profile.frugal_mode,
         profile.environment,
         profile.rest_version,
         len(profile.credentials),
@@ -94,6 +107,8 @@ SERVER_INSTRUCTIONS = build_server_instructions(
     auto_save_refined_prompt=_profile.auto_save_refined_prompt,
     local_data_policy=_profile.local_data_policy,
     post_response_export=_profile.post_response_export,
+    frugal_mode=_profile.frugal_mode,
+    fusion_modules=_profile.fusion_modules,
     shared_knowledge=_shared_knowledge,
     customer_knowledge=_customer_knowledge,
     commerce_process_aliases=_profile.commerce_process_aliases,
@@ -110,6 +125,7 @@ mcp = FastMCP(
 )
 
 _client = CPQClient(_profile, timeout=_profile.http_timeout)
+_cx_client = CXClient(_profile, timeout=_profile.http_timeout)
 
 
 def _maybe_enable_tool_search() -> None:
@@ -140,9 +156,11 @@ register_metrics_tools(mcp, _client)
 register_collab_tools(mcp, _client)
 register_saved_search_tools(mcp, _client)
 register_admin_tools(mcp, _client)
+register_cx_tools(mcp, _cx_client)
 register_tasks_tools(mcp, _client)
 register_configuration_tools(mcp, _client)
 register_local_data_tools(mcp, _client)
+register_customer_knowledge_tools(mcp, _client)
 register_response_export_tools(mcp, _client)
 register_discovery_tools(mcp)
 register_saved_prompt_tools(mcp)

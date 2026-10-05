@@ -24,10 +24,36 @@ DomainName = Literal[
     "metrics",
     "collab",
     "admin",
+    "sales",
+    "prm",
+    "service",
+    "field_service",
+    "subscription",
+    "incentive_compensation",
     "meta",
 ]
 OperationName = Literal["read", "write"]
-CxModuleName = Literal["cpq", "service", "meta"]
+# cpq/meta plus Fusion CX products (YAML cx.modules slugs).
+CxModuleName = Literal[
+    "cpq",
+    "sales",
+    "prm",
+    "service",
+    "field_service",
+    "subscription",
+    "incentive_compensation",
+    "meta",
+]
+FUSION_CX_MODULE_NAMES: frozenset[str] = frozenset(
+    {
+        "sales",
+        "prm",
+        "service",
+        "field_service",
+        "subscription",
+        "incentive_compensation",
+    }
+)
 DomainFilter = Literal[
     "users",
     "groups",
@@ -41,10 +67,26 @@ DomainFilter = Literal[
     "metrics",
     "collab",
     "admin",
+    "sales",
+    "prm",
+    "service",
+    "field_service",
+    "subscription",
+    "incentive_compensation",
     "all",
 ]
 OperationFilter = Literal["read", "write", "all"]
-CxModuleFilter = Literal["cpq", "service", "meta", "all"]
+CxModuleFilter = Literal[
+    "cpq",
+    "sales",
+    "prm",
+    "service",
+    "field_service",
+    "subscription",
+    "incentive_compensation",
+    "meta",
+    "all",
+]
 RiskLevel = Literal[
     "READ_ONLY",
     "LOW_RISK_WRITE",
@@ -1405,16 +1447,472 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         operation="read",
         description=(
             "Obtain an IDCS/Fusion OAuth access token for the active profile when "
-            "mode=fusion (client_credentials using oauth_* fields from the current "
-            "environment). Returns token_type, expires_in, scope, and "
-            "access_token_masked by default; set include_token=true to also return "
-            "oauth_access_token (full Bearer value). Fails if profile mode is not "
-            "fusion. Does not call CPQ REST."
+            "cpq_mode=fusion and fusion_enabled=true (client_credentials using oauth_* "
+            "fields from the current environment). Returns token_type, expires_in, "
+            "scope, and access_token_masked by default; set include_token=true to also "
+            "return oauth_access_token (full Bearer value). Fails unless both flags "
+            "enable Fusion. Does not call CPQ REST."
         ),
         tags={"admin", "fusion", "oauth"},
         read_only=True,
         version="1.0.0",
         cx_module="meta",
+    ),
+    "list_territories": _spec(
+        "list_territories",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Fusion CX Sales territories "
+            "(GET /crmRestApi/resources/11.13.18.05/territories) via the profile "
+            "cx: connection (Basic or Bearer). Requires cx.enabled and Sales in "
+            "cx.modules. Returns one page; if hasMore is true, call again with "
+            "offset = offset + limit. Optional filters: q, finder, fields, "
+            "order_by, only_data, total_results. Does not call CPQ REST "
+            "(/rest or /cpq/rest). Docs: Oracle Sales territories collection."
+        ),
+        tags={"paginated", "sales", "territories", "cx"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/territories",
+    ),
+    "get_territory": _spec(
+        "get_territory",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one Fusion CX Sales territory by territory_version_id (TerritoryVersionId path key). Requires cx.enabled and Sales in cx.modules. Optional fields, only_data, expand."
+        ),
+        tags={'cx', 'read', 'sales', 'territories'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/territories/{TerritoryVersionId}",
+    ),
+    "list_accounts": _spec(
+        "list_accounts",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Fusion CX Sales accounts (GET accounts collection). Requires Sales in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, total_results."
+        ),
+        tags={'accounts', 'cx', 'paginated', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/accounts",
+    ),
+    "get_account": _spec(
+        "get_account",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one Fusion CX Sales account by party_number (PartyNumber). Requires Sales in cx.modules."
+        ),
+        tags={'accounts', 'cx', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}",
+    ),
+    "list_account_team": _spec(
+        "list_account_team",
+        domain="sales",
+        operation="read",
+        description=(
+            "List account team members for an account (child AccountTeam). Requires Sales in cx.modules."
+        ),
+        tags={'accounts', 'cx', 'paginated', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/AccountTeam",
+    ),
+    "get_account_team_member": _spec(
+        "get_account_team_member",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one account team member by party_number and account_team_uniq_id."
+        ),
+        tags={'accounts', 'cx', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/AccountTeam/{AccountTeamUniqId}",
+    ),
+    "list_contacts": _spec(
+        "list_contacts",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Fusion CX Sales contacts. Requires Sales in cx.modules. Paginated collection filters."
+        ),
+        tags={'contacts', 'cx', 'paginated', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/contacts",
+    ),
+    "get_contact": _spec(
+        "get_contact",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one contact by party_number."
+        ),
+        tags={'contacts', 'cx', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/contacts/{PartyNumber}",
+    ),
+    "list_leads": _spec(
+        "list_leads",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Fusion CX Sales leads. Optional effective_date (yyyy-MM-dd). leads_uniq_id for get_lead comes from collection links — do not invent."
+        ),
+        tags={'cx', 'leads', 'paginated', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/leads",
+    ),
+    "get_lead": _spec(
+        "get_lead",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one lead by leads_uniq_id from the leads collection (ADF uniq id in links)."
+        ),
+        tags={'cx', 'leads', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/leads/{leadsUniqID}",
+    ),
+    "list_lead_opportunities": _spec(
+        "list_lead_opportunities",
+        domain="sales",
+        operation="read",
+        description=(
+            "List lead opportunities for a lead (child LeadOpportunity)."
+        ),
+        tags={'cx', 'leads', 'paginated', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/leads/{leadsUniqID}/child/LeadOpportunity",
+    ),
+    "get_lead_opportunity": _spec(
+        "get_lead_opportunity",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one lead opportunity by leads_uniq_id and lead_number."
+        ),
+        tags={'cx', 'leads', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/leads/{leadsUniqID}/child/LeadOpportunity/{LeadNumber}",
+    ),
+    "list_products": _spec(
+        "list_products",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Fusion CX Sales products (inventory items). Paginated."
+        ),
+        tags={'cx', 'paginated', 'products', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/products",
+    ),
+    "get_product": _spec(
+        "get_product",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one product by inventory_item_id."
+        ),
+        tags={'cx', 'products', 'read', 'sales'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/products/{InventoryItemId}",
+    ),
+    "list_partners": _spec(
+        "list_partners",
+        domain="prm",
+        operation="read",
+        description=(
+            "List Fusion CX PRM partners. Requires PRM in cx.modules."
+        ),
+        tags={'cx', 'paginated', 'partners', 'prm', 'read'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partners",
+    ),
+    "get_partner": _spec(
+        "get_partner",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner by company_number."
+        ),
+        tags={'cx', 'partners', 'prm', 'read'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}",
+    ),
+    "list_partner_lov": _spec(
+        "list_partner_lov",
+        domain="prm",
+        operation="read",
+        description=(
+            "List Fusion CX PRM partner ADF LOV rows (GET partners/{CompanyNumber}/lov/"
+            "{LovName}). Use after list_partners/get_partner to resolve LookupCode values "
+            "to Meaning/DisplayLabel. For field PartnerProfilePEO_<suffix>, lov_name is "
+            "PartnerProfilePEO_LOVVA_For_<suffix> (example: gnx_sls_Status_c). Do not invent "
+            "lov_name; if unknown, get_partner(only_data=false) and use links with rel=lov. "
+            "Optional lookup_code sets q=LookupCode=\"…\" when q is omitted. Paginated; empty "
+            "items means no matching codes. Does not expand LOVs on get_partner and does not "
+            "PATCH partner fields."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}/lov/{LovName}",
+    ),
+    "list_partner_contacts": _spec(
+        "list_partner_contacts",
+        domain="prm",
+        operation="read",
+        description=(
+            "List PRM partner contacts (partnerContacts collection). Requires PRM in cx.modules."
+        ),
+        tags={'cx', 'paginated', 'partners', 'prm', 'read'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts",
+    ),
+    "get_partner_contact": _spec(
+        "get_partner_contact",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner contact by party_number."
+        ),
+        tags={'cx', 'partners', 'prm', 'read'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}",
+    ),
+    "list_deals": _spec(
+        "list_deals",
+        domain="prm",
+        operation="read",
+        description=(
+            "List PRM deal registrations. Optional effective_date. deals_uniq_id for get_deal comes from collection links — do not invent."
+        ),
+        tags={'cx', 'deals', 'paginated', 'prm', 'read'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/deals",
+    ),
+    "get_deal": _spec(
+        "get_deal",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one deal registration by deals_uniq_id from the deals collection."
+        ),
+        tags={'cx', 'deals', 'prm', 'read'},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/deals/{dealsUniqID}",
+    ),
+    "list_partner_contact_addresses": _spec(
+        "list_partner_contact_addresses",
+        domain="prm",
+        operation="read",
+        description=(
+            "List addresses for a PRM partner contact (child addresses). Requires "
+            "party_number and PRM in cx.modules. Paginated ADF collection filters."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/addresses",
+    ),
+    "get_partner_contact_address": _spec(
+        "get_partner_contact_address",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner-contact address by party_number and address_number."
+        ),
+        tags={"cx", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/addresses/{AddressNumber}",
+    ),
+    "list_partner_contact_attachments": _spec(
+        "list_partner_contact_attachments",
+        domain="prm",
+        operation="read",
+        description=(
+            "List attachment metadata for a PRM partner contact (child attachments). "
+            "attachments_uniq_id for get_partner_contact_attachment comes from collection "
+            "links — do not invent. Does not download attachment binary content."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/attachments",
+    ),
+    "get_partner_contact_attachment": _spec(
+        "get_partner_contact_attachment",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner-contact attachment by party_number and attachments_uniq_id "
+            "(from attachments collection links). Does not invent hash keys."
+        ),
+        tags={"cx", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/attachments/{attachmentsUniqID}",
+    ),
+    "list_partner_contact_contact_points": _spec(
+        "list_partner_contact_contact_points",
+        domain="prm",
+        operation="read",
+        description=(
+            "List contact points (phone/email) for a PRM partner contact "
+            "(child contactPoints). Requires party_number and PRM in cx.modules."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/contactPoints",
+    ),
+    "get_partner_contact_contact_point": _spec(
+        "get_partner_contact_contact_point",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner-contact contact point by party_number and contact_point_id."
+        ),
+        tags={"cx", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/contactPoints/{ContactPointId}",
+    ),
+    "list_partner_contact_user_details": _spec(
+        "list_partner_contact_user_details",
+        domain="prm",
+        operation="read",
+        description=(
+            "List user-account details for a PRM partner contact (child userdetails). "
+            "Requires party_number and PRM in cx.modules."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/userdetails",
+    ),
+    "get_partner_contact_user_detail": _spec(
+        "get_partner_contact_user_detail",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner-contact user-detail row by party_number and username "
+            "(Username path key; @ is URL-encoded)."
+        ),
+        tags={"cx", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts/{PartyNumber}/child/userdetails/{Username}",
+    ),
+    "list_partner_programs": _spec(
+        "list_partner_programs",
+        domain="prm",
+        operation="read",
+        description=(
+            "List Fusion CX PRM partner programs (GET partnerPrograms). Requires PRM "
+            "in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, "
+            "total_results."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerPrograms",
+    ),
+    "get_partner_program": _spec(
+        "get_partner_program",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner program by program_number (ProgramNumber path key)."
+        ),
+        tags={"cx", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerPrograms/{ProgramNumber}",
     ),
     "list_performance_logs": _spec(
         "list_performance_logs",
@@ -1503,13 +2001,15 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         description=(
             "Search and filter the Oracle CPQ MCP tool catalog by domain "
             "(users/groups/datatables/bml/commerce/performance/parts/tasks/configuration/"
-            "metrics/collab/admin), "
-            "cx_module (cpq/service/meta), "
+            "metrics/collab/admin/sales/prm/…), "
+            "cx_module (cpq/sales/prm/service/field_service/subscription/"
+            "incentive_compensation/meta), "
             "operation, or free-text query. Use this to find read-only vs write tools "
             "before calling them."
         ),
         tags={"discovery"},
         read_only=True,
+        version="1.0.2",
     ),
     "list_saved_prompts": _spec(
         "list_saved_prompts",
@@ -1802,6 +2302,48 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         tags={"saved_prompts", "prompt_studio"},
         read_only=True,
         version="1.0.1",
+    ),
+    "get_customer_knowledge": _spec(
+        "get_customer_knowledge",
+        domain="meta",
+        operation="read",
+        description=(
+            "Read the active profile's customer knowledge markdown under knowledge/ "
+            "(cross-session engagement memory). Returns path, text, and character_count. "
+            "Does not call Oracle CPQ. Use before repeating discovery work."
+        ),
+        tags={"knowledge", "memory"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "ensure_customer_knowledge": _spec(
+        "ensure_customer_knowledge",
+        domain="meta",
+        operation="read",
+        description=(
+            "Create knowledge/{customer_id}.md stub if missing and set profile "
+            "customer_knowledge_file when unset (allowlisted YAML/.env rewrite). "
+            "Idempotent when already configured. Does not call Oracle CPQ. "
+            "Reload MCP so injected Customer knowledge picks up the file in new chats."
+        ),
+        tags={"knowledge", "memory"},
+        read_only=True,
+        version="1.0.0",
+    ),
+    "append_customer_knowledge": _spec(
+        "append_customer_knowledge",
+        domain="meta",
+        operation="read",
+        description=(
+            "Append a dated markdown discovery entry to the active profile customer "
+            "knowledge file (env-tagged). Rejects secret-like content. Caps entry size. "
+            "Auto-ensures stub + profile field when missing. Does not call Oracle CPQ. "
+            "Same-session reuse: call get_customer_knowledge; next chat after MCP reload "
+            "injects updated Customer knowledge."
+        ),
+        tags={"knowledge", "memory"},
+        read_only=True,
+        version="1.0.0",
     ),
     "sync_users_local": _spec(
         "sync_users_local",

@@ -16,11 +16,14 @@ from oracle_cpq_mcp.security.rate_limit import reset_rate_limits
 from oracle_cpq_mcp.security.replay import reset_replay_store
 from oracle_cpq_mcp.security.settings import SecuritySettings
 from oracle_cpq_mcp.tools._register import configure_security
+from oracle_cpq_mcp.core.cx_client import CXClient
 from oracle_cpq_mcp.tools.admin import register_admin_tools
 from oracle_cpq_mcp.tools.bml import register_bml_tools
 from oracle_cpq_mcp.tools.collab import register_collab_tools
 from oracle_cpq_mcp.tools.commerce import register_commerce_tools
 from oracle_cpq_mcp.tools.configuration import register_configuration_tools
+from oracle_cpq_mcp.tools.customer_knowledge import register_customer_knowledge_tools
+from oracle_cpq_mcp.tools.cx import register_cx_tools
 from oracle_cpq_mcp.tools.datatables import register_datatable_tools
 from oracle_cpq_mcp.tools.discovery import register_discovery_tools
 from oracle_cpq_mcp.tools.groups import register_group_tools
@@ -385,6 +388,58 @@ TOOL_KWARGS: dict[str, dict[str, Any]] = {
     "sync_commerce_metadata_local": {"process_var_name": "oraclecpqo"},
     "sync_datatable_local": {"table_name": "ModelMaster"},
     "sync_datatables_local": {"table_names": ["ModelMaster"]},
+    "list_territories": {},
+    "get_territory": {"territory_version_id": "1"},
+    "list_accounts": {},
+    "get_account": {"party_number": "CDRM_1"},
+    "list_account_team": {"party_number": "CDRM_1"},
+    "get_account_team_member": {
+        "party_number": "CDRM_1",
+        "account_team_uniq_id": "TEAM1",
+    },
+    "list_contacts": {},
+    "get_contact": {"party_number": "CDRM_2"},
+    "list_leads": {},
+    "get_lead": {"leads_uniq_id": "LEAD1"},
+    "list_lead_opportunities": {"leads_uniq_id": "LEAD1"},
+    "get_lead_opportunity": {"leads_uniq_id": "LEAD1", "lead_number": "LN1"},
+    "list_products": {},
+    "get_product": {"inventory_item_id": "100"},
+    "list_partners": {},
+    "get_partner": {"company_number": "2001"},
+    "list_partner_lov": {
+        "company_number": "2001",
+        "lov_name": "PartnerProfilePEO_LOVVA_For_gnx_sls_Status_c",
+    },
+    "list_partner_contacts": {},
+    "get_partner_contact": {"party_number": "CDRM_7102"},
+    "list_deals": {},
+    "get_deal": {"deals_uniq_id": "DEAL1"},
+    "list_partner_contact_addresses": {"party_number": "CDRM_7102"},
+    "get_partner_contact_address": {
+        "party_number": "CDRM_7102",
+        "address_number": "ADDR1",
+    },
+    "list_partner_contact_attachments": {"party_number": "CDRM_7102"},
+    "get_partner_contact_attachment": {
+        "party_number": "CDRM_7102",
+        "attachments_uniq_id": "ATT1",
+    },
+    "list_partner_contact_contact_points": {"party_number": "CDRM_7102"},
+    "get_partner_contact_contact_point": {
+        "party_number": "CDRM_7102",
+        "contact_point_id": "123",
+    },
+    "list_partner_contact_user_details": {"party_number": "CDRM_7102"},
+    "get_partner_contact_user_detail": {
+        "party_number": "CDRM_7102",
+        "username": "user@example.com",
+    },
+    "list_partner_programs": {},
+    "get_partner_program": {"program_number": "PROG1"},
+    "get_customer_knowledge": {},
+    "ensure_customer_knowledge": {},
+    "append_customer_knowledge": {"summary": "Contract discovery note."},
 }
 
 
@@ -394,9 +449,9 @@ class FakeMcp:
     def __init__(self) -> None:
         self.tools: dict[str, Any] = {}
 
-    def tool(self, **_kwargs: Any):
+    def tool(self, **kwargs: Any):
         def decorator(fn: Any) -> Any:
-            self.tools[fn.__name__] = fn
+            self.tools[str(kwargs.get("name") or fn.__name__)] = fn
             return fn
 
         return decorator
@@ -514,6 +569,25 @@ class FakeCPQClient:
         return {"status": "ok"}
 
 
+class FakeCXClient:
+    """Minimal CX client: collections return ADF pages; items return a stub row."""
+
+    def __init__(self, profile: CPQProfile) -> None:
+        self.profile = profile
+
+    def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
+        params = params or {}
+        if "limit" in params:
+            return {
+                "items": [],
+                "hasMore": False,
+                "offset": params.get("offset", 0),
+                "limit": params.get("limit", 25),
+                "count": 0,
+            }
+        return {"CompanyNumber": "2001", "path": path}
+
+
 def _lead_envelope(result: Any) -> dict[str, Any]:
     if isinstance(result, list):
         assert result, "attachment tool returned empty list"
@@ -574,6 +648,12 @@ def registered_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
         read_only=False,
         custom_data_table_names=["ModelMaster"],
         commerce_process_var_names=["oraclecpqo"],
+        cx_enabled=True,
+        cx_url="https://cx.example.com",
+        cx_auth="basic",
+        cx_modules=["Sales", "PRM"],
+        cx_credentials=[CredentialSet(username="cxuser", password="secret")],
+        customer_knowledge_file="test.md",
     )
     settings = SecuritySettings(
         confirmation_secret="test-secret-key-for-hmac",
@@ -593,6 +673,17 @@ def registered_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
 
     mcp = FakeMcp()
     client = FakeCPQClient(profile)
+    cx_client = FakeCXClient(profile)
+    knowledge_root = tmp_path / "know_root"
+    (knowledge_root / "knowledge").mkdir(parents=True)
+    (knowledge_root / "knowledge" / "test.md").write_text(
+        "# Test\n\nContract fixture stub.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "oracle_cpq_mcp.core.knowledge.find_project_root",
+        lambda: knowledge_root,
+    )
     register_user_tools(mcp, client)  # type: ignore[arg-type]
     register_group_tools(mcp, client)  # type: ignore[arg-type]
     register_datatable_tools(mcp, client)  # type: ignore[arg-type]
@@ -605,9 +696,11 @@ def registered_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[st
     register_collab_tools(mcp, client)  # type: ignore[arg-type]
     register_saved_search_tools(mcp, client)  # type: ignore[arg-type]
     register_admin_tools(mcp, client)  # type: ignore[arg-type]
+    register_cx_tools(mcp, cx_client)  # type: ignore[arg-type]
     register_tasks_tools(mcp, client)  # type: ignore[arg-type]
     register_configuration_tools(mcp, client)  # type: ignore[arg-type]
     register_local_data_tools(mcp, client)  # type: ignore[arg-type]
+    register_customer_knowledge_tools(mcp, client)  # type: ignore[arg-type]
     register_response_export_tools(mcp, client)  # type: ignore[arg-type]
     register_discovery_tools(mcp)
     register_saved_prompt_tools(mcp)

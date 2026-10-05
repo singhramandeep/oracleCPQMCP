@@ -309,6 +309,12 @@ class DiscoverToolsInput(_StrictModel):
         "metrics",
         "collab",
         "admin",
+        "sales",
+        "prm",
+        "service",
+        "field_service",
+        "subscription",
+        "incentive_compensation",
         "all",
     ] = Field(
         default="all",
@@ -318,9 +324,21 @@ class DiscoverToolsInput(_StrictModel):
         default="all",
         description="Filter tools by operation, or all.",
     )
-    cx_module: Literal["cpq", "service", "meta", "all"] = Field(
+    cx_module: Literal[
+        "cpq",
+        "sales",
+        "prm",
+        "service",
+        "field_service",
+        "subscription",
+        "incentive_compensation",
+        "meta",
+        "all",
+    ] = Field(
         default="all",
-        description="Filter tools by CX product module (cpq/service/meta), or all.",
+        description=(
+            "Filter tools by product module (cpq, Fusion CX slugs, or meta), or all."
+        ),
     )
     limit: int = Field(
         default=20,
@@ -540,6 +558,37 @@ class ListLocalDataInput(_StrictModel):
 
 class EnsurePromptStudioInput(_StrictModel):
     """No parameters — probe/start local Prompt Studio on localhost."""
+
+
+class GetCustomerKnowledgeInput(_StrictModel):
+    """No parameters — return active profile customer knowledge markdown."""
+
+
+class EnsureCustomerKnowledgeInput(_StrictModel):
+    """No parameters — create stub knowledge file and wire profile field if needed."""
+
+
+class AppendCustomerKnowledgeInput(_StrictModel):
+    summary: str = Field(
+        ...,
+        min_length=1,
+        max_length=8000,
+        description=(
+            "Concise markdown or bullet summary of discoveries to append. "
+            "Do not include passwords, OAuth secrets, or tokens. "
+            "Point to data/{profile}/{env}/ for large dumps."
+        ),
+    )
+    title: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Optional section title (default: Discovery).",
+    )
+    tags: list[str] | None = Field(
+        default=None,
+        max_length=20,
+        description="Optional short tags (e.g. commerce, bml, users).",
+    )
 
 
 class GetLocalDataStatusInput(_StrictModel):
@@ -1131,6 +1180,285 @@ class GetFusionAccessTokenInput(_StrictModel):
             "Default false returns access_token_masked only."
         ),
     )
+
+
+class ListTerritoriesInput(_StrictModel):
+    limit: int = Field(
+        default=25,
+        ge=1,
+        le=200,
+        description="Page size for territories collection (1–200).",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based starting index for the territories page.",
+    )
+    q: str | None = Field(
+        default=None,
+        max_length=2000,
+        description=(
+            "Optional ADF query expression for territories "
+            "(e.g. Name LIKE 'VEC%')."
+        ),
+    )
+    finder: str | None = Field(
+        default=None,
+        max_length=1000,
+        description=(
+            "Optional finder string "
+            "(e.g. UniqueTerritoryNumberFinder;UniqueTerritoryNumber=VEC_US_1054)."
+        ),
+    )
+    fields: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Optional comma-separated field projection.",
+    )
+    order_by: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional orderBy (e.g. Name:asc).",
+    )
+    only_data: bool = Field(
+        default=True,
+        description="When true, request onlyData=true (omit link metadata).",
+    )
+    total_results: bool = Field(
+        default=False,
+        description="When true, request totalResults=true for estimated row count.",
+    )
+
+
+
+class _CxAdfCollectionInput(_StrictModel):
+    limit: int = Field(
+        default=25,
+        ge=1,
+        le=200,
+        description="Page size for the ADF collection (1–200).",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based starting index for the page.",
+    )
+    q: str | None = Field(default=None, max_length=2000, description="Optional ADF q expression.")
+    finder: str | None = Field(default=None, max_length=1000, description="Optional finder string.")
+    fields: str | None = Field(default=None, max_length=2000, description="Optional comma-separated field projection.")
+    order_by: str | None = Field(default=None, max_length=500, description="Optional orderBy (e.g. Name:asc).")
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+    total_results: bool = Field(
+        default=False,
+        description="When true, request totalResults=true for estimated row count.",
+    )
+
+
+class _CxAdfItemInput(_StrictModel):
+    fields: str | None = Field(default=None, max_length=2000, description="Optional comma-separated field projection.")
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+    expand: str | None = Field(default=None, max_length=2000, description="Optional expand clause for child resources.")
+
+
+class GetTerritoryInput(_CxAdfItemInput):
+    territory_version_id: str = Field(..., min_length=1, max_length=200, description="TerritoryVersionId path key.")
+
+
+class ListAccountsInput(_CxAdfCollectionInput):
+    pass
+
+
+class GetAccountInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Account PartyNumber path key.")
+
+
+class ListAccountTeamInput(_CxAdfCollectionInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Account PartyNumber for AccountTeam child.")
+
+
+class GetAccountTeamMemberInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Account PartyNumber.")
+    account_team_uniq_id: str = Field(..., min_length=1, max_length=500, description="AccountTeamUniqId path key.")
+
+
+class ListContactsInput(_CxAdfCollectionInput):
+    pass
+
+
+class GetContactInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Contact PartyNumber path key.")
+
+
+class ListLeadsInput(_CxAdfCollectionInput):
+    effective_date: str | None = Field(
+        default=None,
+        max_length=10,
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        description="Optional effectiveDate filter (yyyy-MM-dd).",
+    )
+
+
+class GetLeadInput(_CxAdfItemInput):
+    leads_uniq_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Lead uniq id from leads collection links/self href (leadsUniqID).",
+    )
+
+
+class ListLeadOpportunitiesInput(_CxAdfCollectionInput):
+    leads_uniq_id: str = Field(..., min_length=1, max_length=500, description="Parent lead leadsUniqID.")
+
+
+class GetLeadOpportunityInput(_CxAdfItemInput):
+    leads_uniq_id: str = Field(..., min_length=1, max_length=500, description="Parent lead leadsUniqID.")
+    lead_number: str = Field(..., min_length=1, max_length=200, description="LeadNumber path key.")
+
+
+class ListProductsInput(_CxAdfCollectionInput):
+    pass
+
+
+class GetProductInput(_CxAdfItemInput):
+    inventory_item_id: str = Field(..., min_length=1, max_length=200, description="InventoryItemId path key.")
+
+
+class ListPartnersInput(_CxAdfCollectionInput):
+    pass
+
+
+class GetPartnerInput(_CxAdfItemInput):
+    company_number: str = Field(..., min_length=1, max_length=200, description="CompanyNumber path key.")
+
+
+class ListPartnerLovInput(_CxAdfCollectionInput):
+    company_number: str = Field(..., min_length=1, max_length=200, description="CompanyNumber path key.")
+    lov_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        pattern=r"^[A-Za-z][A-Za-z0-9_]*$",
+        description=(
+            "ADF LOV collection name (e.g. PartnerProfilePEO_LOVVA_For_gnx_sls_Status_c). "
+            "Do not invent names; take from partner links rel=lov."
+        ),
+    )
+    lookup_code: str | None = Field(
+        default=None,
+        max_length=200,
+        pattern=r"^[A-Za-z0-9_]+$",
+        description=(
+            "Optional LookupCode filter. When set and q is omitted, the tool sends "
+            'q=LookupCode="{lookup_code}". Ignored when q is provided.'
+        ),
+    )
+
+
+class ListPartnerContactsInput(_CxAdfCollectionInput):
+    pass
+
+
+class GetPartnerContactInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Partner contact PartyNumber.")
+
+
+class ListDealsInput(_CxAdfCollectionInput):
+    effective_date: str | None = Field(
+        default=None,
+        max_length=10,
+        pattern=r"^\d{4}-\d{2}-\d{2}$",
+        description="Optional effectiveDate filter (yyyy-MM-dd).",
+    )
+
+
+class GetDealInput(_CxAdfItemInput):
+    deals_uniq_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Deal uniq id from deals collection links/self href (dealsUniqID).",
+    )
+
+
+class ListPartnerContactAddressesInput(_CxAdfCollectionInput):
+    party_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Partner contact PartyNumber for addresses child.",
+    )
+
+
+class GetPartnerContactAddressInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Partner contact PartyNumber.")
+    address_number: str = Field(..., min_length=1, max_length=200, description="AddressNumber path key.")
+
+
+class ListPartnerContactAttachmentsInput(_CxAdfCollectionInput):
+    party_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Partner contact PartyNumber for attachments child.",
+    )
+
+
+class GetPartnerContactAttachmentInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Partner contact PartyNumber.")
+    attachments_uniq_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="attachmentsUniqID from attachments collection links — do not invent.",
+    )
+
+
+class ListPartnerContactContactPointsInput(_CxAdfCollectionInput):
+    party_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Partner contact PartyNumber for contactPoints child.",
+    )
+
+
+class GetPartnerContactContactPointInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Partner contact PartyNumber.")
+    contact_point_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        pattern=r"^[0-9]+$",
+        description="Numeric ContactPointId path key.",
+    )
+
+
+class ListPartnerContactUserDetailsInput(_CxAdfCollectionInput):
+    party_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Partner contact PartyNumber for userdetails child.",
+    )
+
+
+class GetPartnerContactUserDetailInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Partner contact PartyNumber.")
+    username: str = Field(
+        ...,
+        min_length=1,
+        max_length=320,
+        description="Username path key for partner contact userdetails.",
+    )
+
+
+class ListPartnerProgramsInput(_CxAdfCollectionInput):
+    pass
+
+
+class GetPartnerProgramInput(_CxAdfItemInput):
+    program_number: str = Field(..., min_length=1, max_length=200, description="ProgramNumber path key.")
 
 
 class GetPerformanceLogInput(_StrictModel):
@@ -2889,6 +3217,38 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_certificate": GetCertificateInput,
     "get_sso_configuration": GetSsoConfigurationInput,
     "get_fusion_access_token": GetFusionAccessTokenInput,
+    "list_territories": ListTerritoriesInput,
+
+    "get_territory": GetTerritoryInput,
+    "list_accounts": ListAccountsInput,
+    "get_account": GetAccountInput,
+    "list_account_team": ListAccountTeamInput,
+    "get_account_team_member": GetAccountTeamMemberInput,
+    "list_contacts": ListContactsInput,
+    "get_contact": GetContactInput,
+    "list_leads": ListLeadsInput,
+    "get_lead": GetLeadInput,
+    "list_lead_opportunities": ListLeadOpportunitiesInput,
+    "get_lead_opportunity": GetLeadOpportunityInput,
+    "list_products": ListProductsInput,
+    "get_product": GetProductInput,
+    "list_partners": ListPartnersInput,
+    "get_partner": GetPartnerInput,
+    "list_partner_lov": ListPartnerLovInput,
+    "list_partner_contacts": ListPartnerContactsInput,
+    "get_partner_contact": GetPartnerContactInput,
+    "list_deals": ListDealsInput,
+    "get_deal": GetDealInput,
+    "list_partner_contact_addresses": ListPartnerContactAddressesInput,
+    "get_partner_contact_address": GetPartnerContactAddressInput,
+    "list_partner_contact_attachments": ListPartnerContactAttachmentsInput,
+    "get_partner_contact_attachment": GetPartnerContactAttachmentInput,
+    "list_partner_contact_contact_points": ListPartnerContactContactPointsInput,
+    "get_partner_contact_contact_point": GetPartnerContactContactPointInput,
+    "list_partner_contact_user_details": ListPartnerContactUserDetailsInput,
+    "get_partner_contact_user_detail": GetPartnerContactUserDetailInput,
+    "list_partner_programs": ListPartnerProgramsInput,
+    "get_partner_program": GetPartnerProgramInput,
     "list_parts": ListPartsInput,
     "get_part": GetPartInput,
     "search_parts": SearchPartsInput,
@@ -2912,6 +3272,9 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "export_response_word": ExportResponseWordInput,
     "set_post_response_export": SetPostResponseExportInput,
     "ensure_prompt_studio": EnsurePromptStudioInput,
+    "get_customer_knowledge": GetCustomerKnowledgeInput,
+    "ensure_customer_knowledge": EnsureCustomerKnowledgeInput,
+    "append_customer_knowledge": AppendCustomerKnowledgeInput,
     "sync_users_local": SyncUsersLocalInput,
     "sync_groups_local": SyncGroupsLocalInput,
     "sync_bml_local": SyncBmlLocalInput,

@@ -16,18 +16,25 @@
 # Agents must never create/edit/delete username, password, or oauth_client_* fields.
 # =============================================================================
 #
-# One format for mode: cpq and mode: fusion:
-#   - mode=cpq  → fill credentials; omit or comment oauth_*
-#   - mode=fusion → fill oauth_*; omit or comment credentials
+# Format 1.06: each environment has optional nested cpq: and/or cx: blocks.
+# Each product has its own url and auth: basic (default) or bearer (oauth_*).
+# CPQ hosted: standalone → /rest/{version} | fusion → /cpq/rest/{version}.
+# CX modules (when cx.enabled): Sales and PRM register GET MCP tools;
+# Service, Field Service, Subscription, Incentive Compensation are reserved.
+# Legacy flat env url/credentials/oauth_* still load (migrated into cpq:).
+# Agents must never create/edit username, password, or oauth_client_* fields.
 # =============================================================================
 
-# Document schema / format version for the profile YAML loader (currently 1.02).
-version: 1.02
+# Document schema / format version for the profile YAML loader (currently 1.06).
+version: 1.06
 # Human-readable customer / engagement label (shown in tooling summaries).
 customer_name: Acme Corporation
-# Connection mode: cpq / standalone (Basic Auth + /rest/{version}; omit mode or use
-# standalone to default to cpq) | fusion (OAuth Bearer + /cpq/rest/{version}).
-mode: cpq
+# Legacy aliases (derived from environments.*.cpq.hosted when nested blocks exist).
+# cpq_mode: standalone
+# fusion_enabled: false
+# Frugal mode: when true, shorter MCP instructions; no refined footer / auto-export /
+# ensure_prompt_studio. Override with host CPQ_FRUGAL_MODE.
+frugal_mode: false
 
 
 # Which environment to use when the host does not set CPQ_ENVIRONMENT.
@@ -77,61 +84,65 @@ post_response_export: always_excel
 # Uncomment to override the server default (often 60). Host CPQ_HTTP_TIMEOUT can also override.
 # http_timeout: 60
 
-# Optional basename of a markdown file under knowledge/ (e.g. mycustomer.md → knowledge/mycustomer.md).
-# Injected into MCP server instructions with shared CPQBaseKnowledge.md. Leave blank if unused.
-# Customer knowledge files may be gitignored — keep them local when they contain site specifics.
+# Optional basename under knowledge/ (e.g. acme.md → knowledge/acme.md).
+# Injected into MCP instructions with shared CPQBaseKnowledge.md.
+# Prefer MCP tools: ensure_customer_knowledge / get_customer_knowledge /
+# append_customer_knowledge (cross-session memory). Leave blank to auto-wire via ensure.
+# Customer knowledge files are gitignored — keep them local when they contain site specifics.
 customer_knowledge_file:
+# Example: customer_knowledge_file: acme.md
 
 # -----------------------------------------------------------------------------
-# environments: one block per CPQ site (dev / test / prod).
-# Keys must be exactly: dev | test | prod (as supported by the loader).
+# environments: one block per site (dev / test / prod).
+# Nested cpq: and cx: each have their own url + auth (basic | bearer).
 # -----------------------------------------------------------------------------
 environments:
-  # Development CPQ site.
+  # Development CPQ site (CX Fusion commented — enable when needed).
   dev:
-    # Base site URL (no trailing slash required; loader strips it).
-    url: https://acme-dev.bigmachines.com
-    # When false, credentials may remain in the file but this env cannot be selected.
     enabled: true
-    # --- Basic Auth (required when mode=cpq; omit/comment when mode=fusion) ---
-    credentials:
-      # Integration / API user login name.
-      - username: integration_user
-        # Password for that user — replace with a real secret locally; never commit real values.
-        password: DevSecretPassword123!
-    # --- Fusion OAuth (required when mode=fusion; omit/comment when mode=cpq) ---
-    # oauth_token_url: https://idcs-example.identity.oraclecloud.com/oauth2/v1/token
-    # oauth_client_id: YOUR_CLIENT_ID
-    # oauth_client_secret: YOUR_CLIENT_SECRET
-    # oauth_scope: urn:opc:resource:fusion:<site>:cpq/
-  # Test / UAT CPQ site.
+    cpq:
+      enabled: true
+      hosted: standalone
+      url: https://acme-dev.bigmachines.com
+      auth: basic
+      credentials:
+        - username: integration_user
+          password: DevSecretPassword123!
+      # auth: bearer
+      # oauth_token_url: https://idcs-example.identity.oraclecloud.com/oauth2/v1/token
+      # oauth_client_id: YOUR_CLIENT_ID
+      # oauth_client_secret: YOUR_CLIENT_SECRET
+      # oauth_scope: urn:opc:resource:fusion:<site>:cpq/
+    # cx:
+    #   enabled: true
+    #   url: https://acme-dev.fa.ocs.oraclecloud.com
+    #   auth: basic
+    #   modules:
+    #     - Sales
+    #     - PRM
+    #   credentials:
+    #     - username: cx_integration_user
+    #       password: REPLACE_ME
   test:
-    url: https://acme-test.bigmachines.com
     enabled: true
-    # --- Basic Auth (required when mode=cpq; omit/comment when mode=fusion) ---
-    credentials:
-      - username: integration_user
-        password: TestSecretPassword123!
-    # --- Fusion OAuth (required when mode=fusion; omit/comment when mode=cpq) ---
-    # oauth_token_url: https://idcs-example.identity.oraclecloud.com/oauth2/v1/token
-    # oauth_client_id: YOUR_CLIENT_ID
-    # oauth_client_secret: YOUR_CLIENT_SECRET
-    # oauth_scope: urn:opc:resource:fusion:<site>:cpq/
-  # Production CPQ site.
+    cpq:
+      enabled: true
+      hosted: standalone
+      url: https://acme-test.bigmachines.com
+      auth: basic
+      credentials:
+        - username: integration_user
+          password: TestSecretPassword123!
   prod:
-    url: https://acme.bigmachines.com
-    # Example: keep credentials on disk but block selection until you enable it.
-    # Host must also allow prod (CPQ_ALLOW_PROD) when intentionally using prod.
     enabled: false
-    # --- Basic Auth (required when mode=cpq; omit/comment when mode=fusion) ---
-    credentials:
-      - username: read_only_admin
-        password: ProdSecretPassword123!
-    # --- Fusion OAuth (required when mode=fusion; omit/comment when mode=cpq) ---
-    # oauth_token_url: https://idcs-example.identity.oraclecloud.com/oauth2/v1/token
-    # oauth_client_id: YOUR_CLIENT_ID
-    # oauth_client_secret: YOUR_CLIENT_SECRET
-    # oauth_scope: urn:opc:resource:fusion:<site>:cpq/
+    cpq:
+      enabled: true
+      hosted: standalone
+      url: https://acme.bigmachines.com
+      auth: basic
+      credentials:
+        - username: read_only_admin
+          password: ProdSecretPassword123!
 # -----------------------------------------------------------------------------
 # commerce_processes: defaults + friendly aliases for commerce / transaction tools.
 # First enabled entry is often used as the default process when tools omit process_var_name.

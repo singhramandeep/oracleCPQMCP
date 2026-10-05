@@ -20,7 +20,10 @@ Package: **0.3.0**. Offline unit/contract tests cover the full catalog. Live sta
 | Performance logs | list/get/export | **Used live** | |
 | Tasks | `get_task`, `download_task_file` | **Untested live** | Needed after export_* taskId |
 | Configuration | productFamilies / layoutcache | **Untested live** | |
-| Meta / local data / prompts | discover, sync_*, prompts, exports | **Local / used** | |
+| CX Sales (GET) | territories, accounts, account team, contacts, leads, products | **Used live** | Needs `cx.enabled` + `Sales` in `cx.modules`; ADF `q`/`fields`+`expand` can 400 |
+| CX PRM (GET) | partners, contacts, deals, programs, partner-contact children, `list_partner_lov` | **Used live** | Needs `PRM` in `cx.modules`; partners keyed by CompanyNumber; LOV via `list_partner_lov` |
+| Other Fusion CX modules | Service, Field Service, Subscription, Incentive Compensation | **No tools yet** | YAML allowlist only |
+| Meta / local data / prompts | discover, sync_*, prompts, exports, customer knowledge | **Local / used** | |
 
 ## Agent rules
 
@@ -28,5 +31,6 @@ Package: **0.3.0**. Offline unit/contract tests cover the full catalog. Live sta
 2. Prefer `list_local_data` / `cpq://local` / `search_local_bml` before re-fetching huge BML.
 3. Long BML: `start_bml_site_export` → `get_local_job` loop (not one blocking `get_all_bml_code` when hosts time out).
 4. CPQ async exports: `export_*` → `get_task` → `download_task_file`.
+5. CX: use registered Sales/PRM tools only; do not invent REST paths for modules with no handlers. Partner codes → `list_partner_lov`.
 
 Update this file when live smoke results change.

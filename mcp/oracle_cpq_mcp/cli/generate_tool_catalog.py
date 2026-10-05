@@ -11,6 +11,7 @@ from pydantic.fields import PydanticUndefined
 
 from oracle_cpq_mcp.core.config import find_project_root
 from oracle_cpq_mcp.registry.tool_registry import (
+    FUSION_CX_MODULE_NAMES,
     TOOL_CATALOG,
     ToolSpec,
 )
@@ -30,6 +31,15 @@ _DOMAIN_ORDER = (
     "parts",
     "tasks",
     "configuration",
+    "metrics",
+    "collab",
+    "admin",
+    "sales",
+    "prm",
+    "service",
+    "field_service",
+    "subscription",
+    "incentive_compensation",
     "meta",
 )
 
@@ -153,9 +163,11 @@ def _truncate(text: str, limit: int = 220) -> str:
 def format_method_and_urls(spec: ToolSpec) -> tuple[str, str, str]:
     """Return (Method, CPQ REST URL, Fusion REST URL) cells for the catalog table.
 
-    Paths are relative to the site base URL. Standalone/cpq uses
+    Paths are relative to the site base URL. Standalone uses
     ``/rest/{rest_api_version}``; fusion uses ``/cpq/rest/{rest_api_version}``.
-    ``CPQClient`` selects one prefix from profile ``mode``.
+    ``CPQClient`` selects one prefix when ``cpq_mode: fusion`` and
+    ``fusion_enabled: true``. CX REST paths (``/crmRestApi/...``) use the
+    profile ``cx.url`` with no CPQ prefix.
     """
     local = "— (local / no CPQ REST)"
     if not spec.http_method and not spec.api_path:
@@ -163,6 +175,9 @@ def format_method_and_urls(spec: ToolSpec) -> tuple[str, str, str]:
     method = spec.http_method or "—"
     if spec.api_path:
         path = spec.api_path if spec.api_path.startswith("/") else f"/{spec.api_path}"
+        if path.startswith("/crmRestApi") or spec.cx_module in FUSION_CX_MODULE_NAMES:
+            label = spec.cx_module.replace("_", " ").title()
+            return method, f"— (CX {label} REST; not CPQ)", path
         cpq_url = f"/rest/{{rest_api_version}}{path}"
         fusion_url = f"/cpq/rest/{{rest_api_version}}{path}"
     else:
@@ -298,14 +313,17 @@ def build_catalog_markdown() -> str:
         "so API path and inputs stay together.",
         "",
         "**CPQ REST URL** and **Fusion REST URL** are paths relative to the site base URL. "
-        "Standalone/cpq (`mode` omitted, `cpq`, or `standalone`): use **CPQ REST URL** "
+        "Standalone (`cpq.hosted: standalone` or omitted): **CPQ REST URL** "
         "(`/rest/{rest_api_version}` + API path). "
-        "Fusion (`mode: fusion`): use **Fusion REST URL** "
+        "Fusion-hosted CPQ (`cpq.hosted: fusion`): **Fusion REST URL** "
         "(`/cpq/rest/{rest_api_version}` + API path). "
         "`{rest_api_version}` comes from the profile (e.g. `v18` / `v19`). "
-        "Full URL = `{site_base}` + the column path "
-        "(applied automatically by `CPQClient` from profile `mode`). "
-        "Tools that do not call CPQ REST show `— (local / no CPQ REST)` in both columns.",
+        "`CPQClient` applies the prefix from nested `cpq.hosted` / `cpq.auth` "
+        "(legacy `cpq_mode` / `fusion_enabled` still migrate). "
+        "Sales/PRM tools put the **CRM REST** path (`/crmRestApi/resources/11.13.18.05/…`) "
+        "in the Fusion REST URL column (base `cx.url`); the CPQ column is "
+        "`— (CX … REST; not CPQ)`. "
+        "Local/meta tools show `— (local / no CPQ REST)` in both columns.",
         "",
         "## Domains",
         "",
