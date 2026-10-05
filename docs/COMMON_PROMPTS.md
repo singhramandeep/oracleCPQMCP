@@ -74,9 +74,13 @@ Can you give me details of the quote CPQ-16553-1? List down the values of all th
 Export the attachment for quote transaction id 92299647 using attribute proposalAttachment_t
 
 **Fusion CX Sales** (needs `Sales` in `cx.modules`)
+List Adaptive Search entities, then list accounts with an Adaptive Search JSON q
 List Fusion CX territories and summarize Status / TypeCode
 Show account team for a known PartyNumber
+List addresses (and primary addresses) for a known account PartyNumber
+List the first page of opportunities, then show team and contacts for one OptyNumber
 
 **Fusion CX PRM** (needs `PRM` in `cx.modules`)
-Find partner by name, then resolve its status LookupCode with list_partner_lov
+Find partner by name (Adaptive Search keywords/q), then resolve its status LookupCode with list_partner_lov
 List partner programs and partner-contact addresses for a known partner contact
+List partner tiers, then list geographies for a known CompanyNumber

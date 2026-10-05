@@ -146,7 +146,7 @@ Top-level `version` is the profile **format** version (currently **1.06**). Bump
   - `auth: basic` (default) → `credentials` (username/password)
   - `auth: bearer` → `oauth_token_url` / `oauth_client_id` / `oauth_client_secret` / `oauth_scope`
   - CPQ `hosted: standalone` → `/rest/{version}`; `hosted: fusion` → `/cpq/rest/{version}` (independent of Basic vs Bearer)
-  - CX `modules` required when `cx.enabled: true`. **Sales** and **PRM** register GET MCP tools; `Service`, `Field Service`, `Subscription`, `Incentive Compensation` are reserved names only.
+  - CX `modules` required when `cx.enabled: true`. **Sales** and **PRM** register product tools; Adaptive Search discovery/suggest registers for any enabled module. Top-level CX `list_*` use Adaptive Search (`searchResources`); `get_*` / children / LOVs use ADF (`resources`). `Service`, `Field Service`, `Subscription`, `Incentive Compensation` are reserved names only.
   - Optional `frugal_mode: true` shortens MCP agent instructions; host override `CPQ_FRUGAL_MODE`
 - Legacy flat `environments.dev.url` + `credentials` / `oauth_*` still load (migrated into `cpq:`)
 
@@ -158,8 +158,9 @@ flowchart LR
   yaml --> cpqBlk
   yaml --> cxBlk
   cpqBlk --> cpqTools[CPQ_REST_tools]
-  cxBlk -->|"modules Sales"| sales[sales_GET_tools]
-  cxBlk -->|"modules PRM"| prm[prm_GET_tools]
+  cxBlk -->|"any module"| asTools[adaptive_search_tools]
+  cxBlk -->|"modules Sales"| sales[sales_tools]
+  cxBlk -->|"modules PRM"| prm[prm_tools]
 ```
 
 **Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml), set `cpq.hosted: fusion` and `cpq.auth: bearer`, and fill oauth fields. Agents must never edit OAuth secrets. `CPQClient` uses `/cpq/rest/{version}` when `hosted: fusion` and Bearer when `auth: bearer` (Basic + `/cpq/rest` is also valid).
@@ -224,6 +225,6 @@ Docs: [VS Code](https://code.visualstudio.com/) · detail: [Full setup guide —
 oracle-cpq-smoke --profile mycompany --env dev
 ```
 
-**Agent chat:** *“Discover CPQ tools and list 5 users.”* If CX is enabled: *“Discover tools with cx_module sales”* or *“List partners and resolve status codes with list_partner_lov.”*
+**Agent chat:** *“Discover CPQ tools and list 5 users.”* If CX is enabled: *“Discover tools with cx_module sales”*, *“List Adaptive Search entities, then list accounts”*, or *“List partners and resolve status codes with list_partner_lov.”*
 
 Failures / DEBUG logs → [Full setup guide](QUICKSTART.md#step-4--smoke-test-verify-cpq-connectivity) · [FAQ](FAQ.md).

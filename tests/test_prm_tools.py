@@ -81,9 +81,9 @@ def _configure(profile: CPQProfile) -> None:
 def test_list_partners_success() -> None:
     url = (
         "https://icchjb-dev2.fa.ocs.oraclecloud.com"
-        "/crmRestApi/resources/11.13.18.05/partners"
+        "/crmRestApi/searchResources/11.13.18.05/custom-actions/queries"
     )
-    respx.get(url).mock(
+    respx.post(url).mock(
         return_value=httpx.Response(
             200,
             json={"items": [{"CompanyNumber": "P1"}], "count": 1, "hasMore": False},
@@ -180,9 +180,9 @@ def test_get_partner_contact_user_detail_encodes_username() -> None:
 def test_list_partner_programs_success() -> None:
     url = (
         "https://icchjb-dev2.fa.ocs.oraclecloud.com"
-        "/crmRestApi/resources/11.13.18.05/partnerPrograms"
+        "/crmRestApi/searchResources/11.13.18.05/custom-actions/queries"
     )
-    respx.get(url).mock(
+    respx.post(url).mock(
         return_value=httpx.Response(
             200,
             json={"items": [{"ProgramNumber": "PROG1"}], "count": 1, "hasMore": False},
@@ -267,3 +267,91 @@ def test_list_partner_lov_rejects_invalid_lov_name() -> None:
         ListPartnerLovInput(company_number="2001", lov_name="../secret")
     with pytest.raises(ValidationError):
         ListPartnerLovInput(company_number="2001", lov_name="bad/name")
+
+
+@respx.mock
+def test_list_partner_tiers_success() -> None:
+    url = (
+        "https://icchjb-dev2.fa.ocs.oraclecloud.com"
+        "/crmRestApi/searchResources/11.13.18.05/custom-actions/queries"
+    )
+    respx.post(url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "items": [{"TierId": 300100071285742, "Name": "Gold Tier", "Ranking": 1}],
+                "count": 1,
+                "hasMore": False,
+            },
+        )
+    )
+    profile = _cx_prm_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_prm_tools(mcp, CXClient(profile))
+    result = mcp.tools["list_partner_tiers"](limit=10)
+    assert result["status"] == "ok"
+    assert result["data"]["items"][0]["Name"] == "Gold Tier"
+
+
+@respx.mock
+def test_list_partner_geographies_success() -> None:
+    url = (
+        "https://icchjb-dev2.fa.ocs.oraclecloud.com"
+        "/crmRestApi/resources/11.13.18.05/partners/2001/child/geographies"
+    )
+    respx.get(url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "PartnerDimMembersId": 100000020252075,
+                        "GeographyName": "Europe Middle East & Africa",
+                    }
+                ],
+                "count": 1,
+                "hasMore": False,
+            },
+        )
+    )
+    profile = _cx_prm_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_prm_tools(mcp, CXClient(profile))
+    result = mcp.tools["list_partner_geographies"](company_number="2001")
+    assert result["status"] == "ok"
+    assert result["data"]["items"][0]["PartnerDimMembersId"] == 100000020252075
+
+
+@respx.mock
+def test_get_partner_tier_and_geography_success() -> None:
+    base = "https://icchjb-dev2.fa.ocs.oraclecloud.com/crmRestApi/resources/11.13.18.05"
+    respx.get(f"{base}/partnerTiers/300100071293753").mock(
+        return_value=httpx.Response(
+            200,
+            json={"TierId": 300100071293753, "Name": "Gold Tier", "Ranking": 1},
+        )
+    )
+    respx.get(f"{base}/partners/2001/child/geographies/100000020252075").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "PartnerDimMembersId": 100000020252075,
+                "GeographyName": "Europe Middle East & Africa",
+            },
+        )
+    )
+    profile = _cx_prm_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_prm_tools(mcp, CXClient(profile))
+    tier = mcp.tools["get_partner_tier"](tier_id="300100071293753")
+    assert tier["status"] == "ok"
+    assert tier["data"]["Name"] == "Gold Tier"
+    geo = mcp.tools["get_partner_geography"](
+        company_number="2001",
+        partner_dim_members_id="100000020252075",
+    )
+    assert geo["status"] == "ok"
+    assert geo["data"]["GeographyName"] == "Europe Middle East & Africa"

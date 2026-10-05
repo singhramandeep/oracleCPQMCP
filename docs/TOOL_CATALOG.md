@@ -8,7 +8,7 @@
 > # or: python scripts/generate_tool_catalog.py
 > ```
 
-**Total tools:** 157
+**Total tools:** 183
 
 This document is the formal per-tool reference for the GitHub repository. Each domain lists **Read tools** then **Write tools**. Every tool has one property table (Version, CX module, Op/Risk, Method, CPQ REST URL, Fusion REST URL, Tags, Parameters, Filters, Output, Description) so API path and inputs stay together.
 
@@ -1783,9 +1783,9 @@ _4 tool(s)_
 
 ## sales
 
-_14 tool(s)_
+_36 tool(s)_
 
-- **Read:** [`get_account`](#get-account), [`get_account_team_member`](#get-account-team-member), [`get_contact`](#get-contact), [`get_lead`](#get-lead), [`get_lead_opportunity`](#get-lead-opportunity), [`get_product`](#get-product), [`get_territory`](#get-territory), [`list_account_team`](#list-account-team), [`list_accounts`](#list-accounts), [`list_contacts`](#list-contacts), [`list_lead_opportunities`](#list-lead-opportunities), [`list_leads`](#list-leads), [`list_products`](#list-products), [`list_territories`](#list-territories)
+- **Read:** [`get_account`](#get-account), [`get_account_address`](#get-account-address), [`get_account_attachment`](#get-account-attachment), [`get_account_primary_address`](#get-account-primary-address), [`get_account_team_member`](#get-account-team-member), [`get_adaptive_search_entity`](#get-adaptive-search-entity), [`get_contact`](#get-contact), [`get_lead`](#get-lead), [`get_lead_opportunity`](#get-lead-opportunity), [`get_opportunity`](#get-opportunity), [`get_opportunity_attachment`](#get-opportunity-attachment), [`get_opportunity_contact`](#get-opportunity-contact), [`get_opportunity_revenue_partner`](#get-opportunity-revenue-partner), [`get_product`](#get-product), [`get_territory`](#get-territory), [`list_account_addresses`](#list-account-addresses), [`list_account_attachments`](#list-account-attachments), [`list_account_primary_addresses`](#list-account-primary-addresses), [`list_account_team`](#list-account-team), [`list_accounts`](#list-accounts), [`list_adaptive_search_entities`](#list-adaptive-search-entities), [`list_adaptive_search_entity_attributes`](#list-adaptive-search-entity-attributes), [`list_adaptive_search_entity_fields`](#list-adaptive-search-entity-fields), [`list_adaptive_search_metamodels`](#list-adaptive-search-metamodels), [`list_adaptive_search_operators`](#list-adaptive-search-operators), [`list_contacts`](#list-contacts), [`list_lead_opportunities`](#list-lead-opportunities), [`list_leads`](#list-leads), [`list_opportunities`](#list-opportunities), [`list_opportunity_attachments`](#list-opportunity-attachments), [`list_opportunity_contacts`](#list-opportunity-contacts), [`list_opportunity_revenue_partners`](#list-opportunity-revenue-partners), [`list_opportunity_team`](#list-opportunity-team), [`list_products`](#list-products), [`list_territories`](#list-territories), [`suggest_adaptive_search`](#suggest-adaptive-search)
 
 ### Read tools
 
@@ -1805,6 +1805,54 @@ _14 tool(s)_
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get one Fusion CX Sales account by party_number (PartyNumber). Requires Sales in cx.modules. |
 
+#### `get_account_address`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/Address/{AddressNumber}` |
+| **Tags** | `accounts`, `addresses`, `cx`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`address_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one account address by party_number and address_number (AddressNumber). |
+
+#### `get_account_attachment`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/Attachment/{AttachmentUniqID}` |
+| **Tags** | `accounts`, `attachments`, `cx`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`attachment_uniq_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one account attachment by party_number and attachment_uniq_id (AttachmentUniqID from the Attachment collection — do not invent). Does not download file bytes. |
+
+#### `get_account_primary_address`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/PrimaryAddress/{AddressNumber}` |
+| **Tags** | `accounts`, `addresses`, `cx`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`party_number` (str, required)<br>`address_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one account primary address by party_number and address_number. |
+
 #### `get_account_team_member`
 
 | | |
@@ -1820,6 +1868,22 @@ _14 tool(s)_
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get one account team member by party_number and account_team_uniq_id. |
+
+#### `get_adaptive_search_entity`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/entities/{entityName}` |
+| **Tags** | `adaptive_search`, `cx`, `read`, `sales` |
+| **Parameters** | `entity` (str, required)<br>`meta_model_uuid` (str \| None, default None)<br>`only_data` (bool, default True) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one Adaptive Search entity by name (GET entities/{entity}). Optional meta_model_uuid. |
 
 #### `get_contact`
 
@@ -1869,6 +1933,70 @@ _14 tool(s)_
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get one lead opportunity by leads_uniq_id and lead_number. |
 
+#### `get_opportunity`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}` |
+| **Tags** | `cx`, `opportunities`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`opty_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one opportunity by opty_number (OptyNumber). Requires Sales in cx.modules. |
+
+#### `get_opportunity_attachment`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/Attachment/{AttachmentUniqID}` |
+| **Tags** | `attachments`, `cx`, `opportunities`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`opty_number` (str, required)<br>`attachment_uniq_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one opportunity attachment by opty_number and attachment_uniq_id (AttachmentUniqID from collection links — do not invent). Does not download file bytes. |
+
+#### `get_opportunity_contact`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/OpportunityContact/{OptyConId}` |
+| **Tags** | `contacts`, `cx`, `opportunities`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`opty_number` (str, required)<br>`opty_con_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one opportunity contact by opty_number and opty_con_id (OptyConId). |
+
+#### `get_opportunity_revenue_partner`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/RevenuePartnerPrimary/{RevnPartOrgPartyId}` |
+| **Tags** | `cx`, `opportunities`, `partners`, `read`, `sales` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`opty_number` (str, required)<br>`revn_part_org_party_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one opportunity revenue partner by opty_number and revn_part_org_party_id (RevnPartOrgPartyId). |
+
 #### `get_product`
 
 | | |
@@ -1901,6 +2029,54 @@ _14 tool(s)_
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get one Fusion CX Sales territory by territory_version_id (TerritoryVersionId path key). Requires cx.enabled and Sales in cx.modules. Optional fields, only_data, expand. |
 
+#### `list_account_addresses`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/Address` |
+| **Tags** | `accounts`, `addresses`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List account addresses (GET accounts/{PartyNumber}/child/Address). Requires Sales in cx.modules. Paginated; empty items means no addresses. |
+
+#### `list_account_attachments`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/Attachment` |
+| **Tags** | `accounts`, `attachments`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List account attachments (GET accounts/{PartyNumber}/child/Attachment). Requires Sales in cx.modules. Paginated; empty items means no attachments. Does not download attachment file bytes. |
+
+#### `list_account_primary_addresses`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/PrimaryAddress` |
+| **Tags** | `accounts`, `addresses`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`party_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List account primary addresses (GET accounts/{PartyNumber}/child/PrimaryAddress). Requires Sales in cx.modules. Paginated; empty items means none. |
+
 #### `list_account_team`
 
 | | |
@@ -1921,19 +2097,19 @@ _14 tool(s)_
 
 | | |
 |---|---|
-| **Version** | `1.0.0` |
+| **Version** | `2.0.0` |
 | **CX module** | `sales` |
 | **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
+| **Method** | `POST` |
 | **CPQ REST URL** | — (CX Sales REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/accounts` |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
 | **Tags** | `accounts`, `cx`, `paginated`, `read`, `sales` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Fusion CX Sales accounts (GET accounts collection). Requires Sales in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, total_results. |
+| **Description** | List Fusion CX Account via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Account). Requires the matching product in cx.modules. Paginated; empty… |
 
-#### `list_contacts`
+#### `list_adaptive_search_entities`
 
 | | |
 |---|---|
@@ -1942,12 +2118,92 @@ _14 tool(s)_
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | `GET` |
 | **CPQ REST URL** | — (CX Sales REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/contacts` |
-| **Tags** | `contacts`, `cx`, `paginated`, `read`, `sales` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/entities` |
+| **Tags** | `adaptive_search`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `meta_model_uuid` (str \| None, default None)<br>`limit` (int, default 25)<br>`offset` (int, default 0)<br>`only_data` (bool, default True) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Fusion CX Sales contacts. Requires Sales in cx.modules. Paginated collection filters. |
+| **Description** | List Adaptive Search entities for the active or specified metamodel (GET entities). Paginated; empty items means none. Does not modify saved searches or invoke Smart Actions. |
+
+#### `list_adaptive_search_entity_attributes`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/entities/{entityName}/attributes` |
+| **Tags** | `adaptive_search`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `entity` (str, required)<br>`meta_model_uuid` (str \| None, default None)<br>`limit` (int, default 25)<br>`offset` (int, default 0)<br>`only_data` (bool, default True) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Adaptive Search attributes for an entity (GET entities/{entity}/attributes). Paginated. |
+
+#### `list_adaptive_search_entity_fields`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/entities/{entityName}/fields` |
+| **Tags** | `adaptive_search`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `entity` (str, required)<br>`meta_model_uuid` (str \| None, default None)<br>`limit` (int, default 25)<br>`offset` (int, default 0)<br>`only_data` (bool, default True) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Adaptive Search indexed fields for an entity (GET entities/{entity}/fields). Paginated. |
+
+#### `list_adaptive_search_metamodels`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/metaModels` |
+| **Tags** | `adaptive_search`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`only_data` (bool, default True) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion Adaptive Search metamodels (GET /crmRestApi/searchResources/11.13.18.05/metaModels). Requires CX enabled with at least one cx.modules entry. Use the Active metamodel uuid for entity discovery. Does not call… |
+
+#### `list_adaptive_search_operators`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/searchOperators` |
+| **Tags** | `adaptive_search`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`only_data` (bool, default True) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Adaptive Search operators (GET searchOperators). Paginated. Read-only discovery. |
+
+#### `list_contacts`
+
+| | |
+|---|---|
+| **Version** | `2.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `POST` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `contacts`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Contact via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Contact). Requires the matching product in cx.modules. Paginated; empty… |
 
 #### `list_lead_opportunities`
 
@@ -1969,55 +2225,151 @@ _14 tool(s)_
 
 | | |
 |---|---|
+| **Version** | `2.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `POST` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `cx`, `leads`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Lead via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Lead). Requires the matching product in cx.modules. Paginated; empty items… |
+
+#### `list_opportunities`
+
+| | |
+|---|---|
+| **Version** | `2.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `POST` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `cx`, `opportunities`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Opportunity via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Opportunity). Requires the matching product in cx.modules. Paginated… |
+
+#### `list_opportunity_attachments`
+
+| | |
+|---|---|
 | **Version** | `1.0.0` |
 | **CX module** | `sales` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | `GET` |
 | **CPQ REST URL** | — (CX Sales REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/leads` |
-| **Tags** | `cx`, `leads`, `paginated`, `read`, `sales` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
-| **Filters** | `effective_date` (str \| None, default None) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/Attachment` |
+| **Tags** | `attachments`, `cx`, `opportunities`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`opty_number` (str, required) |
+| **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Fusion CX Sales leads. Optional effective_date (yyyy-MM-dd). leads_uniq_id for get_lead comes from collection links — do not invent. |
+| **Description** | List opportunity attachments (child Attachment). Paginated; empty items means none. Does not download attachment file bytes. |
+
+#### `list_opportunity_contacts`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/OpportunityContact` |
+| **Tags** | `contacts`, `cx`, `opportunities`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`opty_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List opportunity contacts (child OpportunityContact). Paginated; empty items means none. |
+
+#### `list_opportunity_revenue_partners`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/RevenuePartnerPrimary` |
+| **Tags** | `cx`, `opportunities`, `paginated`, `partners`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`opty_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List opportunity revenue partners (child RevenuePartnerPrimary). Paginated; empty items means none. |
+
+#### `list_opportunity_team`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/OpportunityTeam` |
+| **Tags** | `cx`, `opportunities`, `paginated`, `read`, `sales` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`opty_number` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List opportunity team members (child OpportunityTeam). Paginated; empty items means none. Does not expose a singular team-member GET. |
 
 #### `list_products`
 
 | | |
 |---|---|
-| **Version** | `1.0.0` |
+| **Version** | `2.0.0` |
 | **CX module** | `sales` |
 | **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
+| **Method** | `POST` |
 | **CPQ REST URL** | — (CX Sales REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/products` |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
 | **Tags** | `cx`, `paginated`, `products`, `read`, `sales` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Fusion CX Sales products (inventory items). Paginated. |
+| **Description** | List Fusion CX Product via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Product). Requires the matching product in cx.modules. Paginated; empty… |
 
 #### `list_territories`
+
+| | |
+|---|---|
+| **Version** | `2.0.0` |
+| **CX module** | `sales` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `POST` |
+| **CPQ REST URL** | — (CX Sales REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `cx`, `paginated`, `read`, `sales`, `territories` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX SalesTerritory via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=SalesTerritory). Requires the matching product in cx.modules. Pag… |
+
+#### `suggest_adaptive_search`
 
 | | |
 |---|---|
 | **Version** | `1.0.0` |
 | **CX module** | `sales` |
 | **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
+| **Method** | `POST` |
 | **CPQ REST URL** | — (CX Sales REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/territories` |
-| **Tags** | `cx`, `paginated`, `read`, `sales`, `territories` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
-| **Filters** | — |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `adaptive_search`, `cx`, `paginated`, `read`, `sales` |
+| **Parameters** | `entity` (str, required)<br>`keywords` (str \| None, default None)<br>`q` (dict[str, Any] \| None, default None)<br>`limit` (int, default 25)<br>`offset` (int, default 0) |
+| **Filters** | `suggestion_type` (Literal['filter', 'field'], default 'filter')<br>`keyword` (str, default '')<br>`fields` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Fusion CX Sales territories (GET /crmRestApi/resources/11.13.18.05/territories) via the profile cx: connection (Basic or Bearer). Requires cx.enabled and Sales in cx.modules. Returns one page; if hasMore is true, c… |
+| **Description** | Adaptive Search Smart Suggest (POST custom-actions/queries with Preference: recommend). Returns filter or field suggestions. Does not save queries or execute Smart Actions. Does not call CPQ REST. |
 
 ## prm
 
-_17 tool(s)_
+_21 tool(s)_
 
-- **Read:** [`get_deal`](#get-deal), [`get_partner`](#get-partner), [`get_partner_contact`](#get-partner-contact), [`get_partner_contact_address`](#get-partner-contact-address), [`get_partner_contact_attachment`](#get-partner-contact-attachment), [`get_partner_contact_contact_point`](#get-partner-contact-contact-point), [`get_partner_contact_user_detail`](#get-partner-contact-user-detail), [`get_partner_program`](#get-partner-program), [`list_deals`](#list-deals), [`list_partner_contact_addresses`](#list-partner-contact-addresses), [`list_partner_contact_attachments`](#list-partner-contact-attachments), [`list_partner_contact_contact_points`](#list-partner-contact-contact-points), [`list_partner_contact_user_details`](#list-partner-contact-user-details), [`list_partner_contacts`](#list-partner-contacts), [`list_partner_lov`](#list-partner-lov), [`list_partner_programs`](#list-partner-programs), [`list_partners`](#list-partners)
+- **Read:** [`get_deal`](#get-deal), [`get_partner`](#get-partner), [`get_partner_contact`](#get-partner-contact), [`get_partner_contact_address`](#get-partner-contact-address), [`get_partner_contact_attachment`](#get-partner-contact-attachment), [`get_partner_contact_contact_point`](#get-partner-contact-contact-point), [`get_partner_contact_user_detail`](#get-partner-contact-user-detail), [`get_partner_geography`](#get-partner-geography), [`get_partner_program`](#get-partner-program), [`get_partner_tier`](#get-partner-tier), [`list_deals`](#list-deals), [`list_partner_contact_addresses`](#list-partner-contact-addresses), [`list_partner_contact_attachments`](#list-partner-contact-attachments), [`list_partner_contact_contact_points`](#list-partner-contact-contact-points), [`list_partner_contact_user_details`](#list-partner-contact-user-details), [`list_partner_contacts`](#list-partner-contacts), [`list_partner_geographies`](#list-partner-geographies), [`list_partner_lov`](#list-partner-lov), [`list_partner_programs`](#list-partner-programs), [`list_partner_tiers`](#list-partner-tiers), [`list_partners`](#list-partners)
 
 ### Read tools
 
@@ -2133,6 +2485,22 @@ _17 tool(s)_
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get one partner-contact user-detail row by party_number and username (Username path key; @ is URL-encoded). |
 
+#### `get_partner_geography`
+
+| | |
+|---|---|
+| **Version** | `1.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `GET` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}/child/geographies/{PartnerDimMembersId}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`company_number` (str, required)<br>`partner_dim_members_id` (str, required) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | Get one partner geography by company_number and partner_dim_members_id (PartnerDimMembersId from the geographies collection). |
+
 #### `get_partner_program`
 
 | | |
@@ -2149,7 +2517,7 @@ _17 tool(s)_
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get one partner program by program_number (ProgramNumber path key). |
 
-#### `list_deals`
+#### `get_partner_tier`
 
 | | |
 |---|---|
@@ -2158,12 +2526,28 @@ _17 tool(s)_
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | `GET` |
 | **CPQ REST URL** | — (CX Prm REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/deals` |
-| **Tags** | `cx`, `deals`, `paginated`, `prm`, `read` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
-| **Filters** | `effective_date` (str \| None, default None) |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerTiers/{TierId}` |
+| **Tags** | `cx`, `partners`, `prm`, `read` |
+| **Parameters** | `fields` (str \| None, default None)<br>`only_data` (bool, default True)<br>`expand` (str \| None, default None)<br>`tier_id` (str, required) |
+| **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List PRM deal registrations. Optional effective_date. deals_uniq_id for get_deal comes from collection links — do not invent. |
+| **Description** | Get one partner tier by tier_id (TierId). Does not invoke moveUp/moveDown/delete actions. |
+
+#### `list_deals`
+
+| | |
+|---|---|
+| **Version** | `2.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `POST` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `cx`, `deals`, `paginated`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX Deal via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Deal). Requires the matching product in cx.modules. Paginated; empty items… |
 
 #### `list_partner_contact_addresses`
 
@@ -2233,17 +2617,33 @@ _17 tool(s)_
 
 | | |
 |---|---|
+| **Version** | `2.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `POST` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX PartnerContact via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=PartnerContact). Requires the matching product in cx.modules. Pag… |
+
+#### `list_partner_geographies`
+
+| | |
+|---|---|
 | **Version** | `1.0.0` |
 | **CX module** | `prm` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | `GET` |
 | **CPQ REST URL** | — (CX Prm REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerContacts` |
+| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}/child/geographies` |
 | **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False)<br>`company_number` (str, required) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List PRM partner contacts (partnerContacts collection). Requires PRM in cx.modules. |
+| **Description** | List geographies for a partner (GET partners/{CompanyNumber}/child/geographies). Requires PRM in cx.modules. Paginated; empty items means none. |
 
 #### `list_partner_lov`
 
@@ -2265,33 +2665,49 @@ _17 tool(s)_
 
 | | |
 |---|---|
-| **Version** | `1.0.0` |
+| **Version** | `2.0.0` |
 | **CX module** | `prm` |
 | **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
+| **Method** | `POST` |
 | **CPQ REST URL** | — (CX Prm REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partnerPrograms` |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
 | **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Fusion CX PRM partner programs (GET partnerPrograms). Requires PRM in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, total_results. |
+| **Description** | List Fusion CX PartnerProgram via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=PartnerProgram). Requires the matching product in cx.modules. Pag… |
+
+#### `list_partner_tiers`
+
+| | |
+|---|---|
+| **Version** | `2.0.0` |
+| **CX module** | `prm` |
+| **Op / Risk** | `read` / `READ_ONLY` |
+| **Method** | `POST` |
+| **CPQ REST URL** | — (CX Prm REST; not CPQ) |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
+| **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Filters** | — |
+| **Output** | read envelope `{status, tool, data}` |
+| **Description** | List Fusion CX PartnerTier via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=PartnerTier). Requires the matching product in cx.modules. Paginated… |
 
 #### `list_partners`
 
 | | |
 |---|---|
-| **Version** | `1.0.0` |
+| **Version** | `2.0.0` |
 | **CX module** | `prm` |
 | **Op / Risk** | `read` / `READ_ONLY` |
-| **Method** | `GET` |
+| **Method** | `POST` |
 | **CPQ REST URL** | — (CX Prm REST; not CPQ) |
-| **Fusion REST URL** | `/crmRestApi/resources/11.13.18.05/partners` |
+| **Fusion REST URL** | `/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` |
 | **Tags** | `cx`, `paginated`, `partners`, `prm`, `read` |
-| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (str \| None, default None)<br>`finder` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
+| **Parameters** | `limit` (int, default 25)<br>`offset` (int, default 0)<br>`q` (dict[str, Any] \| None, default None)<br>`keywords` (str \| None, default None)<br>`fields` (str \| None, default None)<br>`order_by` (str \| None, default None)<br>`only_data` (bool, default True)<br>`total_results` (bool, default False) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List Fusion CX PRM partners. Requires PRM in cx.modules. |
+| **Description** | List Fusion CX Partner via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Partner). Requires the matching product in cx.modules. Paginated; empty… |
 
 ## meta
 

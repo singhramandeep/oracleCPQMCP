@@ -6,9 +6,9 @@ Product overview for the Oracle CPQ MCP server (**package 0.3.0**) and related l
 
 ## Detailed features
 
-### MCP tool catalog (157 tools)
+### MCP tool catalog (183 tools)
 
-The **157** figure is the full `TOOL_CATALOG` (CPQ + meta + Sales + PRM). A live MCP process only **registers** CX tools for modules listed in `cx.modules` (reload after YAML changes). Cursor’s MCP panel may also list a host helper such as `mcp_auth` — that is not an Oracle catalog tool.
+The **183** figure is the full `TOOL_CATALOG` (CPQ + meta + Sales + PRM). A live MCP process only **registers** CX tools for modules listed in `cx.modules` (reload after YAML changes). Cursor’s MCP panel may also list a host helper such as `mcp_auth` — that is not an Oracle catalog tool.
 
 ```mermaid
 flowchart TB
@@ -21,7 +21,8 @@ flowchart TB
   mcp --> cxClient
   cpqClient --> standalone["standalone_/rest/version"]
   cpqClient --> fusionCpq["fusion_/cpq/rest/version"]
-  cxClient --> crm["cx.url_/crmRestApi/11.13.18.05"]
+  cxClient --> crmAdf["cx.url_/crmRestApi/resources"]
+  cxClient --> crmAs["cx.url_/crmRestApi/searchResources"]
 ```
 
 | Domain | What it covers |
@@ -34,8 +35,8 @@ flowchart TB
 | **Metrics** | Site metrics list with optional time filters and METRICS_* descriptions |
 | **Collab** | Collaborative quote operation queue get/clear |
 | **Admin** | Site certificates list/get; SSO configuration (PEM redacted); **`get_fusion_access_token`** (CPQ Bearer oauth_*) |
-| **Sales (CX)** | Territories, accounts (incl. account team), contacts, leads, products — GET tools in `tools/cx/sales.py` (requires `Sales` in `cx.modules`). |
-| **PRM (CX)** | Partners, partner contacts, deals, partner programs, partner-contact children (addresses, attachments, contact points, user details), and **`list_partner_lov`** to resolve partner LookupCode values — GET tools in `tools/cx/prm.py` (requires `PRM` in `cx.modules`). |
+| **Sales (CX)** | Top-level lists via **Adaptive Search**; `get_*` and account/opportunity children via ADF. Plus Adaptive Search discovery/suggest tools (`list_adaptive_search_*`, `suggest_adaptive_search`). Requires `Sales` (lists/gets) or any CX module (discovery). |
+| **PRM (CX)** | Top-level partner/deal/program/tier lists via Adaptive Search; `get_*`, geographies, partner-contact children, and **`list_partner_lov`** via ADF (`tools/cx/prm.py`; requires `PRM`). |
 | **Performance** | Performance log list/get/export |
 | **Parts** | Parts search and get |
 | **Tasks** | Get task status; download task file (async export follow-up) |
@@ -48,22 +49,34 @@ Regenerate the formal catalog after tool changes:
 python scripts/generate_tool_catalog.py
 ```
 
-Each tool table in [`TOOL_CATALOG.md`](TOOL_CATALOG.md) lists **CPQ REST URL** and **Fusion REST URL**. For CPQ tools those columns are `/rest/{version}…` vs `/cpq/rest/{version}…` (`CPQClient` from nested `cpq.hosted` / `cpq.auth`). For Sales/PRM tools the Fusion column is the **CRM REST** path (`/crmRestApi/resources/11.13.18.05/…`) on `cx.url`; the CPQ column is marked not-CPQ.
+Each tool table in [`TOOL_CATALOG.md`](TOOL_CATALOG.md) lists **CPQ REST URL** and **Fusion REST URL**. For CPQ tools those columns are `/rest/{version}…` vs `/cpq/rest/{version}…` (`CPQClient` from nested `cpq.hosted` / `cpq.auth`). For Sales/PRM tools the Fusion column is the **CRM** path on `cx.url` — either Adaptive Search (`/crmRestApi/searchResources/11.13.18.05/…`) for top-level `list_*`, or ADF (`/crmRestApi/resources/11.13.18.05/…`) for `get_*` / children / LOVs. The CPQ column is marked not-CPQ.
 
 ### Fusion CX (Sales and PRM)
 
-Enable a nested `environments.<env>.cx` block (`enabled: true`, `url`, `auth`, required `modules`). `register_cx_tools` loads only those products. `discover_tools(cx_module="sales"|"prm")` filters the catalog. Service / Field Service / Subscription / Incentive Compensation remain **allowlist names only** (no handlers yet).
+Enable a nested `environments.<env>.cx` block (`enabled: true`, `url`, `auth`, required `modules`). `register_cx_tools` always registers **Adaptive Search discovery/suggest** when any module is enabled, then loads Sales/PRM product handlers. `discover_tools(cx_module="sales"|"prm")` filters the catalog. Service / Field Service / Subscription / Incentive Compensation remain **allowlist names only** (no handlers yet).
 
 ```mermaid
 flowchart LR
   yaml["cx.enabled + modules"]
   reg[register_cx_tools]
+  asTools[tools/cx/adaptive_search.py]
   sales[tools/cx/sales.py]
   prm[tools/cx/prm.py]
   yaml --> reg
+  reg -->|"any module"| asTools
   reg -->|"Sales"| sales
   reg -->|"PRM"| prm
 ```
+
+**Adaptive Search vs ADF**
+
+| Surface | Path | Tools |
+|---------|------|--------|
+| Top-level lists | POST `searchResources/…/custom-actions/queries` (`Preference: transient`) | `list_accounts`, `list_contacts`, `list_leads`, `list_opportunities`, `list_products`, `list_territories`, `list_partners`, `list_partner_contacts`, `list_deals`, `list_partner_programs`, `list_partner_tiers` |
+| Discovery / suggest | GET `metaModels` / `entities` / `fields` / `searchOperators`; POST queries (`Preference: recommend`) | `list_adaptive_search_*`, `suggest_adaptive_search` |
+| Items + children + LOV | GET `resources/…` | all `get_*`, `list_account_*`, `list_opportunity_*`, `list_partner_geographies`, `list_partner_contact_*`, `list_partner_lov` |
+
+Top-level list filters use Adaptive Search JSON `q` / `keywords` (not ADF SCIM). Entity names live in `CX_AS_ENTITY_BY_TOOL`. **Do not** use Adaptive Search for CPQ — CPQ `searchResources` is commerce saved searches only.
 
 Partner status codes (example `PartnerProfilePEO_gnx_sls_Status_c`) are LookupCode values. Resolve them with **`list_partner_lov`** — do not guess Meaning from the code string.
 
@@ -109,7 +122,7 @@ Convention: field `PartnerProfilePEO_<suffix>` → `lov_name=PartnerProfilePEO_L
 
 ### Refined prompts (token-efficient reuse)
 
-- After CPQ-related work (live MCP and/or local cache), agents append **`### Refined prompt (Better token usage)`** with title, tags, **output format**, **cached data**, prose with `{{placeholders}}`, Variables, and Tools.
+- After CPQ-related work (live MCP and/or local cache), agents append **`### Refined prompt (Better token usage)`** with title, tags, **output format**, **cached data**, prose with `{{placeholders}}`, optional **Search / Adaptive Search** (list filters actually used), Variables, and Tools.
 - Profile flags: `REFINED_PROMPT` (default true), `AUTO_SAVE_REFINED_PROMPT` (**example** profile default true; each customer YAML may set false).
 - Library: `.prompts/saved_prompts.json` (gitignored). Tools: `offer_save_refined_prompt`, `save_refined_prompt`, `list_saved_prompts`, `search_saved_prompts`, `get_saved_prompt`, `record_prompt_use` (optional `duration_ms` + `source=cache|api|mixed`), `set_saved_prompt_enabled`, `start_prompt_picker`, `set_auto_save_refined_prompt`.
 - Cursor: **`/OracleCPQ_SavedPrompts`** or “use a saved prompt”.
@@ -157,7 +170,7 @@ flowchart LR
   ensure --> work --> append --> reload --> next
 ```
 - **CPQ hosted / auth:** nested `cpq.hosted` + `cpq.auth` — see [Profile modes](#profile-modes-cpqhosted--cpqauth).
-- **`cx.modules`:** required when `cx.enabled: true`. **Sales** and **PRM** register GET tools; other allowlisted names (`Service`, `Field Service`, `Subscription`, `Incentive Compensation`) are reserved. Host override `CPQ_FUSION_MODULES`.
+- **`cx.modules`:** required when `cx.enabled: true`. **Sales** and **PRM** register product tools; Adaptive Search discovery registers for any enabled module. Other allowlisted names (`Service`, `Field Service`, `Subscription`, `Incentive Compensation`) are reserved. Host override `CPQ_FUSION_MODULES`.
 - Environments: `dev` / `test` / `prod` credential or oauth sets; `DEFAULT_ENVIRONMENT`.
 - Host-only: `CPQ_CUSTOMER_PROFILE`, `CPQ_CONFIG_DIR`, `CPQ_CONFIRMATION_SECRET`, `CPQ_ALLOW_PROD`, schema integrity flags.
 - **`DEBUG_MODE`** (default true) — appends timestamped, redacted CPQ request traces (curl + parameters) to `logs/{profile}-{environment}.log`. Override with `CPQ_DEBUG_MODE` / `CPQ_DEBUG_LOG_DIR`. Independent of `CPQ_VERBOSE` (stderr).

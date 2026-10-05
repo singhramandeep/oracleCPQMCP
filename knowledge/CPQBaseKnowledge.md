@@ -8,6 +8,7 @@ Engagement tips (credentials / scratch / READ_ONLY live in MCP server instructio
 - Before large list/export, honor `LOCAL_DATA_POLICY` and check `data/{profile}/{env}/`.
 - User “use cached data” / “fresh data” overrides the policy for that turn.
 - Partner LookupCode values: `list_partner_lov` (do not invent Meaning).
+- CX top-level `list_*`: Adaptive Search JSON `q` / `keywords` (not ADF `Name LIKE '…'`); use `list_adaptive_search_entities` / `list_adaptive_search_entity_fields` when unsure. `get_*` and children stay ADF. Do not use Adaptive Search for CPQ.
 
 ## Property aliases
 

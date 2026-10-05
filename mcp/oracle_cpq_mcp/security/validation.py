@@ -1182,53 +1182,58 @@ class GetFusionAccessTokenInput(_StrictModel):
     )
 
 
-class ListTerritoriesInput(_StrictModel):
+class _CxAdaptiveCollectionInput(_StrictModel):
+    """Top-level CX list_* via Adaptive Search (not ADF q/finder)."""
+
     limit: int = Field(
         default=25,
         ge=1,
         le=200,
-        description="Page size for territories collection (1–200).",
+        description="Page size for Adaptive Search results (1–200).",
     )
     offset: int = Field(
         default=0,
         ge=0,
-        description="Zero-based starting index for the territories page.",
+        description="Zero-based starting index for the page.",
     )
-    q: str | None = Field(
+    q: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Optional Adaptive Search query expression object "
+            '(e.g. {"op":"$eq","attribute":"PartyUniqueName","value":"Acme"}). '
+            "Not ADF SCIM strings like Name LIKE '…'."
+        ),
+    )
+    keywords: str | None = Field(
         default=None,
         max_length=2000,
-        description=(
-            "Optional ADF query expression for territories "
-            "(e.g. Name LIKE 'VEC%')."
-        ),
-    )
-    finder: str | None = Field(
-        default=None,
-        max_length=1000,
-        description=(
-            "Optional finder string "
-            "(e.g. UniqueTerritoryNumberFinder;UniqueTerritoryNumber=VEC_US_1054)."
-        ),
+        description="Optional Adaptive Search keywords string.",
     )
     fields: str | None = Field(
         default=None,
         max_length=2000,
-        description="Optional comma-separated field projection.",
+        description="Optional comma-separated Adaptive Search field projection.",
     )
     order_by: str | None = Field(
         default=None,
         max_length=500,
-        description="Optional orderBy (e.g. Name:asc).",
+        description=(
+            "Optional sort as Attr:asc|desc (mapped to Adaptive Search sort). "
+            "Example: PartyUniqueName:asc."
+        ),
     )
     only_data: bool = Field(
         default=True,
-        description="When true, request onlyData=true (omit link metadata).",
+        description="When true, request onlyData=true on the search call.",
     )
     total_results: bool = Field(
         default=False,
         description="When true, request totalResults=true for estimated row count.",
     )
 
+
+class ListTerritoriesInput(_CxAdaptiveCollectionInput):
+    pass
 
 
 class _CxAdfCollectionInput(_StrictModel):
@@ -1264,7 +1269,7 @@ class GetTerritoryInput(_CxAdfItemInput):
     territory_version_id: str = Field(..., min_length=1, max_length=200, description="TerritoryVersionId path key.")
 
 
-class ListAccountsInput(_CxAdfCollectionInput):
+class ListAccountsInput(_CxAdaptiveCollectionInput):
     pass
 
 
@@ -1281,7 +1286,7 @@ class GetAccountTeamMemberInput(_CxAdfItemInput):
     account_team_uniq_id: str = Field(..., min_length=1, max_length=500, description="AccountTeamUniqId path key.")
 
 
-class ListContactsInput(_CxAdfCollectionInput):
+class ListContactsInput(_CxAdaptiveCollectionInput):
     pass
 
 
@@ -1289,13 +1294,8 @@ class GetContactInput(_CxAdfItemInput):
     party_number: str = Field(..., min_length=1, max_length=200, description="Contact PartyNumber path key.")
 
 
-class ListLeadsInput(_CxAdfCollectionInput):
-    effective_date: str | None = Field(
-        default=None,
-        max_length=10,
-        pattern=r"^\d{4}-\d{2}-\d{2}$",
-        description="Optional effectiveDate filter (yyyy-MM-dd).",
-    )
+class ListLeadsInput(_CxAdaptiveCollectionInput):
+    pass
 
 
 class GetLeadInput(_CxAdfItemInput):
@@ -1316,7 +1316,7 @@ class GetLeadOpportunityInput(_CxAdfItemInput):
     lead_number: str = Field(..., min_length=1, max_length=200, description="LeadNumber path key.")
 
 
-class ListProductsInput(_CxAdfCollectionInput):
+class ListProductsInput(_CxAdaptiveCollectionInput):
     pass
 
 
@@ -1324,7 +1324,143 @@ class GetProductInput(_CxAdfItemInput):
     inventory_item_id: str = Field(..., min_length=1, max_length=200, description="InventoryItemId path key.")
 
 
-class ListPartnersInput(_CxAdfCollectionInput):
+class ListAccountAttachmentsInput(_CxAdfCollectionInput):
+    party_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Account PartyNumber for Attachment child.",
+    )
+
+
+class GetAccountAttachmentInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Account PartyNumber.")
+    attachment_uniq_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="AttachmentUniqID from Attachment collection links — do not invent.",
+    )
+
+
+class ListAccountAddressesInput(_CxAdfCollectionInput):
+    party_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Account PartyNumber for Address child.",
+    )
+
+
+class GetAccountAddressInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Account PartyNumber.")
+    address_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="AddressNumber path key from Address collection.",
+    )
+
+
+class ListAccountPrimaryAddressesInput(_CxAdfCollectionInput):
+    party_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Account PartyNumber for PrimaryAddress child.",
+    )
+
+
+class GetAccountPrimaryAddressInput(_CxAdfItemInput):
+    party_number: str = Field(..., min_length=1, max_length=200, description="Account PartyNumber.")
+    address_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="AddressNumber path key from PrimaryAddress collection.",
+    )
+
+
+class ListOpportunitiesInput(_CxAdaptiveCollectionInput):
+    pass
+
+
+class GetOpportunityInput(_CxAdfItemInput):
+    opty_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="OptyNumber path key for the opportunity.",
+    )
+
+
+class ListOpportunityAttachmentsInput(_CxAdfCollectionInput):
+    opty_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="OptyNumber for opportunity Attachment child.",
+    )
+
+
+class GetOpportunityAttachmentInput(_CxAdfItemInput):
+    opty_number: str = Field(..., min_length=1, max_length=200, description="OptyNumber.")
+    attachment_uniq_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="AttachmentUniqID from opportunity Attachment collection links — do not invent.",
+    )
+
+
+class ListOpportunityContactsInput(_CxAdfCollectionInput):
+    opty_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="OptyNumber for OpportunityContact child.",
+    )
+
+
+class GetOpportunityContactInput(_CxAdfItemInput):
+    opty_number: str = Field(..., min_length=1, max_length=200, description="OptyNumber.")
+    opty_con_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="OptyConId path key from OpportunityContact collection.",
+    )
+
+
+class ListOpportunityRevenuePartnersInput(_CxAdfCollectionInput):
+    opty_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="OptyNumber for RevenuePartnerPrimary child.",
+    )
+
+
+class GetOpportunityRevenuePartnerInput(_CxAdfItemInput):
+    opty_number: str = Field(..., min_length=1, max_length=200, description="OptyNumber.")
+    revn_part_org_party_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="RevnPartOrgPartyId path key from RevenuePartnerPrimary collection.",
+    )
+
+
+class ListOpportunityTeamInput(_CxAdfCollectionInput):
+    opty_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="OptyNumber for OpportunityTeam child.",
+    )
+
+
+class ListPartnersInput(_CxAdaptiveCollectionInput):
     pass
 
 
@@ -1355,7 +1491,7 @@ class ListPartnerLovInput(_CxAdfCollectionInput):
     )
 
 
-class ListPartnerContactsInput(_CxAdfCollectionInput):
+class ListPartnerContactsInput(_CxAdaptiveCollectionInput):
     pass
 
 
@@ -1363,13 +1499,8 @@ class GetPartnerContactInput(_CxAdfItemInput):
     party_number: str = Field(..., min_length=1, max_length=200, description="Partner contact PartyNumber.")
 
 
-class ListDealsInput(_CxAdfCollectionInput):
-    effective_date: str | None = Field(
-        default=None,
-        max_length=10,
-        pattern=r"^\d{4}-\d{2}-\d{2}$",
-        description="Optional effectiveDate filter (yyyy-MM-dd).",
-    )
+class ListDealsInput(_CxAdaptiveCollectionInput):
+    pass
 
 
 class GetDealInput(_CxAdfItemInput):
@@ -1453,12 +1584,131 @@ class GetPartnerContactUserDetailInput(_CxAdfItemInput):
     )
 
 
-class ListPartnerProgramsInput(_CxAdfCollectionInput):
+class ListPartnerProgramsInput(_CxAdaptiveCollectionInput):
     pass
 
 
 class GetPartnerProgramInput(_CxAdfItemInput):
     program_number: str = Field(..., min_length=1, max_length=200, description="ProgramNumber path key.")
+
+
+class ListPartnerTiersInput(_CxAdaptiveCollectionInput):
+    pass
+
+
+class GetPartnerTierInput(_CxAdfItemInput):
+    tier_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="TierId path key from partnerTiers collection.",
+    )
+
+
+class ListPartnerGeographiesInput(_CxAdfCollectionInput):
+    company_number: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Partner CompanyNumber for geographies child.",
+    )
+
+
+class GetPartnerGeographyInput(_CxAdfItemInput):
+    company_number: str = Field(..., min_length=1, max_length=200, description="Partner CompanyNumber.")
+    partner_dim_members_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="PartnerDimMembersId path key from geographies collection.",
+    )
+
+
+class ListAdaptiveSearchMetamodelsInput(_StrictModel):
+    limit: int = Field(default=25, ge=1, le=200, description="Page size (1–200).")
+    offset: int = Field(default=0, ge=0, description="Zero-based page offset.")
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+
+
+class ListAdaptiveSearchEntitiesInput(_StrictModel):
+    meta_model_uuid: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Optional metaModelUuid; omit to use the active metamodel.",
+    )
+    limit: int = Field(default=25, ge=1, le=200, description="Page size (1–200).")
+    offset: int = Field(default=0, ge=0, description="Zero-based page offset.")
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+
+
+class GetAdaptiveSearchEntityInput(_StrictModel):
+    entity: str = Field(..., min_length=1, max_length=200, description="Adaptive Search entity name (e.g. Account).")
+    meta_model_uuid: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Optional metaModelUuid query parameter.",
+    )
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+
+
+class ListAdaptiveSearchEntityAttributesInput(_StrictModel):
+    entity: str = Field(..., min_length=1, max_length=200, description="Adaptive Search entity name.")
+    meta_model_uuid: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Optional metaModelUuid query parameter.",
+    )
+    limit: int = Field(default=25, ge=1, le=200, description="Page size (1–200).")
+    offset: int = Field(default=0, ge=0, description="Zero-based page offset.")
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+
+
+class ListAdaptiveSearchEntityFieldsInput(_StrictModel):
+    entity: str = Field(..., min_length=1, max_length=200, description="Adaptive Search entity name.")
+    meta_model_uuid: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Optional metaModelUuid query parameter.",
+    )
+    limit: int = Field(default=25, ge=1, le=200, description="Page size (1–200).")
+    offset: int = Field(default=0, ge=0, description="Zero-based page offset.")
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+
+
+class ListAdaptiveSearchOperatorsInput(_StrictModel):
+    limit: int = Field(default=25, ge=1, le=200, description="Page size (1–200).")
+    offset: int = Field(default=0, ge=0, description="Zero-based page offset.")
+    only_data: bool = Field(default=True, description="When true, request onlyData=true.")
+
+
+class SuggestAdaptiveSearchInput(_StrictModel):
+    entity: str = Field(..., min_length=1, max_length=200, description="Adaptive Search entity name for suggestions.")
+    suggestion_type: Literal["filter", "field"] = Field(
+        default="filter",
+        description="Smart Suggest type: filter or field.",
+    )
+    keyword: str = Field(
+        default="",
+        max_length=500,
+        description="Keyword for field suggestions (often empty for filter type).",
+    )
+    keywords: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Optional keywords on the suggest request body.",
+    )
+    q: dict[str, Any] | None = Field(
+        default=None,
+        description="Optional Adaptive Search query expression on the suggest request.",
+    )
+    fields: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Optional comma-separated fields for filter suggestions.",
+    )
+    limit: int = Field(default=25, ge=1, le=200, description="Page size (1–200).")
+    offset: int = Field(default=0, ge=0, description="Zero-based page offset.")
+
 
 
 class GetPerformanceLogInput(_StrictModel):
@@ -3217,6 +3467,13 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_certificate": GetCertificateInput,
     "get_sso_configuration": GetSsoConfigurationInput,
     "get_fusion_access_token": GetFusionAccessTokenInput,
+    "list_adaptive_search_metamodels": ListAdaptiveSearchMetamodelsInput,
+    "list_adaptive_search_entities": ListAdaptiveSearchEntitiesInput,
+    "get_adaptive_search_entity": GetAdaptiveSearchEntityInput,
+    "list_adaptive_search_entity_attributes": ListAdaptiveSearchEntityAttributesInput,
+    "list_adaptive_search_entity_fields": ListAdaptiveSearchEntityFieldsInput,
+    "list_adaptive_search_operators": ListAdaptiveSearchOperatorsInput,
+    "suggest_adaptive_search": SuggestAdaptiveSearchInput,
     "list_territories": ListTerritoriesInput,
 
     "get_territory": GetTerritoryInput,
@@ -3232,6 +3489,21 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_lead_opportunity": GetLeadOpportunityInput,
     "list_products": ListProductsInput,
     "get_product": GetProductInput,
+    "list_account_attachments": ListAccountAttachmentsInput,
+    "get_account_attachment": GetAccountAttachmentInput,
+    "list_account_addresses": ListAccountAddressesInput,
+    "get_account_address": GetAccountAddressInput,
+    "list_account_primary_addresses": ListAccountPrimaryAddressesInput,
+    "get_account_primary_address": GetAccountPrimaryAddressInput,
+    "list_opportunities": ListOpportunitiesInput,
+    "get_opportunity": GetOpportunityInput,
+    "list_opportunity_attachments": ListOpportunityAttachmentsInput,
+    "get_opportunity_attachment": GetOpportunityAttachmentInput,
+    "list_opportunity_contacts": ListOpportunityContactsInput,
+    "get_opportunity_contact": GetOpportunityContactInput,
+    "list_opportunity_revenue_partners": ListOpportunityRevenuePartnersInput,
+    "get_opportunity_revenue_partner": GetOpportunityRevenuePartnerInput,
+    "list_opportunity_team": ListOpportunityTeamInput,
     "list_partners": ListPartnersInput,
     "get_partner": GetPartnerInput,
     "list_partner_lov": ListPartnerLovInput,
@@ -3249,6 +3521,10 @@ TOOL_INPUT_MODELS: dict[str, type[_StrictModel]] = {
     "get_partner_contact_user_detail": GetPartnerContactUserDetailInput,
     "list_partner_programs": ListPartnerProgramsInput,
     "get_partner_program": GetPartnerProgramInput,
+    "list_partner_tiers": ListPartnerTiersInput,
+    "get_partner_tier": GetPartnerTierInput,
+    "list_partner_geographies": ListPartnerGeographiesInput,
+    "get_partner_geography": GetPartnerGeographyInput,
     "list_parts": ListPartsInput,
     "get_part": GetPartInput,
     "search_parts": SearchPartsInput,

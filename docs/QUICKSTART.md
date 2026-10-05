@@ -220,7 +220,7 @@ Credentials live in **one YAML file per customer**, never in MCP JSON.
 | Windows PowerShell / CMD | `copy .config\example.yaml .config\mycompany.yaml` |
 | macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml`   |
 
-**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) instead (`cpq.hosted: fusion`, `cpq.auth: bearer`, + `oauth_*`). Same CPQ MCP tools; REST uses Bearer + `/cpq/rest/{version}`. Enable nested `cx:` with `modules: [Sales, PRM]` for Fusion CX GET tools.
+**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](../.config/example_fusion.yaml) instead (`cpq.hosted: fusion`, `cpq.auth: bearer`, + `oauth_*`). Same CPQ MCP tools; REST uses Bearer + `/cpq/rest/{version}`. Enable nested `cx:` with `modules: [Sales, PRM]` for Fusion CX tools (top-level lists via Adaptive Search; `get_*`/children via ADF).
 
 Use any profile id you like (`mycompany`, `acme`, `customer_a`). The filename **without** `.yaml` becomes `CPQ_CUSTOMER_PROFILE`.
 
@@ -549,7 +549,7 @@ Edit `.vscode/mcp.json` if needed (profile name, env vars). Example shape:
 
 ## Step 6 — Sample checks in Agent chat
 
-After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you. When profile `REFINED_PROMPT` is not `false` (default **true**), answers from **real site/cache data work** (live CPQ tools and/or `data/{profile}/{env}/`) should end with **`### Refined prompt (Better token usage)`**: **Title**, **Tags**, **Output format** (chat text / json / excel download; default chat text), **Cached data** (yes/no/mixed), a generic prose prompt with `{{placeholders}}` (including `{{output_format}}`), a **Variables** legend, a **Tools (for the agent)** list (or `none (local file read only)` when site/cache data came from local files), then **Turn metrics** (**Elapsed** best-effort wall-clock only — do not include token counts in the footer). **Coding, reviews, plans, and other work on this repo skip the footer** — it is not for every chat command.
+After MCP is connected (preferably in **Antigravity**), paste these prompts into **Agent mode**. You do not need to name CPQ tools or API parameters — the agent will choose the right MCP tools for you. When profile `REFINED_PROMPT` is not `false` (default **true**), answers from **real site/cache data work** (live CPQ tools and/or `data/{profile}/{env}/`) should end with **`### Refined prompt (Better token usage)`**: **Title**, **Tags**, **Output format** (chat text / json / excel download; default chat text), **Cached data** (yes/no/mixed), a generic prose prompt with `{{placeholders}}` (including `{{output_format}}`), **Search / Adaptive Search** when list filters were used (entity, `q`, keywords, fields, order_by, limit/offset, Preference), a **Variables** legend, a **Tools (for the agent)** list (or `none (local file read only)` when site/cache data came from local files), then **Turn metrics** (**Elapsed** best-effort wall-clock only — do not include token counts in the footer). **Coding, reviews, plans, and other work on this repo skip the footer** — it is not for every chat command.
 
 **Saving refined prompts (MCP tools — do not invent scripts):**
 - Example profile sets `AUTO_SAVE_REFINED_PROMPT=true` (auto-save after each YES-gate footer; dedupes by hash).
@@ -697,11 +697,15 @@ New `configuration` domain (`list_product_families`, scoped attributes/array set
 
 ### 6.12 Fusion CX Sales / PRM (needs `cx.enabled` + modules)
 
-Requires a nested `cx:` block and `Sales` and/or `PRM` in `cx.modules`. Live GETs have been used on Fusion CX; some ADF `q` / `fields`+`expand` combinations return 400. Resolve partner LookupCode values with `list_partner_lov` (do not invent Meaning). Diagrams: [FEATURES — Fusion CX](FEATURES.md#fusion-cx-sales-and-prm).
+Requires a nested `cx:` block and `Sales` and/or `PRM` in `cx.modules`. **Top-level `list_*`** use Fusion Adaptive Search (`POST …/searchResources/…/custom-actions/queries`, `Preference: transient`) with JSON `q` / `keywords` — not ADF SCIM. Discovery: `list_adaptive_search_entities` / `list_adaptive_search_entity_fields` / `suggest_adaptive_search`. **`get_*`, child collections, and `list_partner_lov`** stay on ADF (`/crmRestApi/resources/…`). Adaptive Search paths are **untested live**; ADF `get_*`/children/LOV have been used on Fusion CX. Resolve partner LookupCode values with `list_partner_lov` (do not invent Meaning). Diagrams: [FEATURES — Fusion CX](FEATURES.md#fusion-cx-sales-and-prm). FAQ: [top-level CX list filters](FAQ.md#why-do-top-level-cx-list_-filters-look-different-now).
+
+> List Adaptive Search entities, then list Fusion CX accounts (one page) and summarize PartyNumber / PartyUniqueName.
 
 > List Fusion CX territories (one page) and summarize Status / TypeCode.
 
-> Find partner “example dealer” by name, then show CompanyNumber and resolve its status LookupCode via list_partner_lov.
+> List addresses for a known account PartyNumber, then list the first page of opportunities and show OpportunityTeam for one OptyNumber.
+
+> Find partner “example dealer” by name (Adaptive Search keywords or JSON q), then show CompanyNumber and resolve its status LookupCode via list_partner_lov.
 
 ---
 

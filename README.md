@@ -1,6 +1,6 @@
 # Oracle CPQ MCP Server
 
-MCP server for **Oracle CPQ** — **157 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Sales (CX), Parts, Performance Logs, and more.
+MCP server for **Oracle CPQ** — **183 MCP tools** for Users, Groups, Data Tables, BML, Commerce, Metrics, Admin, Sales (CX), Parts, Performance Logs, and more.
 
 **Current package version:** **`0.3.0`** — see [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md). Contributor version bumps: [Update the package version](#update-the-package-version).
 
@@ -32,7 +32,7 @@ pip install -e ".[dev]"
 | Windows PowerShell / CMD | `copy .config\example.yaml .config\mycompany.yaml` |
 | macOS / Linux / Git Bash | `cp .config/example.yaml .config/mycompany.yaml` |
 
-**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](.config/example_fusion.yaml) instead, set `cpq.hosted: fusion` and `cpq.auth: bearer`, and fill `oauth_*`. Optional nested `cx:` enables Sales/PRM MCP tools (`CXClient` + `/crmRestApi/…`). `CPQClient` uses `/cpq/rest/{version}` when hosted on Fusion; Bearer vs Basic follows `auth`.
+**Fusion-hosted CPQ:** copy [`.config/example_fusion.yaml`](.config/example_fusion.yaml) instead, set `cpq.hosted: fusion` and `cpq.auth: bearer`, and fill `oauth_*`. Optional nested `cx:` enables Sales/PRM MCP tools (`CXClient` — Adaptive Search lists + ADF `get_*`/children). `CPQClient` uses `/cpq/rest/{version}` when hosted on Fusion; Bearer vs Basic follows `auth`.
 
 Edit `.config/mycompany.yaml` (see comments in the example), then:
 
@@ -97,7 +97,7 @@ python scripts/migrate_profile_yaml.py mycompany --force
 | `refined_prompt` / `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
 | `auto_save_refined_prompt` / `AUTO_SAVE_REFINED_PROMPT` | `true` in example profile | Auto-save refined prompts |
 | `frugal_mode` / `FRUGAL_MODE` | `false` | Shorter MCP instructions; forces refined off + export never |
-| `cx.modules` / `fusion_modules` | blank | CX modules when `cx.enabled`; **Sales**/**PRM** register GET tools (`CPQ_FUSION_MODULES`) |
+| `cx.modules` / `fusion_modules` | blank | CX modules when `cx.enabled`; **Sales**/**PRM** register product tools; Adaptive Search discovery for any module (`CPQ_FUSION_MODULES`) |
 | `local_data_policy` / `LOCAL_DATA_POLICY` | `prefer` | Cache vs live CPQ before big lists (`ask` / `prefer` / `never`) |
 | `post_response_export` / `POST_RESPONSE_EXPORT` | `always_excel` | Post-response Excel (`ask` / `never` / `always_excel`) |
 | `rest_api_version` / `REST_API_VERSION` | site-specific | Prefer `v19` for metrics / collab / admin / saved searches if v18 404s |
@@ -152,7 +152,7 @@ Antigravity users do **not** need `.cursor/rules`. Connect MCP, then reload the 
 | [README — Update from an older version](#update-from-an-older-version) | Short upgrade checklist (same topic; full guide is UPGRADE.md) |
 | [docs/FAQ.md](docs/FAQ.md) | **FAQ** — install, dual env (dev+test), security, local cache, BML, Prompt Studio, Antigravity vs Cursor rules |
 | [docs/FEATURES.md](docs/FEATURES.md) | **Detailed features** + **security guardrails / human-in-the-loop** + Prompt Studio enable/run |
-| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (**157** tools; regenerate with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`) |
+| [docs/TOOL_CATALOG.md](docs/TOOL_CATALOG.md) | Formal per-tool Parameters / Filters tables (**183** tools; regenerate with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`) |
 | [docs/LIVE_SMOKE_MATRIX.md](docs/LIVE_SMOKE_MATRIX.md) | Live vs untested honesty matrix for agents |
 | [docs/PRE_COMMIT_REVIEW.md](docs/PRE_COMMIT_REVIEW.md) | Pre-commit secrets / catalog / test checklist |
 | [docs/STANDARDS.md](docs/STANDARDS.md) | Tool authoring standards — checklist, lint, contract/eval gates |
@@ -178,16 +178,17 @@ flowchart TB
   mcp --> cpq
   mcp --> cx
   cpq --> rest["/rest or /cpq/rest"]
-  cx --> crm["/crmRestApi Sales and PRM"]
+  cx --> crmAs["/crmRestApi/searchResources Adaptive Search lists"]
+  cx --> crmAdf["/crmRestApi/resources get and children"]
 ```
 
-- **157 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
+- **183 MCP tools** — domain summary below; formal tables in [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md)
 - **Read-only by default** — `READ_ONLY=true`; writes use dry-run + `confirmation_token`
 - **DEBUG_MODE logging** — redacted CPQ request traces in `logs/{profile}-{environment}.log`
 - **Async BML** — `start_bml_site_export` + `get_local_job`; local search via `search_local_bml` / `cpq://local`
 - **Configurable HTTP timeout** — `HTTP_TIMEOUT` / `CPQ_HTTP_TIMEOUT` (default 60s)
 - **Cross-IDE agent instructions** — MCP `build_server_instructions` is SSOT for Antigravity, Cursor, and VS Code ([`AGENTS.md`](AGENTS.md)); `.cursor/rules/` is a Cursor mirror only
-- **Refined prompts** — YES-gate footer after real site/cache work + library / picker; includes **Turn metrics** (Elapsed best-effort only — no token counts in the footer); optional Prompt Studio on port **8765** (`ensure_prompt_studio`)
+- **Refined prompts** — YES-gate footer after real site/cache work + library / picker; includes **Search / Adaptive Search** when list filters were used; **Turn metrics** (Elapsed best-effort only — no token counts); optional Prompt Studio on port **8765** (`ensure_prompt_studio`)
 - **Document templates** — Word/Excel/PPT from [`.config/template/`](.config/template/); MCP exporters use `branded_documents` when templates are valid
 - **Local `data/` snapshots** — `LOCAL_DATA_POLICY=ask|prefer|never`; sync tools under `data/{profile}/{env}/`
 - **Post-response export** — Excel/Word under `data/.../exports/` after tabular answers
@@ -204,11 +205,13 @@ See [`docs/LIVE_SMOKE_MATRIX.md`](docs/LIVE_SMOKE_MATRIX.md). Offline unit/contr
 | Tasks | `get_task`, `download_task_file` | **Untested** |
 | Configuration | `list_product_families` … layoutcache tools | **Untested** |
 | Admin / saved searches | certificates, SSO, `list_saved_searches` | May **404** on REST **v18** (docs target **v19**) |
-| CX Sales / PRM | territories, accounts, partners, `list_partner_lov`, … | **Used live** on Fusion CX (ADF GET; some `q`/`fields`+`expand` combinations 400) |
+| CX Sales / PRM | territories, accounts, partners, `list_partner_lov`, … | **Partial** — top-level `list_*` now Adaptive Search (untested live); ADF `get_*`/children/LOV used live |
+| CX Adaptive Search | `list_adaptive_search_*`, `suggest_adaptive_search`, top-level list POST queries | **Untested** live |
+| CX Sales opportunities / account children | opportunity/account children (ADF) | **Untested** live |
 
 ## MCP tools (summary)
 
-**157 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `sales`, `prm`, `metrics`, `collab`).
+**183 MCP tools.** Full Parameters / Filters tables: [`docs/TOOL_CATALOG.md`](docs/TOOL_CATALOG.md). In the agent, filter with `discover_tools(domain="…")` (e.g. `users`, `commerce`, `admin`, `sales`, `prm`, `metrics`, `collab`).
 
 Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_token`. Blocked when `READ_ONLY=true`. Commerce tools default `process_var_name` from `COMMERCE_PROCESS_VAR_NAME`. Envelopes include **`profile`** + **`environment`**.
 
@@ -222,8 +225,8 @@ Write tools default to **dry-run** (`dry_run=true`); apply with `confirmation_to
 | **metrics** | `list_metrics` | Prefer REST **v19** if v18 404s |
 | **collab** | `get_collab_operation_queue`, `clear_collab_operation_queue` | Clear is destructive (dry-run + confirm) |
 | **admin** | `list_certificates`, `get_certificate`, `get_sso_configuration` | PEM redacted; prefer **v19** |
-| **sales** | `list_territories`, `list_accounts`, `get_lead`, … | Fusion CX Sales GET via `CXClient` (`tools/cx/sales.py`; requires `Sales` in `cx.modules`) |
-| **prm** | `list_partners`, `list_partner_lov`, `list_partner_programs`, … | Fusion CX PRM GET via `CXClient` (`tools/cx/prm.py`; requires `PRM`; resolve LookupCode with `list_partner_lov`) |
+| **sales** | `list_territories`, `list_accounts`, `list_opportunities`, `list_adaptive_search_*`, `list_account_addresses`, … | Top-level lists via Adaptive Search; `get_*`/children via ADF (`tools/cx/sales.py` + `adaptive_search.py`; `Sales` for product tools) |
+| **prm** | `list_partners`, `list_partner_lov`, `list_partner_tiers`, `list_partner_geographies`, … | Top-level lists via Adaptive Search; LOV/children/`get_*` via ADF (`tools/cx/prm.py`; requires `PRM`; resolve LookupCode with `list_partner_lov`) |
 | **performance** | `list_performance_logs`, `get_performance_log`, `export_performance_logs` | Activity timing logs |
 | **parts** | `list_parts`, `get_part`, `search_parts` | |
 | **tasks** | `get_task`, `download_task_file` | Async export follow-up; **untested** live |
@@ -246,7 +249,7 @@ Also: MCP resources `cpq://saved-prompts`, `cpq://local`, `cpq://local/bml/{path
 | `refined_prompt` | Default `true` — append refined-prompt footer after CPQ site/cache work |
 | `auto_save_refined_prompt` | Example default `true` — auto-save refined prompts; set `false` to ask each time |
 | `frugal_mode` | Default `false` — shorter MCP instructions; disables refined footer, post-response export, and Prompt Studio ensure (`CPQ_FRUGAL_MODE` host override) |
-| `cx.modules` | Required when `cx.enabled` — `Sales` / `PRM` register GET tools; other names reserved (`CPQ_FUSION_MODULES`) |
+| `cx.modules` | Required when `cx.enabled` — `Sales` / `PRM` register product tools; Adaptive Search discovery for any module; other names reserved (`CPQ_FUSION_MODULES`) |
 | `local_data_policy` | Default `prefer` — `ask` / `prefer` / `never` for using `data/` snapshots before live CPQ |
 | `post_response_export` | Default `always_excel` — `ask` / `never` / `always_excel` for post-response Excel/Word export |
 | `environments.<env>.url` / `credentials` | Per-env CPQ URL and Basic Auth pairs |
@@ -382,7 +385,7 @@ mcp/oracle_cpq_mcp/   # MCP server package
   exporters/          # Excel/Word builders + branded_documents templates
   prompts/            # build_server_instructions (SSOT for agent policy)
   security/           # Policy, validation, confirmation, audit
-  tools/              # MCP tool handlers (CX: tools/cx/sales.py, prm.py)
+  tools/              # MCP tool handlers (CX: tools/cx/sales.py, prm.py, adaptive_search.py)
   registry/           # Tool catalog
 knowledge/            # CPQBaseKnowledge.md + optional customer_knowledge_file
 apps/prompt_studio/   # Local Prompt Studio (FastAPI + static UI)

@@ -124,12 +124,16 @@ class CXClient:
         *,
         params: dict[str, Any] | None = None,
         json_body: Any = None,
+        headers: dict[str, str] | None = None,
     ) -> Any:
         url = self._build_url(path, params)
         secret = self._sanitize_secret()
         try:
-            auth, headers = self._auth_and_headers()
-            with httpx.Client(auth=auth, timeout=self.timeout, headers=headers) as client:
+            auth, base_headers = self._auth_and_headers()
+            merged = dict(base_headers)
+            if headers:
+                merged.update(headers)
+            with httpx.Client(auth=auth, timeout=self.timeout, headers=merged) as client:
                 response = client.request(method.upper(), url, json=json_body)
         except httpx.RequestError as exc:
             message = sanitize_message(str(exc), secret)
@@ -171,5 +175,27 @@ class CXClient:
         except ValueError:
             return response.text
 
-    def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
-        return self.request("GET", path, params=params)
+    def get(
+        self,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        return self.request("GET", path, params=params, headers=headers)
+
+    def post(
+        self,
+        path: str,
+        *,
+        json_body: Any = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
+        return self.request(
+            "POST",
+            path,
+            params=params,
+            json_body=json_body,
+            headers=headers,
+        )

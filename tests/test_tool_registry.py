@@ -50,7 +50,7 @@ def test_catalog_contains_all_cpq_and_discovery_tools() -> None:
     assert "export_response_excel" in TOOL_CATALOG
     assert "export_response_word" in TOOL_CATALOG
     assert "set_post_response_export" in TOOL_CATALOG
-    assert len(TOOL_CATALOG) == 157
+    assert len(TOOL_CATALOG) == 183
 
 
 def test_filter_users_read_tools() -> None:
@@ -289,16 +289,33 @@ def test_cx_module_defaults_and_filters() -> None:
         "get_partner_contact_user_detail",
         "list_partner_programs",
         "get_partner_program",
+        "list_partner_tiers",
+        "get_partner_tier",
+        "list_partner_geographies",
+        "get_partner_geography",
     }
 
     sales_specs = filter_tools(cx_module="sales")
     assert {s.name for s in sales_specs} == {
+        "list_adaptive_search_metamodels",
+        "list_adaptive_search_entities",
+        "get_adaptive_search_entity",
+        "list_adaptive_search_entity_attributes",
+        "list_adaptive_search_entity_fields",
+        "list_adaptive_search_operators",
+        "suggest_adaptive_search",
         "list_territories",
         "get_territory",
         "list_accounts",
         "get_account",
         "list_account_team",
         "get_account_team_member",
+        "list_account_attachments",
+        "get_account_attachment",
+        "list_account_addresses",
+        "get_account_address",
+        "list_account_primary_addresses",
+        "get_account_primary_address",
         "list_contacts",
         "get_contact",
         "list_leads",
@@ -307,6 +324,15 @@ def test_cx_module_defaults_and_filters() -> None:
         "get_lead_opportunity",
         "list_products",
         "get_product",
+        "list_opportunities",
+        "get_opportunity",
+        "list_opportunity_attachments",
+        "get_opportunity_attachment",
+        "list_opportunity_contacts",
+        "get_opportunity_contact",
+        "list_opportunity_revenue_partners",
+        "get_opportunity_revenue_partner",
+        "list_opportunity_team",
     }
     assert all(s.cx_module == "sales" for s in sales_specs)
 

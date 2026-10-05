@@ -7,7 +7,14 @@ from typing import Any
 from oracle_cpq_mcp.core.cx_client import CXClient
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
-from oracle_cpq_mcp.tools.cx._common import crm_rest_path, cx_get_collection, cx_get_item, path_segment
+from oracle_cpq_mcp.tools.cx._common import (
+    CX_AS_ENTITY_BY_TOOL,
+    crm_rest_path,
+    cx_adaptive_list,
+    cx_get_collection,
+    cx_get_item,
+    path_segment,
+)
 
 _PRM = "PRM"
 
@@ -22,22 +29,22 @@ def register_prm_tools(mcp: Any, client: CXClient) -> None:
     def list_partners(
         limit: int = 25,
         offset: int = 0,
-        q: str | None = None,
-        finder: str | None = None,
+        q: dict[str, Any] | None = None,
+        keywords: str | None = None,
         fields: str | None = None,
         order_by: str | None = None,
         only_data: bool = True,
         total_results: bool = False,
     ) -> dict[str, Any]:
-        return cx_get_collection(
+        return cx_adaptive_list(
             client,
-            crm_rest_path("partners"),
             "list_partners",
             _PRM,
+            CX_AS_ENTITY_BY_TOOL["list_partners"],
             limit=limit,
             offset=offset,
             q=q,
-            finder=finder,
+            keywords=keywords,
             fields=fields,
             order_by=order_by,
             only_data=only_data,
@@ -63,22 +70,22 @@ def register_prm_tools(mcp: Any, client: CXClient) -> None:
     def list_partner_contacts(
         limit: int = 25,
         offset: int = 0,
-        q: str | None = None,
-        finder: str | None = None,
+        q: dict[str, Any] | None = None,
+        keywords: str | None = None,
         fields: str | None = None,
         order_by: str | None = None,
         only_data: bool = True,
         total_results: bool = False,
     ) -> dict[str, Any]:
-        return cx_get_collection(
+        return cx_adaptive_list(
             client,
-            crm_rest_path("partnerContacts"),
             "list_partner_contacts",
             _PRM,
+            CX_AS_ENTITY_BY_TOOL["list_partner_contacts"],
             limit=limit,
             offset=offset,
             q=q,
-            finder=finder,
+            keywords=keywords,
             fields=fields,
             order_by=order_by,
             only_data=only_data,
@@ -104,28 +111,26 @@ def register_prm_tools(mcp: Any, client: CXClient) -> None:
     def list_deals(
         limit: int = 25,
         offset: int = 0,
-        q: str | None = None,
-        finder: str | None = None,
+        q: dict[str, Any] | None = None,
+        keywords: str | None = None,
         fields: str | None = None,
         order_by: str | None = None,
         only_data: bool = True,
         total_results: bool = False,
-        effective_date: str | None = None,
     ) -> dict[str, Any]:
-        return cx_get_collection(
+        return cx_adaptive_list(
             client,
-            crm_rest_path("deals"),
             "list_deals",
             _PRM,
+            CX_AS_ENTITY_BY_TOOL["list_deals"],
             limit=limit,
             offset=offset,
             q=q,
-            finder=finder,
+            keywords=keywords,
             fields=fields,
             order_by=order_by,
             only_data=only_data,
             total_results=total_results,
-            effective_date=effective_date,
         )
 
     def get_deal(
@@ -147,6 +152,15 @@ def register_prm_tools(mcp: Any, client: CXClient) -> None:
     def _pc_child(party_number: str, child: str, *segments: str) -> str:
         path = (
             f"{crm_rest_path('partnerContacts')}/{path_segment(party_number)}"
+            f"/child/{child}"
+        )
+        for segment in segments:
+            path = f"{path}/{path_segment(segment)}"
+        return path
+
+    def _partner_child(company_number: str, child: str, *segments: str) -> str:
+        path = (
+            f"{crm_rest_path('partners')}/{path_segment(company_number)}"
             f"/child/{child}"
         )
         for segment in segments:
@@ -361,22 +375,22 @@ def register_prm_tools(mcp: Any, client: CXClient) -> None:
     def list_partner_programs(
         limit: int = 25,
         offset: int = 0,
-        q: str | None = None,
-        finder: str | None = None,
+        q: dict[str, Any] | None = None,
+        keywords: str | None = None,
         fields: str | None = None,
         order_by: str | None = None,
         only_data: bool = True,
         total_results: bool = False,
     ) -> dict[str, Any]:
-        return cx_get_collection(
+        return cx_adaptive_list(
             client,
-            crm_rest_path("partnerPrograms"),
             "list_partner_programs",
             _PRM,
+            CX_AS_ENTITY_BY_TOOL["list_partner_programs"],
             limit=limit,
             offset=offset,
             q=q,
-            finder=finder,
+            keywords=keywords,
             fields=fields,
             order_by=order_by,
             only_data=only_data,
@@ -393,6 +407,89 @@ def register_prm_tools(mcp: Any, client: CXClient) -> None:
         return cx_get_item(
             client,
             path,
+            _PRM,
+            fields=fields,
+            only_data=only_data,
+            expand=expand,
+        )
+
+    def list_partner_tiers(
+        limit: int = 25,
+        offset: int = 0,
+        q: dict[str, Any] | None = None,
+        keywords: str | None = None,
+        fields: str | None = None,
+        order_by: str | None = None,
+        only_data: bool = True,
+        total_results: bool = False,
+    ) -> dict[str, Any]:
+        return cx_adaptive_list(
+            client,
+            "list_partner_tiers",
+            _PRM,
+            CX_AS_ENTITY_BY_TOOL["list_partner_tiers"],
+            limit=limit,
+            offset=offset,
+            q=q,
+            keywords=keywords,
+            fields=fields,
+            order_by=order_by,
+            only_data=only_data,
+            total_results=total_results,
+        )
+
+    def get_partner_tier(
+        tier_id: str,
+        fields: str | None = None,
+        only_data: bool = True,
+        expand: str | None = None,
+    ) -> Any:
+        path = f"{crm_rest_path('partnerTiers')}/{path_segment(tier_id)}"
+        return cx_get_item(
+            client,
+            path,
+            _PRM,
+            fields=fields,
+            only_data=only_data,
+            expand=expand,
+        )
+
+    def list_partner_geographies(
+        company_number: str,
+        limit: int = 25,
+        offset: int = 0,
+        q: str | None = None,
+        finder: str | None = None,
+        fields: str | None = None,
+        order_by: str | None = None,
+        only_data: bool = True,
+        total_results: bool = False,
+    ) -> dict[str, Any]:
+        return cx_get_collection(
+            client,
+            _partner_child(company_number, "geographies"),
+            "list_partner_geographies",
+            _PRM,
+            limit=limit,
+            offset=offset,
+            q=q,
+            finder=finder,
+            fields=fields,
+            order_by=order_by,
+            only_data=only_data,
+            total_results=total_results,
+        )
+
+    def get_partner_geography(
+        company_number: str,
+        partner_dim_members_id: str,
+        fields: str | None = None,
+        only_data: bool = True,
+        expand: str | None = None,
+    ) -> Any:
+        return cx_get_item(
+            client,
+            _partner_child(company_number, "geographies", partner_dim_members_id),
             _PRM,
             fields=fields,
             only_data=only_data,
@@ -417,5 +514,9 @@ def register_prm_tools(mcp: Any, client: CXClient) -> None:
         ("get_partner_contact_user_detail", get_partner_contact_user_detail),
         ("list_partner_programs", list_partner_programs),
         ("get_partner_program", get_partner_program),
+        ("list_partner_tiers", list_partner_tiers),
+        ("get_partner_tier", get_partner_tier),
+        ("list_partner_geographies", list_partner_geographies),
+        ("get_partner_geography", get_partner_geography),
     ):
         _register(tool_name, fn)

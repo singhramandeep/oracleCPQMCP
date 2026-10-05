@@ -55,6 +55,21 @@ def test_cx_client_requires_enabled() -> None:
 
 
 @respx.mock
+def test_cx_client_post_with_extra_headers() -> None:
+    route = respx.post(
+        "https://cx.example.com/crmRestApi/searchResources/11.13.18.05/custom-actions/queries"
+    ).mock(return_value=httpx.Response(200, json={"items": [], "count": 0}))
+    client = CXClient(_cx_profile())
+    payload = client.post(
+        "/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
+        json_body={"entity": "Account", "limit": 1},
+        headers={"Preference": "transient"},
+    )
+    assert payload["count"] == 0
+    assert route.calls.last.request.headers["Preference"] == "transient"
+
+
+@respx.mock
 def test_cx_client_bearer_get() -> None:
     token_url = "https://idcs.example.com/oauth2/v1/token"
     respx.post(token_url).mock(

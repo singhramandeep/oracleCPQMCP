@@ -29,29 +29,31 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 
 ## Unreleased
 
-Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **157** tools (`cx_module`: 101 `cpq` + 25 `meta` + 14 `sales` + 17 `prm`). Reload / restart Oracle CPQ MCP after pull so new CX tools and instruction text appear. Cursor’s MCP panel may also list a host `mcp_auth` helper — that name is **not** in the Oracle catalog.
+Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **183** tools (`cx_module`: 101 `cpq` + 25 `meta` + 36 `sales` + 21 `prm`). Reload / restart Oracle CPQ MCP after pull so new CX tools and instruction text appear. Cursor’s MCP panel may also list a host `mcp_auth` helper — that name is **not** in the Oracle catalog.
 
 ### Summary (this wave)
 
 | Area | What shipped |
 |------|----------------|
-| **Fusion CX Sales** | 14 GET tools (territories, accounts + account team, contacts, leads + lead opportunities, products) |
-| **Fusion CX PRM** | 17 GET tools (partners, partner LOV, contacts, deals, programs, partner-contact children) |
-| **CX runtime** | `CXClient` + `tools/cx/` package; register only enabled `cx.modules` |
-| **Partner codes** | `list_partner_lov` maps LookupCode → Meaning/DisplayLabel |
-| **Protocol** | `register_tool` passes FastMCP `name=`; contract tests cover CX + knowledge |
-| **Docs** | FEATURES / FAQ / README / SETUP / QUICKSTART / LIVE_SMOKE / STANDARDS + Mermaid architecture diagrams |
+| **Adaptive Search** | Top-level CX `list_*` → POST `searchResources/.../custom-actions/queries` (`Preference: transient`); +7 discovery/suggest tools |
+| **Fusion CX Sales** | **36** catalog tools (29 prior Sales GETs + 7 Adaptive Search discovery/suggest) |
+| **Fusion CX PRM** | **21** tools (ADF `get_*`/children unchanged; top-level lists use Adaptive Search) |
+| **CX runtime** | `CXClient.post` + headers; `cx_adaptive_list` / `crm_search_path` |
+| **Breaking** | Top-level CX list `q` is Adaptive Search JSON (not ADF SCIM); `finder` removed |
+| **Docs** | FEATURES / FAQ / README / LIVE_SMOKE / STANDARDS for AS migration |
 
 ### Highlights
 
-#### Fusion CX Sales + PRM (catalog 157)
+#### Fusion CX Adaptive Search + Sales/PRM (catalog 183)
 
-- **CX tools package:** handlers under [`mcp/oracle_cpq_mcp/tools/cx/`](../mcp/oracle_cpq_mcp/tools/cx/) (`sales.py`, `prm.py`, shared `_common.py`). `register_cx_tools` registers **only** YAML-enabled `cx.modules`. Catalog `cx_module` slugs match `FUSION_MODULE_SLUGS` (`sales`, `prm`, …). HTTP goes through [`CXClient`](../mcp/oracle_cpq_mcp/core/cx_client.py) to `{cx.url}/crmRestApi/resources/11.13.18.05/…` (ADF collection params: `q`, `finder`, `fields`, `orderBy`, `limit`, `offset`, `onlyData`, `totalResults`, `expand`).
-- **Sales (14 GET):** `list_territories` / `get_territory`; `list_accounts` / `get_account`; `list_account_team` / `get_account_team_member`; `list_contacts` / `get_contact`; `list_leads` / `get_lead`; `list_lead_opportunities` / `get_lead_opportunity`; `list_products` / `get_product`. Requires `cx.enabled` and `Sales` in `cx.modules`.
-- **PRM (17 GET):** `list_partners` / `get_partner`; **`list_partner_lov`**; `list_partner_contacts` / `get_partner_contact`; `list_deals` / `get_deal`; `list_partner_programs` / `get_partner_program`; partner-contact children — addresses, attachments, contact points, user details (`list_*` + `get_*` each). Requires `PRM` in `cx.modules`. Partners are keyed by **CompanyNumber** (not display name).
+- **Adaptive Search (CX only, not CPQ):** Top-level `list_accounts`, `list_contacts`, `list_leads`, `list_opportunities`, `list_products`, `list_territories`, `list_partners`, `list_partner_contacts`, `list_deals`, `list_partner_programs`, `list_partner_tiers` call POST `{cx.url}/crmRestApi/searchResources/11.13.18.05/custom-actions/queries` with `Preference: transient` via `cx_adaptive_list`. Entity map in `CX_AS_ENTITY_BY_TOOL`. **ADF remains** for all `get_*`, child collections, and `list_partner_lov`. CPQ `searchResources` commerce saved searches are unchanged.
+- **Discovery / Smart Suggest (+7):** `list_adaptive_search_metamodels`, `list_adaptive_search_entities`, `get_adaptive_search_entity`, `list_adaptive_search_entity_attributes`, `list_adaptive_search_entity_fields`, `list_adaptive_search_operators`, `suggest_adaptive_search` (`Preference: recommend`). Registered whenever any `cx.modules` entry is enabled. No saved-search mutate; no Smart Action execution.
+- **CX tools package:** handlers under [`mcp/oracle_cpq_mcp/tools/cx/`](../mcp/oracle_cpq_mcp/tools/cx/) (`sales.py`, `prm.py`, `adaptive_search.py`, shared `_common.py`). `register_cx_tools` registers Adaptive Search helpers for any enabled module, then Sales/PRM registrars.
+- **Sales (catalog `cx_module=sales`):** prior territories/accounts/contacts/leads/products/opportunities + children, plus Adaptive Search discovery tools. Requires `cx.enabled` and (for Sales lists) `Sales` in `cx.modules`.
+- **PRM (21):** `list_partners` / `get_partner`; **`list_partner_lov`**; contacts, deals, programs, tiers, geographies, partner-contact children. Top-level lists use Adaptive Search; children/LOV stay ADF. Partners keyed by **CompanyNumber**.
 - **`list_partner_lov`:** GET `partners/{CompanyNumber}/lov/{LovName}` to resolve partner LookupCode values to Meaning/DisplayLabel after `list_partners` / `get_partner`. Convention: field `PartnerProfilePEO_<suffix>` → `lov_name=PartnerProfilePEO_LOVVA_For_<suffix>`. Optional `lookup_code` sets `q=LookupCode="…"` when `q` is omitted. Do not invent `lov_name`; if unknown, `get_partner(only_data=false)` and follow `rel=lov` links. MCP instructions + Cursor mirror tell agents to resolve codes before user-facing status answers.
 - **Module gating:** Service / Field Service / Subscription / Incentive Compensation remain **allowlist names only** (no handlers yet). Filter with `discover_tools(domain=…)` or `discover_tools(cx_module=sales|prm)`.
-- **Live honesty:** Sales/PRM GETs exercised on Fusion CX; some ADF `q` / `fields`+`expand` combinations return 400 — see [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md).
+- **Live honesty:** Core Sales/PRM GETs exercised on Fusion CX; new account-child and opportunity tools are **untested live** — see [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md). Some ADF `q` / `fields`+`expand` combinations return 400.
 
 #### Profile / clients / agent policy
 
@@ -67,9 +69,10 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 
 #### Documentation (CX wave)
 
-- Updated for **157** tools and live Sales/PRM: [`FEATURES.md`](FEATURES.md), [`FAQ.md`](FAQ.md), [`README.md`](../README.md), [`SETUP.md`](SETUP.md), [`QUICKSTART.md`](QUICKSTART.md), [`UPGRADE.md`](UPGRADE.md), [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md), [`STANDARDS.md`](STANDARDS.md), [`COMMON_PROMPTS.md`](COMMON_PROMPTS.md), [`PRE_COMMIT_REVIEW.md`](PRE_COMMIT_REVIEW.md), [`templates/NEW_TOOL.md`](templates/NEW_TOOL.md), [`AGENTS.md`](../AGENTS.md), [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md).
-- Mermaid diagrams for CPQ vs CX clients, module gating, partner LOV resolve, customer-knowledge reload, and YAML `cpq`/`cx` split.
-- FAQ: how to resolve partner LookupCode; why Cursor may show fewer than 157 tools; `discover_tools` accepts `sales` / `prm` / `cx_module`.
+- Updated for **183** tools, Adaptive Search list migration, and Sales/PRM: [`FEATURES.md`](FEATURES.md), [`FAQ.md`](FAQ.md), [`README.md`](../README.md), [`SETUP.md`](SETUP.md), [`QUICKSTART.md`](QUICKSTART.md), [`UPGRADE.md`](UPGRADE.md), [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md), [`STANDARDS.md`](STANDARDS.md), [`COMMON_PROMPTS.md`](COMMON_PROMPTS.md), [`PRE_COMMIT_REVIEW.md`](PRE_COMMIT_REVIEW.md), [`templates/NEW_TOOL.md`](templates/NEW_TOOL.md), [`AGENTS.md`](../AGENTS.md), [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md).
+- Mermaid diagrams for CPQ vs CX clients, Adaptive Search registration, module gating, partner LOV resolve, customer-knowledge reload, and YAML `cpq`/`cx` split.
+- FAQ: Adaptive Search vs ADF list filters; partner LookupCode; why Cursor may show fewer than 183 tools; `discover_tools` accepts `sales` / `prm` / `cx_module`.
+- YES-gate refined footer now requires **Search / Adaptive Search** (entity, `q`, keywords, fields, order_by, limit/offset, Preference) when list filters were used — see `REFINED_PROMPT_CORE` in [`instructions.py`](../mcp/oracle_cpq_mcp/prompts/instructions.py).
 - Example profile comments no longer say CX is “helper only”.
 
 ### Added
@@ -77,13 +80,15 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 #### Fusion CX
 
 - [`mcp/oracle_cpq_mcp/core/cx_client.py`](../mcp/oracle_cpq_mcp/core/cx_client.py) — Fusion CX REST client (Basic/Bearer from nested `cx:`).
-- [`mcp/oracle_cpq_mcp/tools/cx/`](../mcp/oracle_cpq_mcp/tools/cx/) — `sales.py` (14), `prm.py` (17), `_common.py` (ADF collection helpers / CRM version).
-- **Sales tools:** `list_territories`, `get_territory`, `list_accounts`, `get_account`, `list_account_team`, `get_account_team_member`, `list_contacts`, `get_contact`, `list_leads`, `get_lead`, `list_lead_opportunities`, `get_lead_opportunity`, `list_products`, `get_product`.
-- **PRM tools:** `list_partners`, `get_partner`, `list_partner_lov`, `list_partner_contacts`, `get_partner_contact`, `list_deals`, `get_deal`, `list_partner_programs`, `get_partner_program`, `list_partner_contact_addresses`, `get_partner_contact_address`, `list_partner_contact_attachments`, `get_partner_contact_attachment`, `list_partner_contact_contact_points`, `get_partner_contact_contact_point`, `list_partner_contact_user_details`, `get_partner_contact_user_detail`.
+- [`mcp/oracle_cpq_mcp/tools/cx/`](../mcp/oracle_cpq_mcp/tools/cx/) — `sales.py`, `prm.py`, `adaptive_search.py`, `_common.py` (`cx_adaptive_list` + ADF helpers).
+- Adaptive Search discovery/suggest tools (7) + top-level list migration to `searchResources` (tool versions **2.0.0**).
+- **Sales tools (core):** `list_territories`, `get_territory`, `list_accounts`, `get_account`, `list_account_team`, `get_account_team_member`, `list_contacts`, `get_contact`, `list_leads`, `get_lead`, `list_lead_opportunities`, `get_lead_opportunity`, `list_products`, `get_product`.
+- **Sales tools (account children + opportunities):** `list_account_attachments`, `get_account_attachment`, `list_account_addresses`, `get_account_address`, `list_account_primary_addresses`, `get_account_primary_address`, `list_opportunities`, `get_opportunity`, `list_opportunity_attachments`, `get_opportunity_attachment`, `list_opportunity_contacts`, `get_opportunity_contact`, `list_opportunity_revenue_partners`, `get_opportunity_revenue_partner`, `list_opportunity_team`.
+- **PRM tools:** `list_partners`, `get_partner`, `list_partner_lov`, `list_partner_contacts`, `get_partner_contact`, `list_deals`, `get_deal`, `list_partner_programs`, `get_partner_program`, `list_partner_tiers`, `get_partner_tier`, `list_partner_geographies`, `get_partner_geography`, `list_partner_contact_addresses`, `get_partner_contact_address`, `list_partner_contact_attachments`, `get_partner_contact_attachment`, `list_partner_contact_contact_points`, `get_partner_contact_contact_point`, `list_partner_contact_user_details`, `get_partner_contact_user_detail`.
 - Typed inputs in `security/validation.py` (CX ADF collection models + `ListPartnerLovInput` with path-safe `lov_name`).
-- ToolSpecs with `cx_module=sales|prm`, `http_method=GET`, `/crmRestApi/resources/11.13.18.05/…` paths; manifest regenerated (tool_count **157**).
-- Unit tests: `tests/test_sales_tools.py`, `tests/test_prm_tools.py`, `tests/test_cx_client.py`; contract kwargs for all CX + customer-knowledge tools in `tests/test_tool_contracts.py`.
-- MCP instructions: Fusion modules section + PRM LOV resolve rule; Cursor mirror `.cursor/rules/cpq-mcp-core.mdc`.
+- ToolSpecs: top-level lists `http_method=POST` on `/crmRestApi/searchResources/…/custom-actions/queries` (v**2.0.0**); ADF `get_*`/children remain GET on `/crmRestApi/resources/…`; Adaptive Search discovery tools; manifest regenerated (tool_count **183**).
+- Unit tests: `tests/test_adaptive_search.py`, `tests/test_sales_tools.py`, `tests/test_prm_tools.py`, `tests/test_cx_client.py`; contract kwargs for all CX + customer-knowledge tools in `tests/test_tool_contracts.py`.
+- MCP instructions: Fusion modules + Adaptive Search filter rule + PRM LOV resolve; Cursor mirror `.cursor/rules/cpq-mcp-core.mdc`.
 
 #### Earlier Unreleased (still shipping)
 
@@ -109,7 +114,7 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 - Example profiles: CX comments updated — Sales/PRM are real GET tools (not “helper only”).
 - Prompt Studio static cache-bust / list grid / Help / README (app **0.4.3+**); saved-prompt dedupe per content hash + profile.
 - Profile template path renamed `.config/.profile.yaml.example` → `.config/example.yaml`.
-- Doc counts and checklists (README / FEATURES / FAQ / PRE_COMMIT) updated **122/123/126 → 157**.
+- Doc counts and checklists (README / FEATURES / FAQ / PRE_COMMIT) updated **122/123/126 → 157 → 172 → 176 → 183**.
 
 ### Fixed
 
@@ -121,8 +126,8 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 
 ### Documentation
 
-- [`TOOL_CATALOG.md`](TOOL_CATALOG.md) regenerated (**157** tools; Sales/PRM domains; CRM REST in Fusion URL column).
-- [`FEATURES.md`](FEATURES.md) — CX architecture Mermaid, partner LOV flow, customer-knowledge flow; catalog table **157**.
+- [`TOOL_CATALOG.md`](TOOL_CATALOG.md) regenerated (**183** tools; Adaptive Search + Sales/PRM; `searchResources` / `resources` CRM paths in Fusion URL column).
+- [`FEATURES.md`](FEATURES.md) — CX Adaptive Search vs ADF table, architecture Mermaid, partner LOV flow, customer-knowledge flow; catalog table **183**.
 - [`FAQ.md`](FAQ.md) — CX coverage, `list_partner_lov` how-to, Cursor tool-count FAQ, `discover_tools` domains.
 - [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md) — Sales/PRM **Used live**; other CX modules **No tools yet**.
 - [`QUICKSTART.md`](QUICKSTART.md) §6.12 Fusion CX sample prompts; SETUP/UPGRADE `cx.modules` wording.

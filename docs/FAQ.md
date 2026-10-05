@@ -33,7 +33,7 @@ It is an **MCP (Model Context Protocol) server** that exposes Oracle CPQ REST AP
 
 ### What CPQ areas are covered?
 
-Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), **Fusion CX Sales** (territories, accounts, contacts, leads, products) and **PRM** (partners, deals, programs, partner-contact children, partner LOVs) when `cx.modules` includes those products, plus meta tools (discovery, saved prompts, customer knowledge, local `data/` sync, `ensure_prompt_studio`). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (**157** tools in the catalog). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
+Users, groups, data tables, BML, commerce metadata and transactions (including saved searches), metrics, collab queues, site admin (certificates/SSO), performance logs, parts, async tasks, configuration (`productFamilies` / layout cache), **Fusion CX Sales/PRM** (top-level lists via Adaptive Search; `get_*`/children/LOVs via ADF; Adaptive Search discovery/suggest) when `cx.modules` includes those products, plus meta tools (discovery, saved prompts, customer knowledge, local `data/` sync, `ensure_prompt_studio`). See [FEATURES.md](FEATURES.md) and [TOOL_CATALOG.md](TOOL_CATALOG.md) (**183** tools in the catalog). Current package: **0.3.0** — [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ### Which IDE should I use?
 
@@ -217,12 +217,12 @@ CX Fusion modules live on `environments.<env>.cx.modules` (required when `cx.ena
 
 ### How do I resolve a partner LookupCode (for example SUBMITTED_CREDIT)?
 
-1. `list_partners` / `get_partner` for the **CompanyNumber** (not the display name).
+1. `list_partners` (Adaptive Search keywords/JSON `q`) / `get_partner` for the **CompanyNumber** (not the display name).
 2. Read the custom field (example `PartnerProfilePEO_gnx_sls_Status_c`).
 3. Call `list_partner_lov` with `lov_name=PartnerProfilePEO_LOVVA_For_<suffix>` (field `PartnerProfilePEO_<suffix>`). Optional `lookup_code` filters that code.
 4. Use **Meaning** / **DisplayLabel** from the LOV rows — do not invent labels from the code. If `lov_name` is unknown, `get_partner(only_data=false)` and follow `rel=lov` links.
 
-Architecture diagrams: [FEATURES.md — Fusion CX](FEATURES.md#fusion-cx-sales-and-prm).
+Architecture diagrams: [FEATURES.md — Fusion CX](FEATURES.md#fusion-cx-sales-and-prm). List-filter FAQ: [top-level CX list filters](#why-do-top-level-cx-list_-filters-look-different-now).
 
 ### What is `CPQ_CUSTOMER_PROFILE`?
 
@@ -446,9 +446,13 @@ See [.gitignore](../.gitignore) and [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md)
 
 ### How many tools are there?
 
-**157** MCP tools in `TOOL_CATALOG` (regenerate after tool changes with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md). A running server registers CX tools only for enabled `cx.modules`. Some IDEs also list a host `mcp_auth` helper — that extra name is not in the Oracle catalog.
+**183** MCP tools in `TOOL_CATALOG` (regenerate after tool changes with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md). A running server registers CX tools only for enabled `cx.modules`. Some IDEs also list a host `mcp_auth` helper — that extra name is not in the Oracle catalog.
 
-### Why does Cursor show fewer tools than 157?
+### Why do top-level CX list_* filters look different now?
+
+Top-level Sales/PRM `list_*` tools use Fusion **Adaptive Search** (`/crmRestApi/searchResources/…/custom-actions/queries` with `Preference: transient`). Pass an Adaptive Search JSON `q` object (e.g. `{"op":"$eq","attribute":"PartyUniqueName","value":"Acme"}`) or `keywords` — not ADF SCIM strings like `Name LIKE '…'`. Use `list_adaptive_search_entities` / `list_adaptive_search_entity_fields` when unsure of entity or field names. Child collections and `get_*` still use ADF `/crmRestApi/resources/…`. CPQ commerce `searchResources` is unrelated.
+
+### Why does Cursor show fewer tools than 183?
 
 The catalog count includes every CPQ + meta + Sales + PRM spec. Handshake lists **registered** tools for this process (CX modules off → no Sales/PRM tools) plus any host-injected names. After adding a tool, **Restart** the MCP server (a new Agent chat if the panel stays stale). `register_tool` passes the catalog `name=` so FastMCP does not silently use a different function name.
 
@@ -637,7 +641,7 @@ After **real site/cache data work** (live CPQ MCP tools that read/write CPQ or l
 
 `### Refined prompt (Better token usage)`
 
-with title, tags, output format, cached-data flag, prose with `{{placeholders}}`, variables, and tools.
+with title, tags, output format, cached-data flag, prose with `{{placeholders}}`, variables, and tools. When the turn used `list_*` / `suggest_adaptive_search` / Adaptive Search discovery **with filters**, also include **Search / Adaptive Search** (entity, `q`, keywords, fields, order_by/sort, finder for ADF children only, limit/offset, Preference `transient`|`recommend`) and matching Variables (`{{entity}}`, `{{q}}`, …). Top-level CX lists use Adaptive Search JSON `q` (not ADF SCIM). Omit the Search section if no search params were used (e.g. bare `get_*` by id).
 
 **Not every chat in this repo.** Coding, reviews, plans, docs, and “how does the server work” turns should **skip** the footer (and skip `offer_save_refined_prompt` / `save_refined_prompt`). Disable globally with profile `refined_prompt: false` (or legacy `REFINED_PROMPT=false`).
 

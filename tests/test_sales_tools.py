@@ -81,9 +81,9 @@ def _configure(profile: CPQProfile) -> None:
 def test_list_territories_success() -> None:
     url = (
         "https://icchjb-dev2.fa.ocs.oraclecloud.com"
-        "/crmRestApi/resources/11.13.18.05/territories"
+        "/crmRestApi/searchResources/11.13.18.05/custom-actions/queries"
     )
-    respx.get(url).mock(
+    route = respx.post(url).mock(
         return_value=httpx.Response(
             200,
             json={
@@ -108,6 +108,7 @@ def test_list_territories_success() -> None:
     assert result["data"]["count"] == 1
     assert result["data"]["items"][0]["UniqueTerritoryNumber"] == "VEC_US_1054"
     assert "Authorization" in respx.calls.last.request.headers
+    assert route.calls.last.request.headers["Preference"] == "transient"
 
 
 def test_list_territories_requires_sales_module() -> None:
@@ -174,9 +175,9 @@ def test_crm_rest_path_and_adf_collection_params() -> None:
 def test_list_accounts_success() -> None:
     url = (
         "https://icchjb-dev2.fa.ocs.oraclecloud.com"
-        "/crmRestApi/resources/11.13.18.05/accounts"
+        "/crmRestApi/searchResources/11.13.18.05/custom-actions/queries"
     )
-    respx.get(url).mock(
+    respx.post(url).mock(
         return_value=httpx.Response(
             200,
             json={"items": [{"PartyNumber": "123"}], "count": 1, "hasMore": False},
@@ -216,4 +217,127 @@ def test_register_cx_tools_registers_both_modules() -> None:
     register_cx_tools(mcp, CXClient(profile))
     assert "list_territories" in mcp.tools
     assert "list_partners" in mcp.tools
+
+
+@respx.mock
+def test_list_account_addresses_success() -> None:
+    url = (
+        "https://icchjb-dev2.fa.ocs.oraclecloud.com"
+        "/crmRestApi/resources/11.13.18.05/accounts/CDRM_1/child/Address"
+    )
+    respx.get(url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "items": [{"AddressNumber": "ADDR1", "City": "Holland"}],
+                "count": 1,
+                "hasMore": False,
+            },
+        )
+    )
+    profile = _cx_sales_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_sales_tools(mcp, CXClient(profile))
+    result = mcp.tools["list_account_addresses"](party_number="CDRM_1")
+    assert result["status"] == "ok"
+    assert result["data"]["items"][0]["AddressNumber"] == "ADDR1"
+
+
+@respx.mock
+def test_get_account_address_success() -> None:
+    url = (
+        "https://icchjb-dev2.fa.ocs.oraclecloud.com"
+        "/crmRestApi/resources/11.13.18.05/accounts/CDRM_1/child/Address/ADDR1"
+    )
+    respx.get(url).mock(
+        return_value=httpx.Response(
+            200,
+            json={"AddressNumber": "ADDR1", "City": "Holland"},
+        )
+    )
+    profile = _cx_sales_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_sales_tools(mcp, CXClient(profile))
+    result = mcp.tools["get_account_address"](
+        party_number="CDRM_1", address_number="ADDR1"
+    )
+    assert result["status"] == "ok"
+    assert result["data"]["City"] == "Holland"
+
+
+@respx.mock
+def test_list_opportunities_success() -> None:
+    url = (
+        "https://icchjb-dev2.fa.ocs.oraclecloud.com"
+        "/crmRestApi/searchResources/11.13.18.05/custom-actions/queries"
+    )
+    respx.post(url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "items": [{"OptyNumber": "OPTY1", "Name": "Deal A"}],
+                "count": 1,
+                "hasMore": False,
+            },
+        )
+    )
+    profile = _cx_sales_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_sales_tools(mcp, CXClient(profile))
+    result = mcp.tools["list_opportunities"](limit=10)
+    assert result["status"] == "ok"
+    assert result["data"]["items"][0]["OptyNumber"] == "OPTY1"
+
+
+@respx.mock
+def test_get_opportunity_and_team_success() -> None:
+    base = (
+        "https://icchjb-dev2.fa.ocs.oraclecloud.com"
+        "/crmRestApi/resources/11.13.18.05/opportunities/OPTY1"
+    )
+    respx.get(base).mock(
+        return_value=httpx.Response(
+            200,
+            json={"OptyNumber": "OPTY1", "Name": "Deal A"},
+        )
+    )
+    respx.get(f"{base}/child/OpportunityTeam").mock(
+        return_value=httpx.Response(
+            200,
+            json={"items": [{"PartyName": "Rep"}], "count": 1, "hasMore": False},
+        )
+    )
+    profile = _cx_sales_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_sales_tools(mcp, CXClient(profile))
+    opty = mcp.tools["get_opportunity"](opty_number="OPTY1")
+    assert opty["status"] == "ok"
+    assert opty["data"]["Name"] == "Deal A"
+    team = mcp.tools["list_opportunity_team"](opty_number="OPTY1")
+    assert team["status"] == "ok"
+    assert team["data"]["items"][0]["PartyName"] == "Rep"
+
+
+def test_register_sales_tools_includes_new_account_and_opportunity_tools() -> None:
+    profile = _cx_sales_profile()
+    _configure(profile)
+    mcp = _FakeMcp()
+    register_sales_tools(mcp, CXClient(profile))
+    for name in (
+        "list_account_attachments",
+        "get_account_attachment",
+        "list_account_primary_addresses",
+        "get_account_primary_address",
+        "list_opportunity_attachments",
+        "get_opportunity_attachment",
+        "list_opportunity_contacts",
+        "get_opportunity_contact",
+        "list_opportunity_revenue_partners",
+        "get_opportunity_revenue_partner",
+    ):
+        assert name in mcp.tools
 

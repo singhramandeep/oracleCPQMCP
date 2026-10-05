@@ -26,7 +26,7 @@ You do **not** need to recreate credentials or re-copy MCP config from scratch.
 |----|--------|
 | Pull / reinstall into the **same** `.venv` your MCP launcher uses | Overwrite a live `.config/<profile>.yaml` with `example.yaml` (wipes URLs/passwords) |
 | Keep `.agents/mcp_config.json`, `.cursor/mcp.json`, `.vscode/mcp.json` as-is | Put CPQ passwords into MCP JSON |
-| Skim [RELEASE_NOTES.md](RELEASE_NOTES.md) for breaking notes | Delete `data/`, `logs/`, or `.prompts/` unless you intend to |
+| Skim [RELEASE_NOTES.md](RELEASE_NOTES.md) for breaking notes (CX top-level `list_*` now Adaptive Search JSON `q`, not ADF SCIM) | Delete `data/`, `logs/`, or `.prompts/` unless you intend to |
 
 Never edit `username` / `password` (or `*_USERNAME` / `*_PASSWORD`) in profile files as part of an upgrade — you own credentials. On 401 after upgrade, fix passwords yourself; do not ask an agent to “repair” them.
 
@@ -261,7 +261,7 @@ Edit `.config/<profile>.yaml` and compare **non-secret** flags to [`.config/exam
 |---------------------------|-----------------|--------|
 | `cpq.hosted` / legacy `cpq_mode` | `standalone` | `standalone` → `/rest/…`; `fusion` → `/cpq/rest/…` |
 | `cpq.auth` / `cx.auth` | `basic` | `basic` (credentials) or `bearer` (`oauth_*`) per product |
-| `cx.modules` / `fusion_modules` (`CPQ_FUSION_MODULES` host) | blank | CX modules when `cx.enabled`; **Sales**/**PRM** register GET tools; other names reserved |
+| `cx.modules` / `fusion_modules` (`CPQ_FUSION_MODULES` host) | blank | CX modules when `cx.enabled`; **Sales**/**PRM** register product tools; Adaptive Search discovery for any module; other names reserved |
 | `debug_mode` / `DEBUG_MODE` | `true` | Redacted API traces → `logs/{profile}-{env}.log` |
 | `refined_prompt` / `REFINED_PROMPT` | `true` | End-of-task refined-prompt footer |
 | `auto_save_refined_prompt` / `AUTO_SAVE_REFINED_PROMPT` | `true` in example profile | Auto-save refined prompts |

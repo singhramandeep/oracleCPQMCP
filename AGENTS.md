@@ -32,5 +32,5 @@ Setup: [`docs/SETUP.md` — Step 7](docs/SETUP.md#step-7--connect-the-ide-mcp).
 1. Honor MCP instructions for CPQ work; connect MCP before refined prompts, exports, or branded docs.
 2. Clone `.config/template/` (`Word Template.docx` / `Excel Template.xlsx` / `PowerPoint Template.pptx`) for Office; template dir is read-only; write under `data/{profile}/{env}/exports/`. Details (Mermaid, styles) live in MCP `DOCUMENT_TEMPLATES`.
 3. Never edit profile credentials or Fusion OAuth secrets — report 401s only. Live CPQ and Fusion CX only via MCP tools (`CPQClient` / `CXClient`).
-4. Prefer MCP tools over one-off scripts; scratch under `tmp/{profile}/{env}/`. Tool authoring: `docs/STANDARDS.md`.
+4. Prefer MCP tools over one-off scripts; scratch under `tmp/{profile}/{env}/`. Tool authoring: `docs/STANDARDS.md`. CX top-level `list_*` use Adaptive Search JSON `q`/`keywords` (not ADF SCIM); discovery via `list_adaptive_search_*` — never Adaptive Search for CPQ.
 5. Profile `frugal_mode: true` (or `CPQ_FRUGAL_MODE`) shortens MCP instructions and disables refined footer, auto-export, and Prompt Studio ensure.

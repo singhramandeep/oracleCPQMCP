@@ -15,7 +15,7 @@ _CATALOG_DOMAINS = frozenset(spec.domain for spec in TOOL_CATALOG.values())
 
 
 def test_tool_catalog_count() -> None:
-    assert len(TOOL_CATALOG) == 157
+    assert len(TOOL_CATALOG) == 183
 
 
 def test_readme_documents_catalog_tool_count() -> None:

@@ -38,7 +38,7 @@ Confirm these stay **untracked / ignored**:
 .\.venv\Scripts\python.exe -m pytest -q -m "not live_eval"
 ```
 
-- [ ] Catalog tool count matches README / FEATURES / FAQ (currently **157**; see `docs/TOOL_CATALOG.md`)
+- [ ] Catalog tool count matches README / FEATURES / FAQ (currently **183**; see `docs/TOOL_CATALOG.md`)
 - [ ] `tool_manifest.json` regenerated/updated with new tools (schema integrity)
 - [ ] No failing unit tests; launcher example tests if you changed MCP JSON examples
 

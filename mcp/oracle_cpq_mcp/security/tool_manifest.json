@@ -1,6 +1,6 @@
 {
-  "tool_definitions_sha256": "676a9d59369c47cf673735e6b0fd7cc75c6d1271734bbbe0e2d8da9db446df6f",
-  "tool_count": 157,
+  "tool_definitions_sha256": "600d58d635cad6cb6aad51447f8a5831ed7b0c975ba3fb0be6b26dbcc52a8d01",
+  "tool_count": 183,
   "tools": [
     "add_from_favorites",
     "add_transaction_lines",
@@ -29,7 +29,11 @@
     "export_users_excel",
     "generate_proposal",
     "get_account",
+    "get_account_address",
+    "get_account_attachment",
+    "get_account_primary_address",
     "get_account_team_member",
+    "get_adaptive_search_entity",
     "get_all_bml_code",
     "get_array_set",
     "get_array_set_attribute",
@@ -63,6 +67,10 @@
     "get_local_data_status",
     "get_local_job",
     "get_model",
+    "get_opportunity",
+    "get_opportunity_attachment",
+    "get_opportunity_contact",
+    "get_opportunity_revenue_partner",
     "get_part",
     "get_partner",
     "get_partner_contact",
@@ -70,7 +78,9 @@
     "get_partner_contact_attachment",
     "get_partner_contact_contact_point",
     "get_partner_contact_user_detail",
+    "get_partner_geography",
     "get_partner_program",
+    "get_partner_tier",
     "get_performance_log",
     "get_product",
     "get_product_family",
@@ -85,8 +95,16 @@
     "get_user",
     "get_user_groups",
     "interact_transaction_line",
+    "list_account_addresses",
+    "list_account_attachments",
+    "list_account_primary_addresses",
     "list_account_team",
     "list_accounts",
+    "list_adaptive_search_entities",
+    "list_adaptive_search_entity_attributes",
+    "list_adaptive_search_entity_fields",
+    "list_adaptive_search_metamodels",
+    "list_adaptive_search_operators",
     "list_array_set_attributes",
     "list_array_sets",
     "list_bml_common_functions",
@@ -107,13 +125,20 @@
     "list_local_data",
     "list_metrics",
     "list_models",
+    "list_opportunities",
+    "list_opportunity_attachments",
+    "list_opportunity_contacts",
+    "list_opportunity_revenue_partners",
+    "list_opportunity_team",
     "list_partner_contact_addresses",
     "list_partner_contact_attachments",
     "list_partner_contact_contact_points",
     "list_partner_contact_user_details",
     "list_partner_contacts",
+    "list_partner_geographies",
     "list_partner_lov",
     "list_partner_programs",
+    "list_partner_tiers",
     "list_partners",
     "list_parts",
     "list_performance_logs",
@@ -151,6 +176,7 @@
     "start_bml_site_export",
     "start_prompt_picker",
     "submit_transaction",
+    "suggest_adaptive_search",
     "sync_bml_local",
     "sync_commerce_metadata_local",
     "sync_datatable_local",
@@ -269,9 +295,25 @@
       "version": "1.0.0",
       "definition_sha256": "b721a93a4c03791e40254dc8e0ed48bdc7196ba5f32578468741ef956712191e"
     },
+    "get_account_address": {
+      "version": "1.0.0",
+      "definition_sha256": "3578759e0046327f11981606a2f8b9b0a184c10947835239fead4b4333d03c08"
+    },
+    "get_account_attachment": {
+      "version": "1.0.0",
+      "definition_sha256": "1346b6a89e35ab96b11fce5f6c1745930a668c28192a4371fbf372593f0c7e35"
+    },
+    "get_account_primary_address": {
+      "version": "1.0.0",
+      "definition_sha256": "be4b7cef78d5a797f61c9d5fa4f64d63ee948e36f254c4ebe3eb4febf9981d0a"
+    },
     "get_account_team_member": {
       "version": "1.0.0",
       "definition_sha256": "85d9df602067dfb6a11fc6d898fff7cae0bbb2414c938161a7925d3d404233e2"
+    },
+    "get_adaptive_search_entity": {
+      "version": "1.0.0",
+      "definition_sha256": "17e4a48cf201f40dd9d3a5a1603cd78ff4538c245d2b3736cfd17d2c32fc4e56"
     },
     "get_all_bml_code": {
       "version": "1.4.1",
@@ -405,6 +447,22 @@
       "version": "1.0.1",
       "definition_sha256": "014220591b725bc205b560652bf8c81b5378cf113e4ae51a945ea9f90b078ba4"
     },
+    "get_opportunity": {
+      "version": "1.0.0",
+      "definition_sha256": "b8363129507fc62ebfcd852c5c69e4209c269b1a012cfe207aac12eb3f40ca3f"
+    },
+    "get_opportunity_attachment": {
+      "version": "1.0.0",
+      "definition_sha256": "b86db757a3106b0fc5a046e85a9b012b4c68d616bcfc1170489f595548eb3c47"
+    },
+    "get_opportunity_contact": {
+      "version": "1.0.0",
+      "definition_sha256": "6a5ca78f85169b807fedb505e1a513bf69dd20fc981aac899335c98b0d978791"
+    },
+    "get_opportunity_revenue_partner": {
+      "version": "1.0.0",
+      "definition_sha256": "6a29c509e189e894107d327622e7b77e93f283267e1e516404a2266ea09d05db"
+    },
     "get_part": {
       "version": "1.0.1",
       "definition_sha256": "027389cd2405663a080b8623736873f2ad4ff9e9fa5fed5ed84aaa453bf2b4fb"
@@ -433,9 +491,17 @@
       "version": "1.0.0",
       "definition_sha256": "454ce0cbbaeb5d97af0cb3628345500def0bf035f95b07bd1d522ea6b8da1e7e"
     },
+    "get_partner_geography": {
+      "version": "1.0.0",
+      "definition_sha256": "e4a30b012098f15c10a6208a01ae4dcdd52968598d57b84dd96454a38f015f29"
+    },
     "get_partner_program": {
       "version": "1.0.0",
       "definition_sha256": "fc743215cd846c507dc31e12fb1372f14aef7a4dc11bdf1a43823641cce861f4"
+    },
+    "get_partner_tier": {
+      "version": "1.0.0",
+      "definition_sha256": "7eeed01e0cf2c9fe089adb41e1288c00f6493394e650babbeddbcbe384251ee1"
     },
     "get_performance_log": {
       "version": "1.0.1",
@@ -493,13 +559,45 @@
       "version": "1.0.1",
       "definition_sha256": "2416137ba125785ee10255470a1311e8d4f5de084055d1a33ac9a3fc4da286b2"
     },
+    "list_account_addresses": {
+      "version": "1.0.0",
+      "definition_sha256": "6c9431c6beb6e91df530ecce4e72a27c03c79de13288f170f2fde6674cfba795"
+    },
+    "list_account_attachments": {
+      "version": "1.0.0",
+      "definition_sha256": "c16c0bef8651ac55852dbc6d960519183196b2e7054220e16893ed71e4d93b78"
+    },
+    "list_account_primary_addresses": {
+      "version": "1.0.0",
+      "definition_sha256": "490030f9e9fc47f032c5906e473127e959ed0da45737130138e7115b9cbcb13d"
+    },
     "list_account_team": {
       "version": "1.0.0",
       "definition_sha256": "e1a2f8d7d5e1669d53830df956014ca9f68554f109ad6558402297f0ce7dfdab"
     },
     "list_accounts": {
+      "version": "2.0.0",
+      "definition_sha256": "80cd97f8e7b312bf0aa22b7cd3afa659434d70b04493ecd6cf39aa7b34dd8805"
+    },
+    "list_adaptive_search_entities": {
       "version": "1.0.0",
-      "definition_sha256": "1cec5a896f8e722839589a694c0573ff18a9094fcf64f161c762dd7c152fccab"
+      "definition_sha256": "e6a596609a1cdeefe7d92de0a76b17c8676f5f2e148d175c873edf52967c105f"
+    },
+    "list_adaptive_search_entity_attributes": {
+      "version": "1.0.0",
+      "definition_sha256": "282df8b75e29bc41aac0d87aaec65999e157858d71e9d69522d281bbcbdf06b1"
+    },
+    "list_adaptive_search_entity_fields": {
+      "version": "1.0.0",
+      "definition_sha256": "6fec38fa59d220093b85a12d09b4e7369ae72c0b8c43e63493e976a0107a4e61"
+    },
+    "list_adaptive_search_metamodels": {
+      "version": "1.0.0",
+      "definition_sha256": "f8818cc508a9bd5b1610eafc5b222a6b26ea340d21d680ab73c5d02aa52a6ff9"
+    },
+    "list_adaptive_search_operators": {
+      "version": "1.0.0",
+      "definition_sha256": "2c62d1e4a4188afc1c3d38d8ed92659785306e8eeb1e0dcfe3ed83a52cb5910e"
     },
     "list_array_set_attributes": {
       "version": "1.0.1",
@@ -538,8 +636,8 @@
       "definition_sha256": "b879c03db8741fc8cac1ea2010e1cb52892f2eaf97cc485d7e6891ba28da3458"
     },
     "list_contacts": {
-      "version": "1.0.0",
-      "definition_sha256": "35a27f27885546cbd6936a261101716ee84dbe473a2162ff97e5636e44e1fc6f"
+      "version": "2.0.0",
+      "definition_sha256": "0866cb73d32fefb3f3ec55e57b7bf92a5ee95565a44b794b170414877412a61d"
     },
     "list_datatable_fields": {
       "version": "1.0.1",
@@ -550,8 +648,8 @@
       "definition_sha256": "2f0db155d4202e3c6b683fd601d84e576ba1ac6beb11ed6bc6d7419ef980da7a"
     },
     "list_deals": {
-      "version": "1.0.0",
-      "definition_sha256": "552091f2cfc48c3c6c196f5c7138cebbda1fc7bfebeeb1f798b64af8aa040620"
+      "version": "2.0.0",
+      "definition_sha256": "81286780fc7a70cbb1ddea50ca656216aec39976ad27410ea646dab059d975f4"
     },
     "list_group_users": {
       "version": "1.0.1",
@@ -566,8 +664,8 @@
       "definition_sha256": "b6790a0e949f2c0014362ca4362e6e2bce6b3e5af99c8323cd6745feeb926d14"
     },
     "list_leads": {
-      "version": "1.0.0",
-      "definition_sha256": "3256f3e0ae4e0f5f5fb7858968077fdef2f53f56951f5359627c0916884c8404"
+      "version": "2.0.0",
+      "definition_sha256": "87be9fc12587fb398d782520435fd3c7152832c03893f2e0339bb591165f3c45"
     },
     "list_local_data": {
       "version": "1.1.1",
@@ -580,6 +678,26 @@
     "list_models": {
       "version": "1.0.1",
       "definition_sha256": "8bd49c058992112aaa7990f22111535e4daae19959294c4d3fa98535b5ebe319"
+    },
+    "list_opportunities": {
+      "version": "2.0.0",
+      "definition_sha256": "cb10a9fdd28a26ba955782a4c1f96d213c3b191c5087eeb473176210804a8cb5"
+    },
+    "list_opportunity_attachments": {
+      "version": "1.0.0",
+      "definition_sha256": "d03f2ba4593de9a88960ad85b70e8cd5edbc5a5567917b58c1cf75d0a59027f1"
+    },
+    "list_opportunity_contacts": {
+      "version": "1.0.0",
+      "definition_sha256": "d797f26829e474d82b83f3beba78ffbb9a7b92412ecc9bdcbf5edb1c6c466f8c"
+    },
+    "list_opportunity_revenue_partners": {
+      "version": "1.0.0",
+      "definition_sha256": "4467d372a6900c6233e89be886dfbfab180ccc9c189cbc513db40f73f1ecefb4"
+    },
+    "list_opportunity_team": {
+      "version": "1.0.0",
+      "definition_sha256": "6faabcbd39b9246e366dc3c465dc2df64e397bbcbf91ee89a92df1334c295bbc"
     },
     "list_partner_contact_addresses": {
       "version": "1.0.0",
@@ -598,20 +716,28 @@
       "definition_sha256": "7e967eeca95898bab2a5b0654e9425493096ad6044a76960b424b47f1506a822"
     },
     "list_partner_contacts": {
+      "version": "2.0.0",
+      "definition_sha256": "b47b55ef6414bb21e1d6c70b0777d98115dd7ec2b88d3aff950fa2f6c294653b"
+    },
+    "list_partner_geographies": {
       "version": "1.0.0",
-      "definition_sha256": "403a12daca0a4376b34fcebf0c7407779f19ea9aae82353684c82968362b3866"
+      "definition_sha256": "e7df70db91abf52423d8f88b1994f3905fb2e39d7313e9b70660c74ba3b643c2"
     },
     "list_partner_lov": {
       "version": "1.0.0",
       "definition_sha256": "bdd1163bcc1814763878270ac6d4f9fc25eb6aedc92296afd1a4ec665dc5fb63"
     },
     "list_partner_programs": {
-      "version": "1.0.0",
-      "definition_sha256": "996509e67a871773243eb618480700ab9003d8963eecd3516a1765f526018f42"
+      "version": "2.0.0",
+      "definition_sha256": "bd95dd1448a6bc44e343846d9b45d75702d5c4a533d0b1c2be170a1d797aae56"
+    },
+    "list_partner_tiers": {
+      "version": "2.0.0",
+      "definition_sha256": "8aa2e6211a4e0fa42df9a15872d375f6bc92d3462213b3ea4b0c26e0b1f59351"
     },
     "list_partners": {
-      "version": "1.0.0",
-      "definition_sha256": "9e42531c545ce787e8fe08a52045f331ac58c890b47c16d8fe22b00774566768"
+      "version": "2.0.0",
+      "definition_sha256": "fea0b3b54135583c14617ad41da682caff17fa4c5a4645062eba3a71fcecd23e"
     },
     "list_parts": {
       "version": "1.0.1",
@@ -634,8 +760,8 @@
       "definition_sha256": "5e0a391c671b7ea7df388657385be7d8809f8f7118905c96f27b1a9de9b63eeb"
     },
     "list_products": {
-      "version": "1.0.0",
-      "definition_sha256": "98a9e14c91295c625e3b45b18a42f6c40a82a4b9e92ed444d8f24f9602489bb2"
+      "version": "2.0.0",
+      "definition_sha256": "1f6bb3d97f30cc3c44d7072254f83623608e4a1d8c4a20fb46a324cc8cbfb75c"
     },
     "list_saved_prompts": {
       "version": "1.1.1",
@@ -646,8 +772,8 @@
       "definition_sha256": "15e8825a1920b4018ac6e3ab6066ef6b15ab24eadef7a1de30b44d98269b2b4c"
     },
     "list_territories": {
-      "version": "1.0.0",
-      "definition_sha256": "c144f0a4bddfd83a02e99af53bb9b279a2ad09173ebcc17af9a55b3670f19a6a"
+      "version": "2.0.0",
+      "definition_sha256": "690dca806426c08586b5236ad058b5429a982156ae93423b375f23b12d5a47d5"
     },
     "list_transaction_lines": {
       "version": "1.0.1",
@@ -756,6 +882,10 @@
     "submit_transaction": {
       "version": "1.0.1",
       "definition_sha256": "02e02d99f0ee9b9a8ef9f517b6a4d04fcf29b4661d3d15d9edc7c059010f0d11"
+    },
+    "suggest_adaptive_search": {
+      "version": "1.0.0",
+      "definition_sha256": "4939059e64447a8ff3d46f093e787454e0a343041536961466a91b9594f27b5a"
     },
     "sync_bml_local": {
       "version": "1.1.1",

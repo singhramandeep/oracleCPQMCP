@@ -1458,25 +1458,131 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         version="1.0.0",
         cx_module="meta",
     ),
+
+    "list_adaptive_search_metamodels": _spec(
+        "list_adaptive_search_metamodels",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Fusion Adaptive Search metamodels "
+            "(GET /crmRestApi/searchResources/11.13.18.05/metaModels). "
+            "Requires CX enabled with at least one cx.modules entry. "
+            "Use the Active metamodel uuid for entity discovery. "
+            "Does not call CPQ REST."
+        ),
+        tags={"adaptive_search", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/searchResources/11.13.18.05/metaModels",
+    ),
+    "list_adaptive_search_entities": _spec(
+        "list_adaptive_search_entities",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Adaptive Search entities for the active or specified metamodel "
+            "(GET entities). Paginated; empty items means none. "
+            "Does not modify saved searches or invoke Smart Actions."
+        ),
+        tags={"adaptive_search", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/searchResources/11.13.18.05/entities",
+    ),
+    "get_adaptive_search_entity": _spec(
+        "get_adaptive_search_entity",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one Adaptive Search entity by name "
+            "(GET entities/{entity}). Optional meta_model_uuid."
+        ),
+        tags={"adaptive_search", "cx", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/searchResources/11.13.18.05/entities/{entityName}",
+    ),
+    "list_adaptive_search_entity_attributes": _spec(
+        "list_adaptive_search_entity_attributes",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Adaptive Search attributes for an entity "
+            "(GET entities/{entity}/attributes). Paginated."
+        ),
+        tags={"adaptive_search", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/searchResources/11.13.18.05/entities/{entityName}/attributes",
+    ),
+    "list_adaptive_search_entity_fields": _spec(
+        "list_adaptive_search_entity_fields",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Adaptive Search indexed fields for an entity "
+            "(GET entities/{entity}/fields). Paginated."
+        ),
+        tags={"adaptive_search", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/searchResources/11.13.18.05/entities/{entityName}/fields",
+    ),
+    "list_adaptive_search_operators": _spec(
+        "list_adaptive_search_operators",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Adaptive Search operators "
+            "(GET searchOperators). Paginated. Read-only discovery."
+        ),
+        tags={"adaptive_search", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/searchResources/11.13.18.05/searchOperators",
+    ),
+    "suggest_adaptive_search": _spec(
+        "suggest_adaptive_search",
+        domain="sales",
+        operation="read",
+        description=(
+            "Adaptive Search Smart Suggest "
+            "(POST custom-actions/queries with Preference: recommend). "
+            "Returns filter or field suggestions. Does not save queries or "
+            "execute Smart Actions. Does not call CPQ REST."
+        ),
+        tags={"adaptive_search", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
+    ),
     "list_territories": _spec(
         "list_territories",
         domain="sales",
         operation="read",
         description=(
-            "List Fusion CX Sales territories "
-            "(GET /crmRestApi/resources/11.13.18.05/territories) via the profile "
-            "cx: connection (Basic or Bearer). Requires cx.enabled and Sales in "
-            "cx.modules. Returns one page; if hasMore is true, call again with "
-            "offset = offset + limit. Optional filters: q, finder, fields, "
-            "order_by, only_data, total_results. Does not call CPQ REST "
-            "(/rest or /cpq/rest). Docs: Oracle Sales territories collection."
+            "List Fusion CX SalesTerritory via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=SalesTerritory). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={"paginated", "sales", "territories", "cx"},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="sales",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/territories",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_territory": _spec(
         "get_territory",
@@ -1497,14 +1603,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="sales",
         operation="read",
         description=(
-            "List Fusion CX Sales accounts (GET accounts collection). Requires Sales in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, total_results."
+            "List Fusion CX Account via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Account). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={'accounts', 'cx', 'paginated', 'read', 'sales'},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="sales",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/accounts",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_account": _spec(
         "get_account",
@@ -1553,14 +1659,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="sales",
         operation="read",
         description=(
-            "List Fusion CX Sales contacts. Requires Sales in cx.modules. Paginated collection filters."
+            "List Fusion CX Contact via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Contact). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={'contacts', 'cx', 'paginated', 'read', 'sales'},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="sales",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/contacts",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_contact": _spec(
         "get_contact",
@@ -1581,14 +1687,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="sales",
         operation="read",
         description=(
-            "List Fusion CX Sales leads. Optional effective_date (yyyy-MM-dd). leads_uniq_id for get_lead comes from collection links — do not invent."
+            "List Fusion CX Lead via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Lead). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={'cx', 'leads', 'paginated', 'read', 'sales'},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="sales",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/leads",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_lead": _spec(
         "get_lead",
@@ -1637,14 +1743,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="sales",
         operation="read",
         description=(
-            "List Fusion CX Sales products (inventory items). Paginated."
+            "List Fusion CX Product via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Product). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={'cx', 'paginated', 'products', 'read', 'sales'},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="sales",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/products",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_product": _spec(
         "get_product",
@@ -1660,19 +1766,273 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         http_method="GET",
         api_path="/crmRestApi/resources/11.13.18.05/products/{InventoryItemId}",
     ),
+    "list_account_attachments": _spec(
+        "list_account_attachments",
+        domain="sales",
+        operation="read",
+        description=(
+            "List account attachments (GET accounts/{PartyNumber}/child/Attachment). "
+            "Requires Sales in cx.modules. Paginated; empty items means no attachments. "
+            "Does not download attachment file bytes."
+        ),
+        tags={"accounts", "attachments", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/Attachment",
+    ),
+    "get_account_attachment": _spec(
+        "get_account_attachment",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one account attachment by party_number and attachment_uniq_id "
+            "(AttachmentUniqID from the Attachment collection — do not invent). "
+            "Does not download file bytes."
+        ),
+        tags={"accounts", "attachments", "cx", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/"
+            "Attachment/{AttachmentUniqID}"
+        ),
+    ),
+    "list_account_addresses": _spec(
+        "list_account_addresses",
+        domain="sales",
+        operation="read",
+        description=(
+            "List account addresses (GET accounts/{PartyNumber}/child/Address). "
+            "Requires Sales in cx.modules. Paginated; empty items means no addresses."
+        ),
+        tags={"accounts", "addresses", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/Address",
+    ),
+    "get_account_address": _spec(
+        "get_account_address",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one account address by party_number and address_number (AddressNumber)."
+        ),
+        tags={"accounts", "addresses", "cx", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/"
+            "Address/{AddressNumber}"
+        ),
+    ),
+    "list_account_primary_addresses": _spec(
+        "list_account_primary_addresses",
+        domain="sales",
+        operation="read",
+        description=(
+            "List account primary addresses (GET accounts/{PartyNumber}/child/PrimaryAddress). "
+            "Requires Sales in cx.modules. Paginated; empty items means none."
+        ),
+        tags={"accounts", "addresses", "cx", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/PrimaryAddress"
+        ),
+    ),
+    "get_account_primary_address": _spec(
+        "get_account_primary_address",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one account primary address by party_number and address_number."
+        ),
+        tags={"accounts", "addresses", "cx", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/accounts/{PartyNumber}/child/"
+            "PrimaryAddress/{AddressNumber}"
+        ),
+    ),
+    "list_opportunities": _spec(
+        "list_opportunities",
+        domain="sales",
+        operation="read",
+        description=(
+            "List Fusion CX Opportunity via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Opportunity). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
+        ),
+        tags={"cx", "opportunities", "paginated", "read", "sales"},
+        read_only=True,
+        version="2.0.0",
+        cx_module="sales",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
+    ),
+    "get_opportunity": _spec(
+        "get_opportunity",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one opportunity by opty_number (OptyNumber). Requires Sales in cx.modules."
+        ),
+        tags={"cx", "opportunities", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}",
+    ),
+    "list_opportunity_attachments": _spec(
+        "list_opportunity_attachments",
+        domain="sales",
+        operation="read",
+        description=(
+            "List opportunity attachments (child Attachment). Paginated; empty items "
+            "means none. Does not download attachment file bytes."
+        ),
+        tags={"attachments", "cx", "opportunities", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/Attachment"
+        ),
+    ),
+    "get_opportunity_attachment": _spec(
+        "get_opportunity_attachment",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one opportunity attachment by opty_number and attachment_uniq_id "
+            "(AttachmentUniqID from collection links — do not invent). Does not download "
+            "file bytes."
+        ),
+        tags={"attachments", "cx", "opportunities", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/"
+            "Attachment/{AttachmentUniqID}"
+        ),
+    ),
+    "list_opportunity_contacts": _spec(
+        "list_opportunity_contacts",
+        domain="sales",
+        operation="read",
+        description=(
+            "List opportunity contacts (child OpportunityContact). Paginated; empty items "
+            "means none."
+        ),
+        tags={"contacts", "cx", "opportunities", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/"
+            "OpportunityContact"
+        ),
+    ),
+    "get_opportunity_contact": _spec(
+        "get_opportunity_contact",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one opportunity contact by opty_number and opty_con_id (OptyConId)."
+        ),
+        tags={"contacts", "cx", "opportunities", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/"
+            "OpportunityContact/{OptyConId}"
+        ),
+    ),
+    "list_opportunity_revenue_partners": _spec(
+        "list_opportunity_revenue_partners",
+        domain="sales",
+        operation="read",
+        description=(
+            "List opportunity revenue partners (child RevenuePartnerPrimary). Paginated; "
+            "empty items means none."
+        ),
+        tags={"cx", "opportunities", "paginated", "partners", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/"
+            "RevenuePartnerPrimary"
+        ),
+    ),
+    "get_opportunity_revenue_partner": _spec(
+        "get_opportunity_revenue_partner",
+        domain="sales",
+        operation="read",
+        description=(
+            "Get one opportunity revenue partner by opty_number and "
+            "revn_part_org_party_id (RevnPartOrgPartyId)."
+        ),
+        tags={"cx", "opportunities", "partners", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/"
+            "RevenuePartnerPrimary/{RevnPartOrgPartyId}"
+        ),
+    ),
+    "list_opportunity_team": _spec(
+        "list_opportunity_team",
+        domain="sales",
+        operation="read",
+        description=(
+            "List opportunity team members (child OpportunityTeam). Paginated; empty "
+            "items means none. Does not expose a singular team-member GET."
+        ),
+        tags={"cx", "opportunities", "paginated", "read", "sales"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="sales",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/opportunities/{OptyNumber}/child/"
+            "OpportunityTeam"
+        ),
+    ),
     "list_partners": _spec(
         "list_partners",
         domain="prm",
         operation="read",
         description=(
-            "List Fusion CX PRM partners. Requires PRM in cx.modules."
+            "List Fusion CX Partner via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Partner). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={'cx', 'paginated', 'partners', 'prm', 'read'},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="prm",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/partners",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_partner": _spec(
         "get_partner",
@@ -1714,14 +2074,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="prm",
         operation="read",
         description=(
-            "List PRM partner contacts (partnerContacts collection). Requires PRM in cx.modules."
+            "List Fusion CX PartnerContact via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=PartnerContact). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={'cx', 'paginated', 'partners', 'prm', 'read'},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="prm",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/partnerContacts",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_partner_contact": _spec(
         "get_partner_contact",
@@ -1742,14 +2102,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="prm",
         operation="read",
         description=(
-            "List PRM deal registrations. Optional effective_date. deals_uniq_id for get_deal comes from collection links — do not invent."
+            "List Fusion CX Deal via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=Deal). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={'cx', 'deals', 'paginated', 'prm', 'read'},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="prm",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/deals",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_deal": _spec(
         "get_deal",
@@ -1889,16 +2249,14 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         domain="prm",
         operation="read",
         description=(
-            "List Fusion CX PRM partner programs (GET partnerPrograms). Requires PRM "
-            "in cx.modules. Paginated; supports q, finder, fields, order_by, only_data, "
-            "total_results."
+            "List Fusion CX PartnerProgram via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=PartnerProgram). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
         ),
         tags={"cx", "paginated", "partners", "prm", "read"},
         read_only=True,
-        version="1.0.0",
+        version="2.0.0",
         cx_module="prm",
-        http_method="GET",
-        api_path="/crmRestApi/resources/11.13.18.05/partnerPrograms",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
     ),
     "get_partner_program": _spec(
         "get_partner_program",
@@ -1913,6 +2271,71 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         cx_module="prm",
         http_method="GET",
         api_path="/crmRestApi/resources/11.13.18.05/partnerPrograms/{ProgramNumber}",
+    ),
+    "list_partner_tiers": _spec(
+        "list_partner_tiers",
+        domain="prm",
+        operation="read",
+        description=(
+            "List Fusion CX PartnerTier via Adaptive Search (POST /crmRestApi/searchResources/11.13.18.05/custom-actions/queries with Preference: transient; entity=PartnerTier). Requires the matching product in cx.modules. Paginated; empty items means no matches. Filters: Adaptive Search JSON q (not ADF SCIM), keywords, fields, order_by (mapped to sort), only_data, total_results. Does not use ADF finder. Does not call CPQ REST."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="2.0.0",
+        cx_module="prm",
+        http_method="POST",
+        api_path="/crmRestApi/searchResources/11.13.18.05/custom-actions/queries",
+    ),
+    "get_partner_tier": _spec(
+        "get_partner_tier",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner tier by tier_id (TierId). Does not invoke moveUp/moveDown/"
+            "delete actions."
+        ),
+        tags={"cx", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path="/crmRestApi/resources/11.13.18.05/partnerTiers/{TierId}",
+    ),
+    "list_partner_geographies": _spec(
+        "list_partner_geographies",
+        domain="prm",
+        operation="read",
+        description=(
+            "List geographies for a partner (GET partners/{CompanyNumber}/child/"
+            "geographies). Requires PRM in cx.modules. Paginated; empty items means "
+            "none."
+        ),
+        tags={"cx", "paginated", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}/child/geographies"
+        ),
+    ),
+    "get_partner_geography": _spec(
+        "get_partner_geography",
+        domain="prm",
+        operation="read",
+        description=(
+            "Get one partner geography by company_number and partner_dim_members_id "
+            "(PartnerDimMembersId from the geographies collection)."
+        ),
+        tags={"cx", "partners", "prm", "read"},
+        read_only=True,
+        version="1.0.0",
+        cx_module="prm",
+        http_method="GET",
+        api_path=(
+            "/crmRestApi/resources/11.13.18.05/partners/{CompanyNumber}/child/"
+            "geographies/{PartnerDimMembersId}"
+        ),
     ),
     "list_performance_logs": _spec(
         "list_performance_logs",

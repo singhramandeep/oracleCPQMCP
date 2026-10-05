@@ -47,6 +47,8 @@ def test_build_instructions_ask_mode() -> None:
     assert "Cached data" in text
     assert "output_format" in text
     assert "Refined prompt gate" in text
+    assert "Search / Adaptive Search" in text
+    assert "{{entity}}" in text or "{{q}}" in text
     assert "Turn metrics" in text
     assert "Elapsed" in text
     assert "Do not include token counts" in text
@@ -54,7 +56,7 @@ def test_build_instructions_ask_mode() -> None:
     assert "Document templates" in text
     assert "ensure_prompt_studio" in text
     # Compression target: full refined instructions under ~2000 tokens (~8000 chars)
-    assert len(text) < 9000
+    assert len(text) < 9500
 
 
 def test_build_instructions_includes_prompt_studio_when_refined_off() -> None:
@@ -106,6 +108,7 @@ def test_build_instructions_frugal_mode() -> None:
     assert "Do NOT emit refined-prompt footer" in text
     assert "Document templates" not in text
     assert "Refined prompt gate" not in text
+    assert "Search / Adaptive Search" not in text
     assert "POST_RESPONSE_EXPORT=always_excel" not in text
     assert "Prompt Studio (YES-gate only)" not in text
     assert "Profile credentials" in text

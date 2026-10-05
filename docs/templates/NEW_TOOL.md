@@ -7,8 +7,8 @@ Copy [`tool_scaffold.py.example`](tool_scaffold.py.example) pieces into the real
 1. [ ] Add `ToolSpec` to `TOOL_CATALOG` in `mcp/oracle_cpq_mcp/registry/tool_registry.py` via `_spec(...)` with `description`, `title` (or accept name-derived default), `version="1.0.0"` (bump on later changes), optional `icons` (else domain default), and correct `cx_module` (`cpq` default for CPQ REST; Fusion slugs `sales`/`prm`/`service`/`field_service`/`subscription`/`incentive_compensation`; `meta` auto when `domain="meta"`)
 2. [ ] Add `_StrictModel` subclass in `mcp/oracle_cpq_mcp/security/validation.py` — every field has `Field(..., description="...")`
 3. [ ] Register the model in `TOOL_INPUT_MODELS`
-4. [ ] Implement handler in `mcp/oracle_cpq_mcp/tools/<domain>.py` (CPQ) or `mcp/oracle_cpq_mcp/tools/cx/<product>.py` (CX). Wire CX via `register_cx_tools` (no empty stub modules).
-5. [ ] Call only `client.get` / `client.post` / `client.patch` / etc. via `CPQClient` (CPQ) or `CXClient` (Fusion CX)
+4. [ ] Implement handler in `mcp/oracle_cpq_mcp/tools/<domain>.py` (CPQ) or `mcp/oracle_cpq_mcp/tools/cx/<product>.py` (CX). Wire CX via `register_cx_tools` (no empty stub modules). **New top-level CX `list_*`:** use `cx_adaptive_list` + add entity to `CX_AS_ENTITY_BY_TOOL` (not ADF `cx_get_collection`). Children/`get_*` stay ADF.
+5. [ ] Call only `client.get` / `client.post` / `client.patch` / etc. via `CPQClient` (CPQ) or `CXClient` (Fusion CX). Do not reuse CPQ `searchResources` for Adaptive Search.
 6. [ ] Return raw CPQ JSON or paginated payload (`enrich_pagination_hint` when applicable) — **do not** wrap the success envelope yourself
 7. [ ] Set `fn.__doc__ = TOOL_CATALOG["name"].description` and `register_tool(mcp, fn, "name")` (wrapper passes FastMCP `name=` from the catalog)
 8. [ ] Wire `register_<domain>_tools` from `server.py` if new domain
