@@ -29,81 +29,112 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 
 ## Unreleased
 
-- **PRM partner LOV resolve:** `list_partner_lov` GET `partners/{CompanyNumber}/lov/{LovName}` to map partner LookupCode values to Meaning (gated on `PRM` in `cx.modules`).
-- **PRM partner-contact children + programs:** 10 GET tools (`list_partner_contact_addresses`, attachments, contact points, user details; `list_partner_programs` / `get_partner_program`) gated on `PRM` in `cx.modules`.
-- **CX Sales + PRM read tools:** 19 new GET MCP tools (accounts, contacts, leads, products, territories; partners, deals) gated by `cx.modules`.
+Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **157** tools (`cx_module`: 101 `cpq` + 25 `meta` + 14 `sales` + 17 `prm`). Reload / restart Oracle CPQ MCP after pull so new CX tools and instruction text appear. Cursor’s MCP panel may also list a host `mcp_auth` helper — that name is **not** in the Oracle catalog.
 
-Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Narrative below includes everything still shipping under Unreleased; **bold items marked “since last notes pass”** are the delta after the prior documentation revision (`d004860` → `c8ef795` and related).
+### Summary (this wave)
+
+| Area | What shipped |
+|------|----------------|
+| **Fusion CX Sales** | 14 GET tools (territories, accounts + account team, contacts, leads + lead opportunities, products) |
+| **Fusion CX PRM** | 17 GET tools (partners, partner LOV, contacts, deals, programs, partner-contact children) |
+| **CX runtime** | `CXClient` + `tools/cx/` package; register only enabled `cx.modules` |
+| **Partner codes** | `list_partner_lov` maps LookupCode → Meaning/DisplayLabel |
+| **Protocol** | `register_tool` passes FastMCP `name=`; contract tests cover CX + knowledge |
+| **Docs** | FEATURES / FAQ / README / SETUP / QUICKSTART / LIVE_SMOKE / STANDARDS + Mermaid architecture diagrams |
 
 ### Highlights
 
-- **CX tools package:** Fusion CX handlers in `mcp/oracle_cpq_mcp/tools/cx/` (`sales.py`, `prm.py`). `register_cx_tools` registers only YAML-enabled `cx.modules`. Catalog `cx_module` slugs match `FUSION_MODULE_SLUGS`. FastMCP `register_tool` passes catalog `name=`.
-- **CX Sales `list_territories`:** MCP tool for GET `/crmRestApi/resources/11.13.18.05/territories` via `CXClient` (requires `cx.enabled` + `Sales` in `cx.modules`).
-- **Dual CPQ + CX Fusion profile YAML (format 1.06):** nested `environments.<env>.cpq` and `cx` blocks, each with its own URL and `auth: basic` (default) or `bearer`. CX `modules` required when CX is enabled. Legacy flat env + `cpq_mode` still migrate.
+#### Fusion CX Sales + PRM (catalog 157)
+
+- **CX tools package:** handlers under [`mcp/oracle_cpq_mcp/tools/cx/`](../mcp/oracle_cpq_mcp/tools/cx/) (`sales.py`, `prm.py`, shared `_common.py`). `register_cx_tools` registers **only** YAML-enabled `cx.modules`. Catalog `cx_module` slugs match `FUSION_MODULE_SLUGS` (`sales`, `prm`, …). HTTP goes through [`CXClient`](../mcp/oracle_cpq_mcp/core/cx_client.py) to `{cx.url}/crmRestApi/resources/11.13.18.05/…` (ADF collection params: `q`, `finder`, `fields`, `orderBy`, `limit`, `offset`, `onlyData`, `totalResults`, `expand`).
+- **Sales (14 GET):** `list_territories` / `get_territory`; `list_accounts` / `get_account`; `list_account_team` / `get_account_team_member`; `list_contacts` / `get_contact`; `list_leads` / `get_lead`; `list_lead_opportunities` / `get_lead_opportunity`; `list_products` / `get_product`. Requires `cx.enabled` and `Sales` in `cx.modules`.
+- **PRM (17 GET):** `list_partners` / `get_partner`; **`list_partner_lov`**; `list_partner_contacts` / `get_partner_contact`; `list_deals` / `get_deal`; `list_partner_programs` / `get_partner_program`; partner-contact children — addresses, attachments, contact points, user details (`list_*` + `get_*` each). Requires `PRM` in `cx.modules`. Partners are keyed by **CompanyNumber** (not display name).
+- **`list_partner_lov`:** GET `partners/{CompanyNumber}/lov/{LovName}` to resolve partner LookupCode values to Meaning/DisplayLabel after `list_partners` / `get_partner`. Convention: field `PartnerProfilePEO_<suffix>` → `lov_name=PartnerProfilePEO_LOVVA_For_<suffix>`. Optional `lookup_code` sets `q=LookupCode="…"` when `q` is omitted. Do not invent `lov_name`; if unknown, `get_partner(only_data=false)` and follow `rel=lov` links. MCP instructions + Cursor mirror tell agents to resolve codes before user-facing status answers.
+- **Module gating:** Service / Field Service / Subscription / Incentive Compensation remain **allowlist names only** (no handlers yet). Filter with `discover_tools(domain=…)` or `discover_tools(cx_module=sales|prm)`.
+- **Live honesty:** Sales/PRM GETs exercised on Fusion CX; some ADF `q` / `fields`+`expand` combinations return 400 — see [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md).
+
+#### Profile / clients / agent policy
+
+- **Dual CPQ + CX Fusion profile YAML (format 1.06):** nested `environments.<env>.cpq` and `cx` blocks, each with its own URL and `auth: basic` (default) or `bearer`. CX `modules` required when CX is enabled. Legacy flat env + `cpq_mode` still migrate. Samples: [`.config/example.yaml`](../.config/example.yaml), [`.config/example_fusion.yaml`](../.config/example_fusion.yaml).
 - **`fusion_modules` / `cx.modules` (format 1.05+):** YAML list of Fusion CX modules. **Sales** and **PRM** now register GET tools; other allowlisted names remain reserved. Host `CPQ_FUSION_MODULES`.
-- **Customer knowledge memory:** MCP `get_customer_knowledge` / `ensure_customer_knowledge` / `append_customer_knowledge` persist engagement discoveries under `knowledge/{customer_id}.md` (gitignored pattern); profile `customer_knowledge_file` auto-wired via ensure.
-- **Agent instruction compression + frugal_mode:** MCP `build_server_instructions` shortened (~40% less context); profile `frugal_mode` / host `CPQ_FRUGAL_MODE` emits a slim policy and forces refined footer / post-response export / Prompt Studio ensure off. Cursor mirrors + `AGENTS.md` / `CPQBaseKnowledge.md` deduped.
-- **Fusion mode:** profile `cpq_mode: fusion` + `fusion_enabled: true` → OAuth Bearer + `/cpq/rest/{version}` for all CPQ REST tools via `CPQClient` (same tools as standalone; sample [`.config/example_fusion.yaml`](../.config/example_fusion.yaml)). Legacy YAML `mode` alias still accepted; omitted `fusion_enabled` with fusion migrates to active.
-- **Profile flags:** nested `cpq`/`cx` connections (format **1.06**); legacy `cpq_mode` / `fusion_enabled` / `fusion_modules` still migrate.
-- **Tool catalog:** each tool lists **CPQ REST URL** and **Fusion REST URL** columns (regenerate with `python scripts/generate_tool_catalog.py`).
-- Branded Word/Excel/PPT exports via `.config/template/` + Mermaid diagrams in analytical Word exports (local `mmdc`, center-aligned, structured `notes`).
-- **Word export hardening:** two-phase write (content to disk before Mermaid); Mermaid process-tree hard-kill (~8s/12s budgets); Heading 1 `pageBreakBefore` stripped on clone; envelope `content` counts.
-- Prompt Studio **0.3.1**: fixed Refresh cache-bust / event binds; **Profile** filter on saved prompts (stamped from active CPQ customer).
-- Prompt Studio **0.3.2**: **API logs** view — parse `logs/{profile}-{env}.log`, status/latency charts, filters, copy curl/blocks/JSON, download raw.
-- Prompt Studio **0.4.0**: prompt ratings (1–10) + comments; per-source cache/api/mixed run telemetry via `record_prompt_use`; read-only **Profiles & Paths** (redacted YAML + workspace path map); import/export preserves feedback/telemetry without double-counting runs.
-- **Since last notes pass — Prompt Studio 0.4.1–0.4.3:** list column alignment + default rating badge + toolbar rating filter; autosizing Original/Refined edit textareas; permanent header version badge; expanded in-app Help + README; agents prefer Mermaid **pie** / **xychart-beta** / **flowchart** by content for Word diagrams.
-- Unified customer profile: prefer one gitignored `.config/<id>.yaml` (secrets + catalog); legacy `.env` / `.catalog.yaml` still load when no full YAML exists.
-- Removed committed `.config/.catalog.yaml.example` (use `example.yaml` only; legacy sidecars still load for `.env` upgrades).
-- Installable maintainer CLI: `oracle-cpq` (`migrate-yaml`, `migrate-catalog`, `lint-schemas`, `generate-tool-catalog`); `scripts/*.py` are thin wrappers.
-- Profile defaults: `local_data_policy=prefer`, `post_response_export=always_excel` (aliases `true`/`yes`/`on` accepted); example includes a commented setup prompt to sync `product_families` from live CPQ.
-- Slim profile config / unified YAML migrate docs: FAQ “How do I migrate from a legacy `.env` to `.yaml`?”; QUICKSTART (full guide); SETUP (8-step quick guide) prefers `.config/example.yaml` (renamed from `.profile.yaml.example`).
-- Agents call `ensure_prompt_studio` after YES-gate CPQ work (auto-start local UI on port 8765 when down).
-- Docs: `SETUP.md` is the 8-step quick guide; `QUICKSTART.md` is the full setup guide.
-- **Docs (CX wave):** FEATURES / FAQ / README / SETUP / QUICKSTART / LIVE_SMOKE / STANDARDS updated for **157** tools, CX Sales+PRM, `list_partner_lov`, and architecture Mermaid diagrams.
+- **Fusion-hosted CPQ:** nested `cpq.hosted: fusion` + `cpq.auth: bearer` → OAuth Bearer + `/cpq/rest/{version}` for CPQ REST via `CPQClient` (same tools as standalone). Legacy `cpq_mode` / `fusion_enabled` still migrate.
+- **Customer knowledge memory:** `get_customer_knowledge` / `ensure_customer_knowledge` / `append_customer_knowledge` persist engagement discoveries under `knowledge/{customer_id}.md`; profile `customer_knowledge_file` auto-wired via ensure. Reload MCP so the next chat injects updated knowledge.
+- **Agent instruction compression + frugal_mode:** `build_server_instructions` shortened; `frugal_mode` / `CPQ_FRUGAL_MODE` forces refined footer / post-response export / Prompt Studio ensure off.
+- **Tool catalog columns:** each tool lists **CPQ REST URL** and **Fusion REST URL**. Sales/PRM put the CRM path in the Fusion column and mark the CPQ column as not-CPQ (regenerate with `python scripts/generate_tool_catalog.py`).
+- Branded Word/Excel/PPT exports via `.config/template/` + Mermaid diagrams in analytical Word exports (local `mmdc`).
+- Prompt Studio **0.4.3+** (ratings, API logs, Profiles & Paths, version badge). Agents call `ensure_prompt_studio` after YES-gate CPQ work.
+- Unified customer profile YAML; maintainer CLI `oracle-cpq`; defaults `local_data_policy=prefer`, `post_response_export=always_excel`.
+
+#### Documentation (CX wave)
+
+- Updated for **157** tools and live Sales/PRM: [`FEATURES.md`](FEATURES.md), [`FAQ.md`](FAQ.md), [`README.md`](../README.md), [`SETUP.md`](SETUP.md), [`QUICKSTART.md`](QUICKSTART.md), [`UPGRADE.md`](UPGRADE.md), [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md), [`STANDARDS.md`](STANDARDS.md), [`COMMON_PROMPTS.md`](COMMON_PROMPTS.md), [`PRE_COMMIT_REVIEW.md`](PRE_COMMIT_REVIEW.md), [`templates/NEW_TOOL.md`](templates/NEW_TOOL.md), [`AGENTS.md`](../AGENTS.md), [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md).
+- Mermaid diagrams for CPQ vs CX clients, module gating, partner LOV resolve, customer-knowledge reload, and YAML `cpq`/`cx` split.
+- FAQ: how to resolve partner LookupCode; why Cursor may show fewer than 157 tools; `discover_tools` accepts `sales` / `prm` / `cx_module`.
+- Example profile comments no longer say CX is “helper only”.
 
 ### Added
+
+#### Fusion CX
+
+- [`mcp/oracle_cpq_mcp/core/cx_client.py`](../mcp/oracle_cpq_mcp/core/cx_client.py) — Fusion CX REST client (Basic/Bearer from nested `cx:`).
+- [`mcp/oracle_cpq_mcp/tools/cx/`](../mcp/oracle_cpq_mcp/tools/cx/) — `sales.py` (14), `prm.py` (17), `_common.py` (ADF collection helpers / CRM version).
+- **Sales tools:** `list_territories`, `get_territory`, `list_accounts`, `get_account`, `list_account_team`, `get_account_team_member`, `list_contacts`, `get_contact`, `list_leads`, `get_lead`, `list_lead_opportunities`, `get_lead_opportunity`, `list_products`, `get_product`.
+- **PRM tools:** `list_partners`, `get_partner`, `list_partner_lov`, `list_partner_contacts`, `get_partner_contact`, `list_deals`, `get_deal`, `list_partner_programs`, `get_partner_program`, `list_partner_contact_addresses`, `get_partner_contact_address`, `list_partner_contact_attachments`, `get_partner_contact_attachment`, `list_partner_contact_contact_points`, `get_partner_contact_contact_point`, `list_partner_contact_user_details`, `get_partner_contact_user_detail`.
+- Typed inputs in `security/validation.py` (CX ADF collection models + `ListPartnerLovInput` with path-safe `lov_name`).
+- ToolSpecs with `cx_module=sales|prm`, `http_method=GET`, `/crmRestApi/resources/11.13.18.05/…` paths; manifest regenerated (tool_count **157**).
+- Unit tests: `tests/test_sales_tools.py`, `tests/test_prm_tools.py`, `tests/test_cx_client.py`; contract kwargs for all CX + customer-knowledge tools in `tests/test_tool_contracts.py`.
+- MCP instructions: Fusion modules section + PRM LOV resolve rule; Cursor mirror `.cursor/rules/cpq-mcp-core.mdc`.
+
+#### Earlier Unreleased (still shipping)
 
 - `oracle_cpq_mcp.exporters.branded_documents` and `mermaid_render` (clone templates; local Mermaid PNG).
 - Word `diagrams` on `export_response_word`; lightweight structured `notes` (`##` / bullets); center-aligned diagram images/captions; tall-diagram height cap.
 - Cross-IDE agent policy in `AGENTS.md` + MCP `DOCUMENT_TEMPLATES` (Mermaid expected for analytical Word without user ask).
 - Prompt Studio profile stamp/filter (`SavedPrompt.profile`, `GET /api/profiles`, toolbar select); restart scripts `scripts/restart-prompt-studio.*`.
 - MCP tools `list_product_hierarchy_table` and `list_commerce_processes_table` (flat variable-name tables).
-- MCP tool `ensure_prompt_studio` — probe/auto-start local Prompt Studio after YES-gate site/cache turns (see `docs/TOOL_CATALOG.md`).
-- MCP customer knowledge tools (`get_customer_knowledge`, `ensure_customer_knowledge`, `append_customer_knowledge`) — catalog **126** tools.
+- MCP tool `ensure_prompt_studio` — probe/auto-start local Prompt Studio after YES-gate site/cache turns.
+- MCP customer knowledge tools (`get_customer_knowledge`, `ensure_customer_knowledge`, `append_customer_knowledge`) — meta; local `knowledge/` only. Gitignore `knowledge/*` except `CPQBaseKnowledge.md`.
 - [`mcp/oracle_cpq_mcp/core/profile_yaml.py`](../mcp/oracle_cpq_mcp/core/profile_yaml.py) full-document loader; [`scripts/migrate_profile_yaml.py`](../scripts/migrate_profile_yaml.py); [`.config/example.yaml`](../.config/example.yaml).
-- `PyYAML` dependency and [`mcp/oracle_cpq_mcp/core/catalog.py`](../mcp/oracle_cpq_mcp/core/catalog.py) loader (`load_catalog`, flat `PRODUCT_FAMILY_*` parser).
-- [`scripts/migrate_profile_catalog.py`](../scripts/migrate_profile_catalog.py) (deprecated sidecar helper; prefer `migrate_profile_yaml.py` / `oracle-cpq migrate-yaml`).
-- Product family / line / model aliases injected into MCP server instructions.
-- Prompt Studio ratings/comments APIs (`PATCH /api/prompts/{id}/rating`, comment CRUD) and per-source stats on prompt summaries.
-- Read-only `GET /api/config/profiles`, `GET /api/config/profiles/{id}`, `GET /api/workspace/paths` (redacted YAML; never `.env`).
-- `record_prompt_use` **1.1.0** optional `duration_ms` + `source=cache|api|mixed` (averages never blended). Optional `profile` / `environment` may be stripped by some MCP hosts — duration/source are sufficient.
-- **Since last notes pass:** Prompt Studio library `rating_filter` (`unrated`|`rated`) and `min_rating` (1–10) on `search_entries` / `GET /api/prompts`; toolbar Rating select (persisted).
-- **Since last notes pass:** `/api/health` and `/api/library_info` return `version`; UI `#studioVersion` badge always visible.
-- **Since last notes pass:** `export_response_word` catalog **1.2.0** + MCP `DOCUMENT_TEMPLATES` / `AGENTS.md` / Cursor `document-templates` mirror — choose Mermaid `pie` (shares), `xychart-beta` (numeric bars/lines), `flowchart`/`graph` (flows); pictographs only via optional `image_path` PNG under `tmp/`.
-- Profile `frugal_mode` / host `CPQ_FRUGAL_MODE`; format version **1.05** with `fusion_modules` (host `CPQ_FUSION_MODULES` / legacy `FUSION_MODULES`).
-- MCP customer knowledge memory tools: `get_customer_knowledge`, `ensure_customer_knowledge`, `append_customer_knowledge` (meta; local `knowledge/` only). Gitignore `knowledge/*` except `CPQBaseKnowledge.md`.
+- `PyYAML` dependency and [`mcp/oracle_cpq_mcp/core/catalog.py`](../mcp/oracle_cpq_mcp/core/catalog.py) loader.
+- Prompt Studio ratings/comments APIs; per-source `record_prompt_use` **1.1.0** (`duration_ms` + `source=cache|api|mixed`); Profiles & Paths APIs; Studio **0.4.1–0.4.3** UI (rating filter, version badge, autosize edit areas, Help).
+- `export_response_word` catalog **1.2.0** — Mermaid `pie` / `xychart-beta` / `flowchart` guidance.
+- Profile `frugal_mode` / host `CPQ_FRUGAL_MODE`; format **1.05** `fusion_modules` → **1.06** nested `cpq`/`cx`.
 
 ### Changed
 
-- MCP `build_server_instructions` compressed; `knowledge/CPQBaseKnowledge.md`, `AGENTS.md`, and Cursor alwaysApply mirrors slimmed to cut duplicated agent context.
-- Prompt Studio static assets cache-bust via regex on served HTML (Studio app **0.3.1**); Refresh/toolbar binds are null-safe.
-- Saved-prompt dedupe is per **content hash + profile** (same template under different profiles = separate rows).
-- Example profiles default `AUTO_SAVE_REFINED_PROMPT=true` (user owns live profile flags).
-- Saved-prompt upsert/import no longer treat save/import as completed runs; import preserves rating/comments/telemetry.
-- **Since last notes pass:** Prompt Studio list layout uses fixed shared CSS grid tracks (`minmax(0, …)`) so Rating / Format / Runs / Last run columns stay aligned; rating shown on card title row.
-- **Since last notes pass:** Edit-mode Original/Refined textareas autosize to content (`autosizeCodeEdit`); larger min-heights; `max-height: min(45vh, 420px)`.
-- **Since last notes pass:** Prompt Studio Help (`GET /api/help`) and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) expanded (TOC, filters, ratings, Paths, restart); FAQ/FEATURES/QUICKSTART/PRE_COMMIT point at Studio **0.4.3+**.
-- Profile template path renamed `.config/.profile.yaml.example` → `.config/example.yaml` (gitignore + Prompt Studio config viewer blocked stem `example`).
+- `register_tool` now passes FastMCP `name=<catalog name>` so handshake tool lists match `TOOL_CATALOG` (avoids silent `fn.__name__` drift).
+- `discover_tools` filters by `cx_module` (`sales` / `prm` / `meta` / …); meta tools stay hidden unless requested.
+- Catalog generator preamble documents nested `cpq.hosted` / CRM REST for Sales/PRM (not only legacy `cpq_mode` + `fusion_enabled`).
+- MCP `build_server_instructions` compressed; knowledge / `AGENTS.md` / Cursor mirrors slimmed.
+- Example profiles: CX comments updated — Sales/PRM are real GET tools (not “helper only”).
+- Prompt Studio static cache-bust / list grid / Help / README (app **0.4.3+**); saved-prompt dedupe per content hash + profile.
+- Profile template path renamed `.config/.profile.yaml.example` → `.config/example.yaml`.
+- Doc counts and checklists (README / FEATURES / FAQ / PRE_COMMIT) updated **122/123/126 → 157**.
 
 ### Fixed
 
-- Empty Word/Excel table rows when agents passed list-of-list sheet `rows` — `coerce_sheet_records` maps positional lists to column dicts before Excel/Word builders.
-- MCP startup fail-closed on stale `tool_manifest.json` after tool-description edits — regenerate via `write_manifest_file()` / commit updated hash (required after `export_response_word` **1.2.0** text).
+- Contract-test gap: CX Sales/PRM + customer-knowledge tools were in `TOOL_CATALOG` but missing from `tests/test_tool_contracts.py` (FakeCXClient + TOOL_KWARGS for all 34 names, including `list_partner_lov`).
+- Cursor handshake could omit a newly added Oracle tool while still showing 157 names (host `mcp_auth` filling a slot) — mitigated by explicit FastMCP `name=` on register.
+- Empty Word/Excel table rows when agents passed list-of-list sheet `rows` — `coerce_sheet_records` maps positional lists to column dicts.
+- MCP startup fail-closed on stale `tool_manifest.json` after tool-description edits — regenerate via `write_manifest_file()`.
 - Invalid profile YAML `local_data_policy: true` (bool) rejected by schema — must be `ask`|`prefer`|`never` (string).
+
+### Documentation
+
+- [`TOOL_CATALOG.md`](TOOL_CATALOG.md) regenerated (**157** tools; Sales/PRM domains; CRM REST in Fusion URL column).
+- [`FEATURES.md`](FEATURES.md) — CX architecture Mermaid, partner LOV flow, customer-knowledge flow; catalog table **157**.
+- [`FAQ.md`](FAQ.md) — CX coverage, `list_partner_lov` how-to, Cursor tool-count FAQ, `discover_tools` domains.
+- [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md) — Sales/PRM **Used live**; other CX modules **No tools yet**.
+- [`QUICKSTART.md`](QUICKSTART.md) §6.12 Fusion CX sample prompts; SETUP/UPGRADE `cx.modules` wording.
+- [`STANDARDS.md`](STANDARDS.md) / [`templates/NEW_TOOL.md`](templates/NEW_TOOL.md) — `CXClient`, catalog `name=`, contract coverage for CX.
+- Doc sync tests: `tests/test_docs_tool_catalog.py` asserts FEATURES/FAQ catalog count + `list_partner_lov`.
 
 ### Git commits (auto-generated)
 
 <!-- git-commits -->
+- `01ee399` added CX tools
+- `6da1c42` feature additions. fusion CPQ
+- `47229e1` feature additions
 - `c8ef795` feature additions
 - `d004860` improved documentation
 - `b5bba1d` generic improvements
