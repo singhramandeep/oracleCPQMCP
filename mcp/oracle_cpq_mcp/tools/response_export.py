@@ -13,12 +13,17 @@ from oracle_cpq_mcp.exporters.branded_documents import last_template_status
 from oracle_cpq_mcp.exporters.chat_document import build_docx_from_tables
 from oracle_cpq_mcp.exporters.records_excel import build_multi_sheet_workbook
 from oracle_cpq_mcp.exporters.response_export import (
+    MAX_EXPORT_SHEETS,
     count_sheet_rows,
     export_filename,
     file_uri,
     relative_export_path,
     validate_sheets_payload,
     write_export_bytes,
+)
+from oracle_cpq_mcp.prompts.refined_prompt_document import (
+    compose_export_notes,
+    prepend_refined_prompt_sheet,
 )
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.security.context import get_security_context
@@ -61,6 +66,7 @@ def _build_export_result(
     notes: str | None,
     kind: Literal["excel", "word"],
     diagrams: list[dict[str, Any]] | None = None,
+    refined_prompt: str | None = None,
 ) -> dict[str, Any]:
     """Build workbook/docx, write under exports/, return a single MCP object envelope.
 
@@ -68,7 +74,22 @@ def _build_export_result(
     structuredContent). Path/URI on disk is the durable deliverable.
     """
     profile = client.profile
+    include_refined = bool(
+        getattr(profile, "include_refined_prompt_in_documents", True)
+    )
     normalized = validate_sheets_payload(sheets)
+    if kind == "excel":
+        normalized = validate_sheets_payload(
+            prepend_refined_prompt_sheet(
+                normalized,
+                refined_prompt,
+                enabled=include_refined,
+                max_sheets=MAX_EXPORT_SHEETS,
+            )
+        )
+    notes = compose_export_notes(
+        notes, refined_prompt, enabled=include_refined and kind == "word"
+    )
     diagrams_embedded = 0
     diagrams_skipped: list[dict[str, str]] = []
     content: dict[str, int] | None = None
@@ -177,6 +198,9 @@ def _build_export_result(
         extra["diagrams_skipped"] = diagrams_skipped
         if content is not None:
             extra["content"] = content
+    extra["refined_prompt_included"] = bool(
+        include_refined and refined_prompt and str(refined_prompt).strip()
+    )
     return build_attachment_lead_envelope(
         tool_name,
         message=summary,
@@ -289,6 +313,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
         title: str,
         sheets: list[dict[str, Any]],
         notes: str | None = None,
+        refined_prompt: str | None = None,
     ) -> dict[str, Any]:
         return _build_export_result(
             client=client,
@@ -297,6 +322,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
             sheets=sheets,
             notes=notes,
             kind="excel",
+            refined_prompt=refined_prompt,
         )
 
     export_response_excel.__doc__ = TOOL_CATALOG["export_response_excel"].description
@@ -307,6 +333,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
         sheets: list[dict[str, Any]],
         notes: str | None = None,
         diagrams: list[dict[str, Any]] | None = None,
+        refined_prompt: str | None = None,
     ) -> dict[str, Any]:
         try:
             return _build_export_result(
@@ -317,6 +344,7 @@ def register_response_export_tools(mcp: Any, client: CPQClient) -> None:
                 notes=notes,
                 kind="word",
                 diagrams=diagrams,
+                refined_prompt=refined_prompt,
             )
         except RuntimeError as exc:
             return build_tool_error(

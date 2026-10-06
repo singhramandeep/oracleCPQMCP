@@ -8,27 +8,12 @@ from typing import Any
 from fastmcp.utilities.types import File
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 from oracle_cpq_mcp.core.preflight import resolve_write_execution
 from oracle_cpq_mcp.core.responses import build_attachment_lead_envelope
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
-
-
-def _list_query_extra(
-    *,
-    q_expr: str | None,
-    fields: list[str] | None,
-    orderby: list[str] | None,
-) -> dict[str, Any]:
-    extra: dict[str, Any] = {}
-    if q_expr:
-        extra["q"] = q_expr
-    if fields:
-        extra["fields"] = ",".join(fields)
-    if orderby:
-        extra["orderby"] = ",".join(orderby)
-    return extra
 
 
 def register_performance_tools(mcp: Any, client: CPQClient) -> None:
@@ -41,12 +26,18 @@ def register_performance_tools(mcp: Any, client: CPQClient) -> None:
         q_expr: str | None = None,
         fields: list[str] | None = None,
         orderby: list[str] | None = None,
+        finder: str | None = None,
+        only_data: bool = True,
     ) -> dict[str, Any]:
-        params = build_page_params(
+        params = cpq_list_params(
             limit,
             offset,
             total_results=total_results,
-            extra=_list_query_extra(q_expr=q_expr, fields=fields, orderby=orderby) or None,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
         )
         response = client.get("/performanceLogs", params=params)
         return enrich_pagination_hint(response, "list_performance_logs")

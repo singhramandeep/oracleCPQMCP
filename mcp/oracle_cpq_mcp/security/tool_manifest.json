@@ -1,5 +1,5 @@
 {
-  "tool_definitions_sha256": "600d58d635cad6cb6aad51447f8a5831ed7b0c975ba3fb0be6b26dbcc52a8d01",
+  "tool_definitions_sha256": "a831751a2151837bcebbbb7e20f541e41a3b7f0d55ab729b201d0666596b5902",
   "tool_count": 183,
   "tools": [
     "add_from_favorites",
@@ -396,8 +396,8 @@
       "definition_sha256": "142a597874d33002e7a04de8e19885bb04375dfb5e5d69e99b73615d84414130"
     },
     "get_datatable_rows": {
-      "version": "1.0.1",
-      "definition_sha256": "25aee423537b14fc8d6a7abec62ae6617fda667cc2ba8c9f7be8da7b4fd4ee43"
+      "version": "1.1.0",
+      "definition_sha256": "a69e94608061a4764cf9abb107bf53a070f43f6794e3522a63fa6cd7cb942047"
     },
     "get_deal": {
       "version": "1.0.0",
@@ -548,8 +548,8 @@
       "definition_sha256": "f2ba146a79d8b2e334d9ebd96066db3f02c8ea853b64fac62e2543d2d7d39712"
     },
     "get_user": {
-      "version": "1.0.1",
-      "definition_sha256": "65a1b07612731fe6871b36d5aaf1cfe03c2a05f63ca1be079d0c31e73d0d608b"
+      "version": "1.1.0",
+      "definition_sha256": "b320cce17c31f5336302469a88bcda95ba3292bf0fe2109ec36a9243f09f5e6d"
     },
     "get_user_groups": {
       "version": "1.0.1",
@@ -784,8 +784,8 @@
       "definition_sha256": "fad1e741512a5527f36f63ec7a07c657aeb9ad956b628048b5319ccb68eb8b29"
     },
     "list_users": {
-      "version": "1.0.1",
-      "definition_sha256": "ce651d50fce1ce61efc83ee3a890a517e91c4a1ace82140a286644a7d62689d8"
+      "version": "1.1.0",
+      "definition_sha256": "d9828b6ef250af1031551f4b88fa868ac2a448ff60ab1d2fe535fb562baec906"
     },
     "load_local_data": {
       "version": "1.1.1",

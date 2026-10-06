@@ -65,6 +65,7 @@ class CPQProfile(BaseModel):
     read_only: bool = True
     refined_prompt: bool = True
     auto_save_refined_prompt: bool = False
+    include_refined_prompt_in_documents: bool = True
     frugal_mode: bool = False
     debug_mode: bool = True
     local_data_policy: LocalDataPolicy = "prefer"
@@ -255,6 +256,16 @@ def _resolve_auto_save_refined_prompt(raw: dict[str, str | None]) -> bool:
             os.environ.get("CPQ_AUTO_SAVE_REFINED_PROMPT"), default=False
         )
     return parse_bool_env(raw.get("AUTO_SAVE_REFINED_PROMPT"), default=False)
+
+
+def _resolve_include_refined_prompt_in_documents(raw: dict[str, str | None]) -> bool:
+    if os.environ.get("CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS") is not None:
+        return parse_bool_env(
+            os.environ.get("CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS"), default=True
+        )
+    return parse_bool_env(
+        raw.get("INCLUDE_REFINED_PROMPT_IN_DOCUMENTS"), default=True
+    )
 
 
 def _resolve_debug_mode(raw: dict[str, str | None]) -> bool:
@@ -722,6 +733,11 @@ def _load_profile_from_yaml(
         document.auto_save_refined_prompt,
         default=False,
     )
+    include_in_docs = _host_bool_override(
+        "CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS",
+        document.include_refined_prompt_in_documents,
+        default=True,
+    )
     debug_mode = _host_bool_override(
         "CPQ_DEBUG_MODE", document.debug_mode, default=True
     )
@@ -794,6 +810,7 @@ def _load_profile_from_yaml(
         read_only=read_only,
         refined_prompt=refined_prompt,
         auto_save_refined_prompt=auto_save,
+        include_refined_prompt_in_documents=include_in_docs,
         frugal_mode=frugal_mode,
         debug_mode=debug_mode,
         local_data_policy=local_policy,
@@ -888,6 +905,7 @@ def _load_profile_from_env(
     )
     refined_prompt = _resolve_refined_prompt(raw)
     auto_save = _resolve_auto_save_refined_prompt(raw)
+    include_in_docs = _resolve_include_refined_prompt_in_documents(raw)
     export_policy = _resolve_post_response_export(raw)
     if frugal_mode:
         refined_prompt = False
@@ -923,6 +941,7 @@ def _load_profile_from_env(
         read_only=_resolve_read_only(raw),
         refined_prompt=refined_prompt,
         auto_save_refined_prompt=auto_save,
+        include_refined_prompt_in_documents=include_in_docs,
         frugal_mode=frugal_mode,
         debug_mode=_resolve_debug_mode(raw),
         local_data_policy=_resolve_local_data_policy(raw),

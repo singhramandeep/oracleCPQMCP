@@ -13,6 +13,7 @@ from oracle_cpq_mcp.core.commerce_paths import (
     resolve_process_var_name,
 )
 from oracle_cpq_mcp.core.cpq_client import CPQClient
+from oracle_cpq_mcp.core.cpq_collection import cpq_list_params
 from oracle_cpq_mcp.core.pagination import build_page_params, clamp_limit, enrich_pagination_hint
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
@@ -170,8 +171,26 @@ def register_commerce_tools(mcp: Any, client: CPQClient) -> None:
     get_commerce_action.__doc__ = TOOL_CATALOG["get_commerce_action"].description
     register_tool(mcp, get_commerce_action, "get_commerce_action")
 
-    def list_commerce_processes(limit: int = 100, offset: int = 0) -> dict[str, Any]:
-        params = build_page_params(limit, offset)
+    def list_commerce_processes(
+        limit: int = 100,
+        offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
+    ) -> dict[str, Any]:
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get("/commerceProcessSetups", params=params)
         return enrich_pagination_hint(response, "list_commerce_processes")
 

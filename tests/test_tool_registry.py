@@ -156,12 +156,12 @@ def test_mcp_tool_kwargs_read_only_hint() -> None:
     assert kwargs["annotations"].openWorldHint is True
     assert kwargs["title"] == "List Users"
     assert kwargs["annotations"].title == "List Users"
-    assert kwargs["version"] == "1.0.1"
+    assert kwargs["version"] == "1.1.0"
     assert kwargs["description"] == spec.description
     assert kwargs["icons"]
     assert kwargs["meta"]["domain"] == "users"
     assert kwargs["meta"]["cx_module"] == "cpq"
-    assert kwargs["meta"]["version"] == "1.0.1"
+    assert kwargs["meta"]["version"] == "1.1.0"
     assert "users" in kwargs["tags"]
     assert "read" in kwargs["tags"]
     assert "cpq" in kwargs["tags"]

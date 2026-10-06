@@ -79,6 +79,24 @@ def test_tags_for_tools_includes_domain_and_intent() -> None:
     assert "export" in tags
     assert "write" in tags
     assert "read" in tags
+    assert "cpq" in tags
+    assert "cx" not in tags
+
+
+def test_tags_for_tools_stamps_cx_and_prm_module() -> None:
+    tags = tags_for_tools(["list_partners"])
+    assert "cx" in tags
+    assert "prm" in tags
+    assert "cpq" not in tags
+    assert "sales" not in tags
+
+
+def test_tags_for_tools_mixed_cpq_and_cx() -> None:
+    tags = tags_for_tools(["list_users", "list_partners", "list_accounts"])
+    assert "cpq" in tags
+    assert "cx" in tags
+    assert "prm" in tags
+    assert "sales" in tags
 
 
 def test_upsert_dedupes_by_hash(tmp_path: Path, monkeypatch) -> None:

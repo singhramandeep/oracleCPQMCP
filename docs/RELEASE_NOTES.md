@@ -1,7 +1,7 @@
-# Release notes
+# Release notes (changelog)
 
-Changelog for the **Oracle CPQ MCP** server. Format inspired by [Keep a Changelog](https://keepachangelog.com/).  
-Package version today: **`0.3.0`** (see [`pyproject.toml`](../pyproject.toml)).
+All notable changes to **Oracle CPQ MCP** (`oracle-cpq-mcp`). Format inspired by [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
+Package version today: **`0.3.0`** (see [`pyproject.toml`](../pyproject.toml)). Covers **every git commit from inception (`ceaa2a6`, 2026-08-19) through HEAD** — **31** commits, no tags. Root [`CHANGELOG.md`](../CHANGELOG.md) is a pointer here.
 
 Related docs: [FEATURES.md](FEATURES.md) · [FAQ.md](FAQ.md) · [TOOL_CATALOG.md](TOOL_CATALOG.md) · [LIVE_SMOKE_MATRIX.md](LIVE_SMOKE_MATRIX.md) · [SETUP.md](SETUP.md) · [QUICKSTART.md](QUICKSTART.md) · [UPGRADE.md](UPGRADE.md) · [SECURITY.md](../SECURITY.md) · [README — Update the package version](../README.md#update-the-package-version)
 
@@ -29,9 +29,45 @@ See also the contributor checklist in the [README](../README.md#update-the-packa
 
 ## Unreleased
 
-Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **183** tools (`cx_module`: 101 `cpq` + 25 `meta` + 36 `sales` + 21 `prm`). Reload / restart Oracle CPQ MCP after pull so new CX tools and instruction text appear. Cursor’s MCP panel may also list a host `mcp_auth` helper — that name is **not** in the Oracle catalog.
+Package remains **`0.3.0`**; Prompt Studio app is **`0.4.4`**. Catalog is **183** tools (`cx_module`: 101 `cpq` + 25 `meta` + 36 `sales` + 21 `prm`). Reload / restart Oracle CPQ MCP after pull so new tools and instruction text appear. Cursor’s MCP panel may also list a host `mcp_auth` helper — that name is **not** in the Oracle catalog.
 
-### Summary (this wave)
+Working-tree notes below cover `git diff HEAD` (not yet committed). Prior CX Adaptive Search wave remains in the Highlights / Added sections that follow.
+
+### Summary (working tree vs HEAD)
+
+| Area | What changed |
+|------|----------------|
+| **CPQ collection filters** | Shared `cpq_collection.py` + `_CpqCollectionFilters*` inputs; `q_expr` / `orderby` / `fields` / `expand` / `finder` / `total_results` / `only_data` on CPQ list/get tools |
+| **Refined prompt in docs** | Profile `include_refined_prompt_in_documents` (default true); Word/Excel prepend filled params (no **Variables**) |
+| **YES-gate footer** | Split **Search / Adaptive Search** (CX) vs **Search / CPQ collections**; product/module tags |
+| **Prompt Studio 0.4.4** | Product (`cpq`/`cx`) + CX-module filters on saved library |
+| **History merge** | Full inception→HEAD narrative consolidated into this file |
+
+### Features
+
+- **CPQ REST collection query helpers** — [`mcp/oracle_cpq_mcp/core/cpq_collection.py`](../mcp/oracle_cpq_mcp/core/cpq_collection.py): `cpq_collection_extra`, `cpq_list_params`, `cpq_expand_params` map MCP args to Oracle Query Collections (`q`, `orderby`, `fields`, `expand`, `finder`, `onlyData`, pagination). Wired through `users`, `groups`, `datatables`, `parts`, `bml`, `configuration`, `commerce`, `transactions`, `performance`, `metrics`, `saved_searches`.
+- **Typed filter models** — [`security/validation.py`](../mcp/oracle_cpq_mcp/security/validation.py): `_CpqPaginationFilters`, `_CpqCollectionFiltersLite`, `_CpqCollectionFilters`, `_CpqExpandFilters`; list/get inputs inherit instead of duplicating fields. Catalog notes `CPQ_COLLECTION_FILTERS_NOTE` / `CPQ_EXPAND_GET_NOTE` in [`tool_registry.py`](../mcp/oracle_cpq_mcp/registry/tool_registry.py); several list/get tools bumped to **1.1.0**.
+- **`include_refined_prompt_in_documents`** — [`config.py`](../mcp/oracle_cpq_mcp/core/config.py) / [`profile_yaml.py`](../mcp/oracle_cpq_mcp/core/profile_yaml.py); host override `CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS`. [`refined_prompt_document.py`](../mcp/oracle_cpq_mcp/prompts/refined_prompt_document.py): `prepare_refined_prompt_for_document`, `compose_export_notes`, `prepend_refined_prompt_sheet` (strip Variables / unused `{{ }}`). [`response_export.py`](../mcp/oracle_cpq_mcp/tools/response_export.py) `refined_prompt` on `export_response_excel` (**1.2.0**) and `export_response_word` (**1.5.0**).
+- **YES-gate / instructions** — [`instructions.py`](../mcp/oracle_cpq_mcp/prompts/instructions.py): `CPQ_COLLECTION_QUERY`, `DOCUMENTS_INCLUDE_REFINED_PROMPT`; `REFINED_PROMPT_CORE` emits separate CX Adaptive Search vs CPQ collection sections; tags must include `cpq` and/or `cx` (+ module).
+- **Product / CX-module tags** — [`tags.py`](../mcp/oracle_cpq_mcp/prompts/tags.py): `PRODUCT_TAGS`, `CX_MODULE_TAGS`; `tags_for_tools` stamps from `ToolSpec.cx_module`.
+- **Prompt Studio 0.4.4** — [`apps/prompt_studio/app.py`](../apps/prompt_studio/app.py) `_filter_product_module`; `GET /api/prompts` query params `product` / `cx_module`; toolbar filters in `static/index.html` + `app.js`.
+- **Docs / agent mirrors** — FAQ / FEATURES / TOOL_CATALOG / `AGENTS.md` / `.cursor/rules/cpq-mcp-core.mdc` for collection filters, footer split, and document refined-prompt flag.
+
+### Bug Fixes
+
+- None in this working-tree wave.
+
+### Performance & Refactoring
+
+- Consolidated duplicated pagination / `q_expr` / `fields` / `orderby` validators into shared `_Cpq*` base models in `validation.py` (net ~350 lines removed from per-tool input classes).
+- Tool handlers call `cpq_list_params` / `cpq_expand_params` instead of ad-hoc query dicts (`configuration.py`, `datatables.py`, `groups.py`, `users.py`, `transactions.py`, etc.).
+
+### Config / Dependencies
+
+- [`.config/example.yaml`](../.config/example.yaml) / [`example_fusion.yaml`](../.config/example_fusion.yaml): `include_refined_prompt_in_documents: true` (+ comments).
+- No new third-party dependencies.
+
+### Summary (prior wave — Adaptive Search / CX, already on HEAD)
 
 | Area | What shipped |
 |------|----------------|
@@ -64,18 +100,28 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 - **Agent instruction compression + frugal_mode:** `build_server_instructions` shortened; `frugal_mode` / `CPQ_FRUGAL_MODE` forces refined footer / post-response export / Prompt Studio ensure off.
 - **Tool catalog columns:** each tool lists **CPQ REST URL** and **Fusion REST URL**. Sales/PRM put the CRM path in the Fusion column and mark the CPQ column as not-CPQ (regenerate with `python scripts/generate_tool_catalog.py`).
 - Branded Word/Excel/PPT exports via `.config/template/` + Mermaid diagrams in analytical Word exports (local `mmdc`).
-- Prompt Studio **0.4.3+** (ratings, API logs, Profiles & Paths, version badge). Agents call `ensure_prompt_studio` after YES-gate CPQ work.
+- Prompt Studio **0.4.4** (product/CX-module filters, ratings, API logs, Profiles & Paths). Agents call `ensure_prompt_studio` after YES-gate CPQ work.
 - Unified customer profile YAML; maintainer CLI `oracle-cpq`; defaults `local_data_policy=prefer`, `post_response_export=always_excel`.
+- Profile `include_refined_prompt_in_documents` (default true) prepends YES-gate refined prompt (filled search params, no Variables) on Word/Excel exports.
+- CPQ list/get tools accept Oracle collection filters via `cpq_collection` helpers (not Adaptive Search JSON).
 
 #### Documentation (CX wave)
 
 - Updated for **183** tools, Adaptive Search list migration, and Sales/PRM: [`FEATURES.md`](FEATURES.md), [`FAQ.md`](FAQ.md), [`README.md`](../README.md), [`SETUP.md`](SETUP.md), [`QUICKSTART.md`](QUICKSTART.md), [`UPGRADE.md`](UPGRADE.md), [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md), [`STANDARDS.md`](STANDARDS.md), [`COMMON_PROMPTS.md`](COMMON_PROMPTS.md), [`PRE_COMMIT_REVIEW.md`](PRE_COMMIT_REVIEW.md), [`templates/NEW_TOOL.md`](templates/NEW_TOOL.md), [`AGENTS.md`](../AGENTS.md), [`knowledge/CPQBaseKnowledge.md`](../knowledge/CPQBaseKnowledge.md).
 - Mermaid diagrams for CPQ vs CX clients, Adaptive Search registration, module gating, partner LOV resolve, customer-knowledge reload, and YAML `cpq`/`cx` split.
 - FAQ: Adaptive Search vs ADF list filters; partner LookupCode; why Cursor may show fewer than 183 tools; `discover_tools` accepts `sales` / `prm` / `cx_module`.
-- YES-gate refined footer now requires **Search / Adaptive Search** (entity, `q`, keywords, fields, order_by, limit/offset, Preference) when list filters were used — see `REFINED_PROMPT_CORE` in [`instructions.py`](../mcp/oracle_cpq_mcp/prompts/instructions.py).
+- YES-gate refined footer: emit **Search / Adaptive Search** (CX) and/or **Search / CPQ collections** only when those filters were used; tags include `cpq`/`cx` + module — see `REFINED_PROMPT_CORE` in [`instructions.py`](../mcp/oracle_cpq_mcp/prompts/instructions.py).
 - Example profile comments no longer say CX is “helper only”.
 
 ### Added
+
+#### Working tree (uncommitted)
+
+- [`mcp/oracle_cpq_mcp/core/cpq_collection.py`](../mcp/oracle_cpq_mcp/core/cpq_collection.py) — CPQ Query Collections param builders.
+- [`mcp/oracle_cpq_mcp/prompts/refined_prompt_document.py`](../mcp/oracle_cpq_mcp/prompts/refined_prompt_document.py) — strip Variables / unused placeholders for Office exports.
+- Profile flag `include_refined_prompt_in_documents` + env `CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS`.
+- Prompt Studio Product / CX-module library filters (app **0.4.4**).
+- Tests: `tests/test_cpq_collection.py`, `tests/test_datatable_collection_filters.py`, `tests/test_refined_prompt_document.py` (+ updates to config, export, tags, Studio, instructions).
 
 #### Fusion CX
 
@@ -111,8 +157,10 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 - `discover_tools` filters by `cx_module` (`sales` / `prm` / `meta` / …); meta tools stay hidden unless requested.
 - Catalog generator preamble documents nested `cpq.hosted` / CRM REST for Sales/PRM (not only legacy `cpq_mode` + `fusion_enabled`).
 - MCP `build_server_instructions` compressed; knowledge / `AGENTS.md` / Cursor mirrors slimmed.
-- Example profiles: CX comments updated — Sales/PRM are real GET tools (not “helper only”).
-- Prompt Studio static cache-bust / list grid / Help / README (app **0.4.3+**); saved-prompt dedupe per content hash + profile.
+- Example profiles: CX comments updated — Sales/PRM are real GET tools (not “helper only”); `include_refined_prompt_in_documents` documented.
+- Prompt Studio static cache-bust / list grid / Help / README (app **0.4.4**); saved-prompt dedupe per content hash + profile; Product/CX-module filters.
+- `export_response_excel` **1.2.0** / `export_response_word` **1.5.0** — optional `refined_prompt` when profile flag is on.
+- CPQ list/get catalog descriptions note collection filters; shared `_CpqCollectionFilters*` in `validation.py`.
 - Profile template path renamed `.config/.profile.yaml.example` → `.config/example.yaml`.
 - Doc counts and checklists (README / FEATURES / FAQ / PRE_COMMIT) updated **122/123/126 → 157 → 172 → 176 → 183**.
 
@@ -137,6 +185,8 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 ### Git commits (auto-generated)
 
 <!-- git-commits -->
+- `97605ec` added CX tools
+- `4fe10bc` added CX tools
 - `01ee399` added CX tools
 - `6da1c42` feature additions. fusion CPQ
 - `47229e1` feature additions
@@ -170,7 +220,9 @@ Package remains **`0.3.0`**; Prompt Studio app is **`0.4.3`**. Catalog is now **
 
 ---
 
-## [0.3.0] - 2026-09-01
+## [0.3.0] - 2026-09-02
+
+Cut commit: `62bcf6f` — Ship 0.3.0 agent UX and Prompt Studio editing.
 
 ### Highlights
 
@@ -184,11 +236,12 @@ Agent-UX release: **async BML jobs**, **local cache resources**, **dual-env exam
 | Timeouts | Profile `HTTP_TIMEOUT` / host `CPQ_HTTP_TIMEOUT` (default 60s) |
 | Dual env | `.cursor/mcp.json.dual.example.json` + Antigravity dual example; envelopes stamp `profile` |
 | Honesty | [`LIVE_SMOKE_MATRIX.md`](LIVE_SMOKE_MATRIX.md) + capability card in server instructions |
+| Prompt Studio | Title/variable edit, Run/Edit cache-bust, placeholder improvements |
 
 ### Added
 
-- `start_bml_site_export`, `get_local_job`, `search_local_bml`
-- MCP resources for local data index and BML file reads
+- `start_bml_site_export`, `get_local_job`, `search_local_bml` (`local_jobs.py`)
+- MCP resources for local data index and BML file reads (`prompts/local_resources.py`)
 - Dual-MCP config examples; FAQ async agent loop for BML/exports
 - Configurable HTTP timeout (5–3600s)
 
@@ -196,7 +249,7 @@ Agent-UX release: **async BML jobs**, **local cache resources**, **dual-env exam
 
 - Tool envelopes include `profile` (alias of `customer_id`) plus `environment`
 - `get_all_bml_code` docs point agents at async job path for large sites
-- Package version **0.3.0**
+- Package / `__init__` version **0.3.0**; FAQ / FEATURES / TOOL_CATALOG updated for jobs and Studio editing
 
 ---
 
@@ -259,7 +312,42 @@ Offline unit/contract tests cover the catalog. Against **live** CPQ, still **unt
 
 **Dual environments:** one MCP process = one active env. For dev+test in one prompt, use two MCP entries or compare `data/{profile}/dev` vs `test` — [FAQ](FAQ.md#can-the-llm-connect-with-two-environments-at-the-same-time).
 
-### Earlier milestones (summarized)
+### Git commits (0.2.0 cut only)
+
+- `32f8320` — major feature addition (0.2.0 catalog, admin, metrics, collab, exports, debug log)
+- `17d2b93` — README follow-up for 0.2.0
+
+---
+
+## [0.1.0] - 2026-08-19 – 2026-08-21
+
+Inception and first production-shaped MCP server. Package version **0.1.0** throughout this window.
+
+### 2026-08-19 — Initial commit (`ceaa2a6`)
+
+First tree: FastMCP server, `CPQClient`, profile `.env` loading, security stack (READ_ONLY, dry-run, confirmation, rate limit, replay, sanitization, schema integrity), and tools for **users**, **groups**, **data tables**, plus `discover_tools` and Excel user export. Docs: README, SETUP, QUICKSTART, SECURITY, threat model, GitHub security workflow. Tests for config, client, pagination, preflight, and security invariants. ~19 catalog tools.
+
+### Added (same day)
+
+- `130ba9b` — `get_all_bml_code` (zip via `GET /adminMeta`, JSON util library); `CPQClient.get_bytes`.
+- `0714bcb` — Commerce main + line **attribute and action** metadata tools (`COMMERCE_PROCESS_VAR_NAME` defaults).
+- `df85397` — JSON Schema **output contracts** for all tools.
+- `62f1a29` — Success **envelopes** `{status, tool, data}`, ToolAnnotations, MCP **progress** for long BML/user exports.
+
+### Added / Changed 2026-08-20
+
+- `90bb92c` — Cross-platform MCP launchers (`scripts/mcp-server.cmd` / `.sh`), example configs for Cursor/VS Code/Antigravity (incl. unix), post-execution output schema validation, docs synced to ~19 tools.
+- `494b2ee` / `c05cd49` / `b5c97c5` / `b3f0445` — QUICKSTART/README restructure; audit report and `prompts/audit.md`.
+- `c000974` — Catalog expansion to **67 tools**: configuration (`productFamilies`), parts, performance logs, async **tasks**, transactions; pre-commit, STANDARDS, RELEASE_NOTES generator, eval harness, schema lint. Cursor rules for tool authoring.
+- `a1b39e2` / `fda086e` — Release notes / README nits.
+
+### Added 2026-08-21
+
+- `2ee4c83` — `scripts/generate_tool_catalog.py` (catalog markdown from registry).
+- `d88bb7b` — **Prompt Studio** app, saved-prompt library, local `data/{profile}/{env}/` cache, refined-prompt footer + MCP instructions, FAQ/FEATURES/TOOL_CATALOG, Cursor saved-prompt skill/command. (Commit subject says “documentation”; the diff is the 0.1→studio/cache/prompts wave, ~87+ tools.)
+- `f90354a` — Expanded `docs/RELEASE_NOTES.md` narrative.
+
+### Milestone summary
 
 | Milestone | Summary |
 |-----------|---------|
@@ -267,28 +355,68 @@ Offline unit/contract tests cover the catalog. Against **live** CPQ, still **unt
 | BML export | `get_all_bml_code` zip + util-library JSON delivery |
 | MCP quality | JSON Schema output contracts, envelopes/annotations/progress, schema integrity |
 | Cross-platform MCP | Antigravity / Cursor / VS Code examples; `.cmd` + `.sh` launchers |
-| Catalog growth | 67 → 87 → **100** tools |
+| Catalog growth | ~19 → 67 → ~87 tools (then **100** in 0.2.0) |
 | Quick setup (`SETUP.md`) | 8-step first-time path |
 | Full setup guide (`QUICKSTART.md`) | Detailed install, MCP connect, samples |
 
-### Git commits (through 0.2.0 cut)
+---
 
-<!-- git-commits-0.2.0 -->
-- `d88bb7b` some documentation
-- `2ee4c83` Added couple of tools, better prompt suggestios, prompt studio
-- `fda086e` release notes
-- `a1b39e2` release notes
-- `c000974` Expand MCP catalog to 67 tools with tasks, configuration, parts, and transactions.
-- `b3f0445` updated quickstart
-- `b5c97c5` updated documentation
-- `c05cd49` updated documentation
-- `494b2ee` Restructure QUICKSTART for clearer first-time setup flow.
-- `90bb92c` Add cross-platform MCP config, output validation, and doc sync for 19 tools.
-- `62f1a29` Add MCP best-practice envelopes, annotations, and progress
-- `df85397` Add JSON Schema output contracts for all MCP tools
-- `0714bcb` Add commerce and line-level attribute and action metadata tools
-- `130ba9b` Add get_all_bml_code MCP tool for BML export and util library source
-- `ceaa2a6` first commit
-<!-- /git-commits-0.2.0 -->
+## Version timeline
 
-Note: the live auto-update script only rewrites the **Unreleased** `<!-- git-commits -->` block. Historical lists above are frozen for this release.
+```mermaid
+flowchart LR
+  A["0.1.0 2026-08-19<br/>ceaa2a6 inception"] --> B["0.1.x 08-20/21<br/>67→studio/cache"]
+  B --> C["0.2.0 2026-08-26<br/>100 tools"]
+  C --> D["0.3.0 2026-09-02<br/>jobs + Studio edit"]
+  D --> E["Unreleased through HEAD<br/>YAML, Fusion CPQ, CX AS"]
+```
+
+| Version | First commit | Date | Snapshot |
+|---------|--------------|------|----------|
+| 0.1.0 | `ceaa2a6` | 2026-08-19 | Users/groups/datatables + security MCP |
+| 0.1.x | `c000974`–`d88bb7b` | 2026-08-20–21 | 67 tools → Prompt Studio, local data, refined prompts |
+| 0.2.0 | `32f8320` | 2026-08-26 | 100 tools, admin, metrics, exports |
+| 0.3.0 | `62bcf6f` | 2026-09-02 | Async BML jobs, Studio editing |
+| Unreleased | `9afbe0c`–`HEAD` | 2026-09-11– | YAML profiles, Fusion CPQ, CX Adaptive Search (183 tools) |
+
+Compare: [Unreleased vs 0.3.0](https://github.com/singhramandeep/oracleCPQMCP/compare/62bcf6f...HEAD) · [0.3.0](https://github.com/singhramandeep/oracleCPQMCP/commit/62bcf6f) · [0.2.0](https://github.com/singhramandeep/oracleCPQMCP/commit/32f8320) · [0.1.0](https://github.com/singhramandeep/oracleCPQMCP/commit/ceaa2a6)
+
+---
+
+## Commit index (oldest → HEAD)
+
+| Date | SHA | Subject |
+|------|-----|---------|
+| 2026-08-19 | `ceaa2a6` | first commit |
+| 2026-08-19 | `130ba9b` | Add get_all_bml_code MCP tool for BML export and util library source |
+| 2026-08-19 | `0714bcb` | Add commerce and line-level attribute and action metadata tools |
+| 2026-08-19 | `df85397` | Add JSON Schema output contracts for all MCP tools |
+| 2026-08-19 | `62f1a29` | Add MCP best-practice envelopes, annotations, and progress |
+| 2026-08-20 | `90bb92c` | Add cross-platform MCP config, output validation, and doc sync for 19 tools |
+| 2026-08-20 | `494b2ee` | Restructure QUICKSTART for clearer first-time setup flow |
+| 2026-08-20 | `c05cd49` | updated documentation |
+| 2026-08-20 | `b5c97c5` | updated documentation |
+| 2026-08-20 | `b3f0445` | updated quickstart |
+| 2026-08-20 | `c000974` | Expand MCP catalog to 67 tools with tasks, configuration, parts, and transactions |
+| 2026-08-20 | `a1b39e2` | release notes |
+| 2026-08-20 | `fda086e` | release notes |
+| 2026-08-21 | `2ee4c83` | Added couple of tools, better prompt suggestios, prompt studio |
+| 2026-08-21 | `d88bb7b` | some documentation |
+| 2026-08-21 | `f90354a` | some documentation |
+| 2026-08-26 | `32f8320` | major feature addition |
+| 2026-08-26 | `17d2b93` | major feature addition |
+| 2026-09-02 | `62bcf6f` | Ship 0.3.0 agent UX and Prompt Studio editing |
+| 2026-09-11 | `9afbe0c` | add yaml support |
+| 2026-09-25 | `3f71082` | Ship branded Word/Mermaid exports and Prompt Studio profile filter |
+| 2026-09-25 | `2b890d5` | committed some leftovers |
+| 2026-09-28 | `3f86111` | generic improvements |
+| 2026-09-28 | `b5bba1d` | generic improvements |
+| 2026-09-28 | `d004860` | improved documentation |
+| 2026-09-28 | `c8ef795` | feature additions |
+| 2026-09-28 | `47229e1` | feature additions |
+| 2026-09-29 | `6da1c42` | feature additions. fusion CPQ |
+| 2026-10-05 | `01ee399` | added CX tools |
+| 2026-10-05 | `4fe10bc` | added CX tools |
+| 2026-10-05 | `97605ec` | added CX tools (**HEAD**) |
+
+Note: `scripts/update_release_notes.py` only rewrites the **Unreleased** `<!-- git-commits -->` block. The commit index and versioned sections above are hand-maintained.

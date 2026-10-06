@@ -83,6 +83,7 @@ def config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("CPQ_READ_ONLY", raising=False)
     monkeypatch.delenv("CPQ_REFINED_PROMPT", raising=False)
     monkeypatch.delenv("CPQ_AUTO_SAVE_REFINED_PROMPT", raising=False)
+    monkeypatch.delenv("CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS", raising=False)
     monkeypatch.delenv("CPQ_POST_RESPONSE_EXPORT", raising=False)
     monkeypatch.delenv("CPQ_DEBUG_MODE", raising=False)
     monkeypatch.delenv("CPQ_LOCAL_DATA_POLICY", raising=False)
@@ -105,6 +106,20 @@ def test_load_unified_profile_yaml(config_dir: Path) -> None:
     assert profile.product_family_aliases["laptop family"] == "laptop"
     assert profile.product_line_aliases["hp line"] == "hp"
     assert profile.product_model_aliases["elite 840"] == "elite840"
+    assert profile.include_refined_prompt_in_documents is True
+
+
+def test_yaml_include_refined_prompt_in_documents_false(
+    config_dir: Path,
+) -> None:
+    yaml_text = PROFILE_YAML.replace(
+        "auto_save_refined_prompt: false",
+        "auto_save_refined_prompt: false\ninclude_refined_prompt_in_documents: false",
+        1,
+    )
+    (config_dir / "acme.yaml").write_text(yaml_text, encoding="utf-8")
+    profile = load_profile("acme")
+    assert profile.include_refined_prompt_in_documents is False
 
 
 def test_yaml_preferred_over_env(config_dir: Path) -> None:

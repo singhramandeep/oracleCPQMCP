@@ -95,6 +95,12 @@ RiskLevel = Literal[
     "PRIVILEGED",
 ]
 
+CPQ_COLLECTION_FILTERS_NOTE = (
+    " Supports CPQ collection filters when the REST resource allows: "
+    "q_expr (MongoDB-style q), orderby, fields, finder, total_results, only_data."
+)
+CPQ_EXPAND_GET_NOTE = " Optional expand, exclude_field_types, only_data on GET."
+
 DRY_RUN_DESCRIPTION_SUFFIX = (
     " Safe execution: defaults to dry_run=true (preflight only — validates inputs, "
     "checks existence via read-only GETs, returns a preview stating this will UPDATE/CREATE/DEPLOY). "
@@ -202,11 +208,13 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "List users across all companies on the CPQ site. Defaults to active users only. "
             "Returns one page of results. If hasMore is true, call again with "
             "offset = offset + limit. Use export_users_excel for a full Excel export."
+            + CPQ_COLLECTION_FILTERS_NOTE
         ),
         tags={"paginated"},
         read_only=True,
         http_method="GET",
         api_path="/users",
+        version="1.1.0",
     ),
     "export_users_excel": _spec(
         "export_users_excel",
@@ -226,11 +234,12 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
         "get_user",
         domain="users",
         operation="read",
-        description="Get a single user by party number.",
+        description="Get a single user by party number." + CPQ_EXPAND_GET_NOTE,
         tags={},
         read_only=True,
         http_method="GET",
         api_path="/users/{partyNumber}",
+        version="1.1.0",
     ),
     "get_user_groups": _spec(
         "get_user_groups",
@@ -344,11 +353,13 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "CUSTOM_DATA_TABLE_NAME from profile (supports _1, _2 suffixes). "
             "Returns one page of results. If hasMore is true, call again with "
             "offset = offset + limit."
+            + CPQ_COLLECTION_FILTERS_NOTE
         ),
         tags={"paginated"},
         read_only=True,
         http_method="GET",
         api_path="/adminCustom{tableName}",
+        version="1.1.0",
     ),
     "list_datatable_fields": _spec(
         "list_datatable_fields",
@@ -2664,11 +2675,13 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "[{name, columns?, rows}] and write under data/{profile}/{env}/exports/. "
             "Returns a success envelope with path, absolute_path, and file:// uri "
             "(no MCP File attachment — Cursor hosts reject list+[File] structured output). "
-            "Caps: 20 sheets, 10k rows total. Does not call Oracle CPQ."
+            "Caps: 20 sheets, 10k rows total. Does not call Oracle CPQ. "
+            "Optional refined_prompt is prepended as sheet 1 when "
+            "include_refined_prompt_in_documents is true (default)."
         ),
         tags={"export", "excel"},
         read_only=True,
-        version="1.1.0",
+        version="1.2.0",
     ),
     "export_response_word": _spec(
         "export_response_word",
@@ -2691,11 +2704,13 @@ TOOL_CATALOG: dict[str, ToolSpec] = {
             "(no MCP File attachment). "
             "Requires optional dependency python-docx "
             '(pip install python-docx or pip install -e ".[docs]"). '
-            "Does not call Oracle CPQ. Does not use public Kroki/mermaid.ink."
+            "Does not call Oracle CPQ. Does not use public Kroki/mermaid.ink. "
+            "Optional refined_prompt is placed at the start of the body when "
+            "include_refined_prompt_in_documents is true (default)."
         ),
         tags={"export"},
         read_only=True,
-        version="1.4.0",
+        version="1.5.0",
     ),
     "set_post_response_export": _spec(
         "set_post_response_export",

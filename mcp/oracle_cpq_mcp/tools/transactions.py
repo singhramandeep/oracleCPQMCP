@@ -15,7 +15,8 @@ from oracle_cpq_mcp.core.commerce_paths import (
 )
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.errors import build_tool_error
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_expand_params, cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 from oracle_cpq_mcp.core.preflight import (
     WriteAction,
     resolve_write_execution,
@@ -26,28 +27,6 @@ from oracle_cpq_mcp.core.preflight import (
 from oracle_cpq_mcp.core.responses import build_attachment_lead_envelope
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
-
-
-def _collection_extra(
-    *,
-    q_expr: str | None,
-    fields: list[str] | None,
-    orderby: list[str] | None,
-    expand: str | None,
-    exclude_field_types: str | None,
-) -> dict[str, Any]:
-    extra: dict[str, Any] = {}
-    if q_expr:
-        extra["q"] = q_expr
-    if fields:
-        extra["fields"] = ",".join(fields)
-    if orderby:
-        extra["orderby"] = ",".join(orderby)
-    if expand:
-        extra["expand"] = expand
-    if exclude_field_types:
-        extra["excludeFieldTypes"] = exclude_field_types
-    return extra
 
 
 def _resolve_base(
@@ -194,24 +173,25 @@ def register_transaction_tools(mcp: Any, client: CPQClient) -> None:
         orderby: list[str] | None = None,
         expand: str | None = None,
         exclude_field_types: str | None = None,
+        finder: str | None = None,
+        only_data: bool = True,
         process_var_name: str | None = None,
         doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
     ) -> dict[str, Any]:
         base = _resolve_base(client, process_var_name, doc_var_name)
         if isinstance(base, dict):
             return base
-        params = build_page_params(
+        params = cpq_list_params(
             limit,
             offset,
             total_results=total_results,
-            extra=_collection_extra(
-                q_expr=q_expr,
-                fields=fields,
-                orderby=orderby,
-                expand=expand,
-                exclude_field_types=exclude_field_types,
-            )
-            or None,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            expand=expand,
+            exclude_field_types=exclude_field_types,
+            finder=finder,
+            only_data=only_data,
         )
         response = client.get(base, params=params)
         return _maybe_enrich(response, "list_transactions")
@@ -225,18 +205,17 @@ def register_transaction_tools(mcp: Any, client: CPQClient) -> None:
         doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
         expand: str | None = None,
         exclude_field_types: str | None = None,
+        only_data: bool = True,
     ) -> dict[str, Any]:
         base = _resolve_base(client, process_var_name, doc_var_name)
         if isinstance(base, dict):
             return base
-        params = _collection_extra(
-            q_expr=None,
-            fields=None,
-            orderby=None,
+        params = cpq_expand_params(
             expand=expand,
             exclude_field_types=exclude_field_types,
+            only_data=only_data,
         )
-        return client.get(f"{base}/{transaction_id}", params=params or None)
+        return client.get(f"{base}/{transaction_id}", params=params)
 
     get_transaction.__doc__ = TOOL_CATALOG["get_transaction"].description
     register_tool(mcp, get_transaction, "get_transaction")
@@ -251,24 +230,25 @@ def register_transaction_tools(mcp: Any, client: CPQClient) -> None:
         orderby: list[str] | None = None,
         expand: str | None = None,
         exclude_field_types: str | None = None,
+        finder: str | None = None,
+        only_data: bool = True,
         process_var_name: str | None = None,
         doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
     ) -> dict[str, Any]:
         base = _resolve_base(client, process_var_name, doc_var_name)
         if isinstance(base, dict):
             return base
-        params = build_page_params(
+        params = cpq_list_params(
             limit,
             offset,
             total_results=total_results,
-            extra=_collection_extra(
-                q_expr=q_expr,
-                fields=fields,
-                orderby=orderby,
-                expand=expand,
-                exclude_field_types=exclude_field_types,
-            )
-            or None,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            expand=expand,
+            exclude_field_types=exclude_field_types,
+            finder=finder,
+            only_data=only_data,
         )
         response = client.get(f"{base}/{transaction_id}/transactionLine", params=params)
         return _maybe_enrich(response, "list_transaction_lines")
@@ -283,20 +263,19 @@ def register_transaction_tools(mcp: Any, client: CPQClient) -> None:
         doc_var_name: str = DEFAULT_COMMERCE_DOC_VAR_NAME,
         expand: str | None = None,
         exclude_field_types: str | None = None,
+        only_data: bool = True,
     ) -> dict[str, Any]:
         base = _resolve_base(client, process_var_name, doc_var_name)
         if isinstance(base, dict):
             return base
-        params = _collection_extra(
-            q_expr=None,
-            fields=None,
-            orderby=None,
+        params = cpq_expand_params(
             expand=expand,
             exclude_field_types=exclude_field_types,
+            only_data=only_data,
         )
         return client.get(
             f"{base}/{transaction_id}/transactionLine/{document_number}",
-            params=params or None,
+            params=params,
         )
 
     get_transaction_line.__doc__ = TOOL_CATALOG["get_transaction_line"].description

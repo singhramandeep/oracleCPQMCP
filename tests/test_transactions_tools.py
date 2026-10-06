@@ -10,7 +10,8 @@ import pytest
 from oracle_cpq_mcp.core.config import CPQProfile, CredentialSet
 from oracle_cpq_mcp.security.settings import SecuritySettings
 from oracle_cpq_mcp.tools._register import configure_security
-from oracle_cpq_mcp.tools.transactions import _collection_extra, register_transaction_tools
+from oracle_cpq_mcp.core.cpq_collection import cpq_collection_extra
+from oracle_cpq_mcp.tools.transactions import register_transaction_tools
 
 
 @pytest.fixture()
@@ -63,7 +64,7 @@ class FakeMcp:
 
 
 def test_collection_extra_maps_oracle_params() -> None:
-    extra = _collection_extra(
+    extra = cpq_collection_extra(
         q_expr="{id:{$gt:1}}",
         fields=["id", "_customer_id"],
         orderby=["id:desc"],
@@ -76,6 +77,7 @@ def test_collection_extra_maps_oracle_params() -> None:
         "orderby": "id:desc",
         "expand": "transactionLine",
         "excludeFieldTypes": "html",
+        "onlyData": "true",
     }
 
 

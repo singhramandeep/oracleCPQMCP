@@ -107,6 +107,7 @@ SERVER_INSTRUCTIONS = build_server_instructions(
     auto_save_refined_prompt=_profile.auto_save_refined_prompt,
     local_data_policy=_profile.local_data_policy,
     post_response_export=_profile.post_response_export,
+    include_refined_prompt_in_documents=_profile.include_refined_prompt_in_documents,
     frugal_mode=_profile.frugal_mode,
     fusion_modules=_profile.fusion_modules,
     shared_knowledge=_shared_knowledge,

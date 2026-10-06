@@ -6,7 +6,8 @@ from typing import Any
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.errors import build_tool_error
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_expand_params, cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 from oracle_cpq_mcp.core.preflight import (
     resolve_write_execution,
     run_create_datatable_preflight,
@@ -21,31 +22,37 @@ def register_datatable_tools(mcp: Any, client: CPQClient) -> None:
     """Register data table tools on the FastMCP instance."""
     default_table = client.profile.custom_data_table_name
 
-    def list_datatables(limit: int = 100, offset: int = 0) -> dict[str, Any]:
-        params = build_page_params(limit, offset)
+    def list_datatables(
+        limit: int = 100,
+        offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
+    ) -> dict[str, Any]:
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get("/datatables", params=params)
         return enrich_pagination_hint(response, "list_datatables")
 
     list_datatables.__doc__ = TOOL_CATALOG["list_datatables"].description
     register_tool(mcp, list_datatables, "list_datatables")
 
-    def get_datatable(table_name: str | None = None) -> dict[str, Any]:
-        name = table_name or default_table
-        if not name:
-            return build_tool_error(
-                "VALIDATION_ERROR",
-                "table_name is required (no CUSTOM_DATA_TABLE_NAME in profile)",
-                hint="Set CUSTOM_DATA_TABLE_NAME in the profile .env or pass table_name.",
-            )
-        return client.get(f"/datatables/{name}")
-
-    get_datatable.__doc__ = TOOL_CATALOG["get_datatable"].description
-    register_tool(mcp, get_datatable, "get_datatable")
-
-    def get_datatable_rows(
+    def get_datatable(
         table_name: str | None = None,
-        limit: int = 50,
-        offset: int = 0,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
     ) -> dict[str, Any]:
         name = table_name or default_table
         if not name:
@@ -54,7 +61,44 @@ def register_datatable_tools(mcp: Any, client: CPQClient) -> None:
                 "table_name is required (no CUSTOM_DATA_TABLE_NAME in profile)",
                 hint="Set CUSTOM_DATA_TABLE_NAME in the profile .env or pass table_name.",
             )
-        params = build_page_params(limit, offset)
+        params = cpq_expand_params(
+            expand=expand,
+            exclude_field_types=exclude_field_types,
+            only_data=only_data,
+        )
+        return client.get(f"/datatables/{name}", params=params)
+
+    get_datatable.__doc__ = TOOL_CATALOG["get_datatable"].description
+    register_tool(mcp, get_datatable, "get_datatable")
+
+    def get_datatable_rows(
+        table_name: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
+    ) -> dict[str, Any]:
+        name = table_name or default_table
+        if not name:
+            return build_tool_error(
+                "VALIDATION_ERROR",
+                "table_name is required (no CUSTOM_DATA_TABLE_NAME in profile)",
+                hint="Set CUSTOM_DATA_TABLE_NAME in the profile .env or pass table_name.",
+            )
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(f"/adminCustom{name}", params=params)
         return enrich_pagination_hint(response, "get_datatable_rows")
 
@@ -65,6 +109,12 @@ def register_datatable_tools(mcp: Any, client: CPQClient) -> None:
         table_name: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
         name = table_name or default_table
         if not name:
@@ -73,7 +123,16 @@ def register_datatable_tools(mcp: Any, client: CPQClient) -> None:
                 "table_name is required (no CUSTOM_DATA_TABLE_NAME in profile)",
                 hint="Set CUSTOM_DATA_TABLE_NAME in the profile .env or pass table_name.",
             )
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(f"/datatables/{name}/fields", params=params)
         return enrich_pagination_hint(response, "list_datatable_fields")
 

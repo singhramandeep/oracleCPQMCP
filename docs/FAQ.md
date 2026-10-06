@@ -448,6 +448,14 @@ See [.gitignore](../.gitignore) and [PRE_COMMIT_REVIEW.md](PRE_COMMIT_REVIEW.md)
 
 **183** MCP tools in `TOOL_CATALOG` (regenerate after tool changes with `oracle-cpq generate-tool-catalog` or `python scripts/generate_tool_catalog.py`). Formal tables: [TOOL_CATALOG.md](TOOL_CATALOG.md). A running server registers CX tools only for enabled `cx.modules`. Some IDEs also list a host `mcp_auth` helper — that extra name is not in the Oracle catalog.
 
+### How do CPQ list filters differ from Fusion CX Adaptive Search?
+
+Oracle CPQ REST **collection** GET APIs use query parameters documented in Oracle CPQ REST guides ([Query Collections](https://docs.oracle.com/en/cloud/saas/configure-price-quote/cxcpq/Query.html), [Sort](https://docs.oracle.com/en/cloud/saas/configure-price-quote/cxcpq/Sort.html), [Paginate](https://docs.oracle.com/en/cloud/saas/configure-price-quote/cxcpq/Paginate.html), [Expand](https://docs.oracle.com/en/cloud/saas/configure-price-quote/cxcpq/Expand.html)). MCP CPQ tools expose these as **`q_expr`** (MongoDB-style string, not JSON object), **`orderby`**, **`fields`**, **`finder`**, **`limit`/`offset`/`total_results`**, and **`only_data`**. Singular **`get_*`** tools may accept **`expand`** and **`exclude_field_types`**. Not every CPQ resource accepts every parameter — CPQ returns 400 when unsupported.
+
+Fusion **CX top-level** `list_*` use Adaptive Search JSON `q` (see [next FAQ](#why-do-top-level-cx-list_-filters-look-different-now)). **Never** pass Adaptive Search JSON to CPQ tools.
+
+YES-gate refined-prompt footers use **two independent sections**: **Search / Adaptive Search** (CX) and **Search / CPQ collections**. Emit only the section(s) used this turn. Saved prompts auto-tag `cpq` and/or `cx` plus the CX module slug (`sales`, `prm`, …). Prompt Studio can filter by Product and CX module.
+
 ### Why do top-level CX list_* filters look different now?
 
 Top-level Sales/PRM `list_*` tools use Fusion **Adaptive Search** (`/crmRestApi/searchResources/…/custom-actions/queries` with `Preference: transient`). Pass an Adaptive Search JSON `q` object (e.g. `{"op":"$eq","attribute":"PartyUniqueName","value":"Acme"}`) or `keywords` — not ADF SCIM strings like `Name LIKE '…'`. Use `list_adaptive_search_entities` / `list_adaptive_search_entity_fields` when unsure of entity or field names. Child collections and `get_*` still use ADF `/crmRestApi/resources/…`. CPQ commerce `searchResources` is unrelated.
@@ -583,6 +591,8 @@ Yes. After a tabular answer, with `POST_RESPONSE_EXPORT=always_excel` (default),
 
 Pass structured `sheets` (not scraped markdown). Install Word support with `pip install python-docx` or `pip install -e ".[docs]"`. Set policy with `set_post_response_export` or env `POST_RESPONSE_EXPORT` / `CPQ_POST_RESPONSE_EXPORT`.
 
+Profile `include_refined_prompt_in_documents` (default **true**) prepends the YES-gate refined prompt at the **start** of Word (after Title) and as Excel sheet 1. Pass it as `refined_prompt` with filled Search/Adaptive Search and/or Search/CPQ collection parameters; omit the **Variables** block and unused `{{placeholders}}`. Set the YAML flag false (or host `CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS=false`) to skip.
+
 **Open exports in Word or Excel** (or LibreOffice) via the returned `path` / `file://` URI — Cursor’s editor does not render `.docx` body text and can look empty. Export clones also strip the Argano template’s Heading 1 `pageBreakBefore` so the title is not forced onto page 2 (header-only first page). The on-disk `.config/template/` files are never modified.
 
 Word export always writes title/notes/tables **before** Mermaid. Diagrams are best-effort (~8s per diagram, ~12s total, process-tree kill on timeout). If Cursor shows **-32001 / Connection closed** during Word export, reload Oracle CPQ MCP — after this hardening a content-bearing `.docx` should already exist under `data/{profile}/{env}/exports/` even when diagrams are skipped. Retry without `diagrams` or with a pre-rendered `image_path` PNG if Mermaid keeps hanging.
@@ -681,7 +691,7 @@ Safe cleanup:
 
 ### What is Prompt Studio?
 
-A **local** FastAPI UI (app **0.4.3+**) to browse/search/favorite saved prompts, fill placeholders, browse **API logs** under `logs/`, rate/comment on prompts, view per-source **run telemetry** (cache|api|mixed), and inspect **Profiles & Paths** (redacted profile YAML + workspace paths). The header always shows the Studio version. It does **not** call Oracle CPQ and never edits credentials. Full guide: [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) and in-app Help.
+A **local** FastAPI UI (app **0.4.4+**) to browse/search/favorite saved prompts, fill placeholders, browse **API logs** under `logs/`, rate/comment on prompts, view per-source **run telemetry** (cache|api|mixed), and inspect **Profiles & Paths** (redacted profile YAML + workspace paths). Filter by **Product** (CPQ/CX) and **CX module**. The header always shows the Studio version. It does **not** call Oracle CPQ and never edits credentials. Full guide: [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md) and in-app Help.
 
 After YES-gate site/cache CPQ work, agents call MCP tool **`ensure_prompt_studio`**, which probes `http://127.0.0.1:8765/api/health` and **auto-starts** Studio in the background if needed (then cites the URL). You can still start it manually:
 

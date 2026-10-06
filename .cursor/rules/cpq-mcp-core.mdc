@@ -13,6 +13,7 @@ alwaysApply: true
 - Never edit profile credentials / OAuth secrets; live CPQ only via MCP tools.
 - Template dir read-only; scratch under `tmp/{profile}/{env}/`.
 - Tool authoring: [`docs/STANDARDS.md`](../../docs/STANDARDS.md); compliance: `prompts/compliance_check.md`.
-- Honor MCP instructions for refined prompt / export / Prompt Studio / local data (including `frugal_mode`). Refined footer: **Elapsed** only — no token counts. YES-gate footer includes **Search / Adaptive Search** when list filters were used.
+- Honor MCP instructions for refined prompt / export / Prompt Studio / local data (including `frugal_mode`). Refined footer: **Elapsed** only — no token counts. YES-gate: **Search / Adaptive Search** (CX) and/or **Search / CPQ collections** when list/get filters were used; omit unused section. Tags include `cpq`/`cx` plus CX module slug. `include_refined_prompt_in_documents` (default true): pass that footer as `refined_prompt` on Word/Excel exports (parameters only, no **Variables**).
+- CPQ list/get collections: `q_expr`, `orderby`, `fields`, `expand`, `finder`, `total_results`, `only_data` — not Adaptive Search JSON.
 - PRM partner codes: resolve LookupCode via `list_partner_lov` (do not invent `lov_name`).
 - CX top-level `list_*`: Adaptive Search JSON `q`/`keywords` (not ADF SCIM); discovery via `list_adaptive_search_*`. Not for CPQ.

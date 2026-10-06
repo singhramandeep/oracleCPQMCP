@@ -1,8 +1,8 @@
 # Prompt Studio
 
-Local UI (app **0.4.3+**) to browse, edit, rate, and fill saved refined prompts from `.prompts/saved_prompts.json`.
+Local UI (app **0.4.4+**) to browse, edit, rate, and fill saved refined prompts from `.prompts/saved_prompts.json`.
 
-Does **not** call Oracle CPQ. Never edits profile passwords. The header always shows the running version badge (e.g. `v0.4.3`).
+Does **not** call Oracle CPQ. Never edits profile passwords. The header always shows the running version badge (e.g. `v0.4.4`). Toolbar **Product** (CPQ/CX) and **CX module** filters use tags stamped by `save_refined_prompt`.
 
 In-app **Help** (sidebar) mirrors this guide and uses live paths/commands from the server.
 

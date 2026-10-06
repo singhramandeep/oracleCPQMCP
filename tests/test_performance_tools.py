@@ -12,7 +12,8 @@ from oracle_cpq_mcp.security.exceptions import ValidationSecurityError
 from oracle_cpq_mcp.security.settings import SecuritySettings
 from oracle_cpq_mcp.security.validation import validate_tool_input
 from oracle_cpq_mcp.tools._register import configure_security
-from oracle_cpq_mcp.tools.performance import _list_query_extra, register_performance_tools
+from oracle_cpq_mcp.core.cpq_collection import cpq_collection_extra
+from oracle_cpq_mcp.tools.performance import register_performance_tools
 
 
 @pytest.fixture()
@@ -30,7 +31,7 @@ def profile() -> CPQProfile:
 
 
 def test_list_query_extra_joins_fields_and_orderby() -> None:
-    extra = _list_query_extra(
+    extra = cpq_collection_extra(
         q_expr="{serverTime:{$gte:100}}",
         fields=["id", "event", "serverTime"],
         orderby=["serverTime:desc", "eventDate:asc"],
@@ -39,6 +40,7 @@ def test_list_query_extra_joins_fields_and_orderby() -> None:
         "q": "{serverTime:{$gte:100}}",
         "fields": "id,event,serverTime",
         "orderby": "serverTime:desc,eventDate:asc",
+        "onlyData": "true",
     }
 
 

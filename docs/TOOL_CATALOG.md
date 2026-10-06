@@ -61,17 +61,17 @@ _6 tool(s)_
 
 | | |
 |---|---|
-| **Version** | `1.0.1` |
+| **Version** | `1.1.0` |
 | **CX module** | `cpq` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | `GET` |
 | **CPQ REST URL** | `/rest/{rest_api_version}/users/{partyNumber}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/users/{partyNumber}` |
 | **Tags** | `cpq`, `read`, `users` |
-| **Parameters** | `party_number` (str, required) |
+| **Parameters** | `expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`only_data` (bool, default True)<br>`party_number` (str, required) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | Get a single user by party number. |
+| **Description** | Get a single user by party number. Optional expand, exclude_field_types, only_data on GET. |
 
 #### `get_user_groups`
 
@@ -84,8 +84,8 @@ _6 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/users/{partyNumber}/groups` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/users/{partyNumber}/groups` |
 | **Tags** | `cpq`, `groups`, `paginated`, `read`, `users` |
-| **Parameters** | `party_number` (str, required)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`party_number` (str, required) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List all groups assigned to a user. Returns one page of results. If hasMore is true, call again with offset = offset + limit. |
 
@@ -93,17 +93,17 @@ _6 tool(s)_
 
 | | |
 |---|---|
-| **Version** | `1.0.1` |
+| **Version** | `1.1.0` |
 | **CX module** | `cpq` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | `GET` |
 | **CPQ REST URL** | `/rest/{rest_api_version}/users` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/users` |
 | **Tags** | `cpq`, `paginated`, `read`, `users` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | `status_filter` (Literal['active', 'inactive', 'all'], default 'active')<br>`q_expr` (str \| None, default None) |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None)<br>`status_filter` (Literal['active', 'inactive', 'all'], default 'active') |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | List users across all companies on the CPQ site. Defaults to active users only. Returns one page of results. If hasMore is true, call again with offset = offset + limit. Use export_users_excel for a full Excel export. |
+| **Description** | List users across all companies on the CPQ site. Defaults to active users only. Returns one page of results. If hasMore is true, call again with offset = offset + limit. Use export_users_excel for a full Excel export. S… |
 
 #### `sync_users_local`
 
@@ -175,8 +175,8 @@ _5 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/companies/{company}/groups/{groupVarName}/users` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/companies/{company}/groups/{groupVarName}/users` |
 | **Tags** | `cpq`, `groups`, `paginated`, `read`, `users` |
-| **Parameters** | `group_var_name` (str, required)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`group_var_name` (str, required) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List users that belong to a group. Returns one page of results. If hasMore is true, call again with offset = offset + limit. |
 
@@ -191,8 +191,8 @@ _5 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/companies/{company}/groups` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/companies/{company}/groups` |
 | **Tags** | `cpq`, `groups`, `paginated`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List groups for the configured company (defaults to host company `_host`). Returns one page of results. If hasMore is true, call again with offset = offset + limit. |
 
@@ -250,7 +250,7 @@ _10 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/datatables/{tableName}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/datatables/{tableName}` |
 | **Tags** | `cpq`, `datatables`, `read` |
-| **Parameters** | `table_name` (str \| None, default None) |
+| **Parameters** | `expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`only_data` (bool, default True)<br>`table_name` (str \| None, default None) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get metadata/properties for a data table. Defaults to the first CUSTOM_DATA_TABLE_NAME from profile (supports CUSTOM_DATA_TABLE_NAME_1, _2, etc.). |
@@ -275,17 +275,17 @@ _10 tool(s)_
 
 | | |
 |---|---|
-| **Version** | `1.0.1` |
+| **Version** | `1.1.0` |
 | **CX module** | `cpq` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | `GET` |
 | **CPQ REST URL** | `/rest/{rest_api_version}/adminCustom{tableName}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/adminCustom{tableName}` |
 | **Tags** | `cpq`, `datatables`, `paginated`, `read` |
-| **Parameters** | `table_name` (str \| None, default None)<br>`limit` (int, default 50)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`table_name` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
-| **Description** | Get rows from a deployed data table. Defaults to the first CUSTOM_DATA_TABLE_NAME from profile (supports _1, _2 suffixes). Returns one page of results. If hasMore is true, call again with offset = offset + limit. |
+| **Description** | Get rows from a deployed data table. Defaults to the first CUSTOM_DATA_TABLE_NAME from profile (supports _1, _2 suffixes). Returns one page of results. If hasMore is true, call again with offset = offset + limit. Suppor… |
 
 #### `list_datatable_fields`
 
@@ -298,8 +298,8 @@ _10 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/datatables/{tableName}/fields` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/datatables/{tableName}/fields` |
 | **Tags** | `cpq`, `datatables`, `paginated`, `read` |
-| **Parameters** | `table_name` (str \| None, default None)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`table_name` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List field definitions for a data table. Defaults table_name from profile. Returns one page of results. If hasMore is true, call again with offset = offset + limit. |
 
@@ -314,8 +314,8 @@ _10 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/datatables` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/datatables` |
 | **Tags** | `cpq`, `datatables`, `paginated`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List data tables defined on the CPQ site. Returns one page of results. If hasMore is true, call again with offset = offset + limit. |
 
@@ -485,8 +485,8 @@ _11 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/bml/common/functions` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/bml/common/functions` |
 | **Tags** | `bml`, `cpq`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List built-in BML common functions (atoi, len, etc.) via GET /bml/common/functions. |
 
@@ -501,8 +501,8 @@ _11 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/bml/library/folders` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/bml/library/folders` |
 | **Tags** | `bml`, `cpq`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List util library folders via GET /bml/library/folders. |
 
@@ -517,7 +517,7 @@ _11 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/bml/scripts` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/bml/scripts` |
 | **Tags** | `bml`, `cpq`, `paginated`, `read`, `search` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`orderby` (str \| None, default None)<br>`fields` (list[str] \| None, default None) |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
 | **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Search BML scripts containing a string via GET /bml/scripts. Supports q_expr, limit, offset, orderby, fields. |
@@ -768,7 +768,7 @@ _38 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/commerceDocuments{Process}{Doc}/{id}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/commerceDocuments{Process}{Doc}/{id}` |
 | **Tags** | `commerce`, `cpq`, `read`, `transactions` |
-| **Parameters** | `transaction_id` (str, required)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction')<br>`expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None) |
+| **Parameters** | `expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`only_data` (bool, default True)<br>`transaction_id` (str, required)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction') |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get one Commerce transaction by numeric transaction_id. Optional expand / exclude_field_types. Defaults process from profile. |
@@ -784,7 +784,7 @@ _38 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/commerceDocuments{Process}{Doc}/{id}/transactionLine/{documentNumber}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/commerceDocuments{Process}{Doc}/{id}/transactionLine/{documentNumber}` |
 | **Tags** | `commerce`, `cpq`, `lines`, `read`, `transactions` |
-| **Parameters** | `transaction_id` (str, required)<br>`document_number` (str, required)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction')<br>`expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None) |
+| **Parameters** | `expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`only_data` (bool, default True)<br>`transaction_id` (str, required)<br>`document_number` (str, required)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction') |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get a single transaction line by transaction_id and document_number (line document number). |
@@ -800,8 +800,8 @@ _38 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/commerceProcessSetups` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/commerceProcessSetups` |
 | **Tags** | `commerce`, `cpq`, `metadata`, `paginated`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List Commerce process setups (admin metadata). Paginated. Does not list live transactions. |
 
@@ -832,7 +832,7 @@ _38 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/searchResources/{resourceVarName}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/searchResources/{resourceVarName}` |
 | **Tags** | `commerce`, `cpq`, `paginated`, `read`, `saved_search` |
-| **Parameters** | `resource_var_name` (str \| None, default None)<br>`process_var_name` (str \| None, default None)<br>`show_all` (Literal['ALL', 'HIDDEN', 'VISIBLE', 'INACTIVE'], default 'VISIBLE')<br>`limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True) |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`resource_var_name` (str \| None, default None)<br>`process_var_name` (str \| None, default None)<br>`show_all` (Literal['ALL', 'HIDDEN', 'VISIBLE', 'INACTIVE'], default 'VISIBLE') |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List saved searches for a commerce document resource (GET /searchResources/{resource_var_name}). Paginated with limit/offset. Optional show_all maps to query showAll (ALL\|HIDDEN\|VISIBLE\|INACTIVE; default VISIBLE). When… |
@@ -848,7 +848,7 @@ _38 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/commerceDocuments{Process}{Doc}/{id}/transactionLine` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/commerceDocuments{Process}{Doc}/{id}/transactionLine` |
 | **Tags** | `commerce`, `cpq`, `lines`, `paginated`, `read`, `transactions` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`transaction_id` (str, required)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction') |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`transaction_id` (str, required)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction') |
 | **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List line items for a Commerce transaction. Paginated collection with the same filter params as list_transactions. Empty items means no lines for that id. |
@@ -864,7 +864,7 @@ _38 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/commerceDocuments{Process}{Doc}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/commerceDocuments{Process}{Doc}` |
 | **Tags** | `commerce`, `cpq`, `paginated`, `read`, `transactions` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction') |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`process_var_name` (str \| None, default None)<br>`doc_var_name` (str, default 'transaction') |
 | **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List Commerce transactions for the configured process (GET /commerceDocuments{Process}{Doc}). Returns one page; if hasMore is true, call again with offset = offset + limit. Supports q_expr, fields, orderby, expand, excl… |
@@ -1243,7 +1243,7 @@ _3 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/performanceLogs` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/performanceLogs` |
 | **Tags** | `cpq`, `logs`, `paginated`, `performance`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None) |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
 | **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List Oracle CPQ performance log events (user activity timing / metrics). Returns one page of results. If hasMore is true, call again with offset = offset + limit. Supports collection filters: q_expr (MongoDB q), fields… |
@@ -1285,7 +1285,7 @@ _3 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/parts/{id}` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/parts/{id}` |
 | **Tags** | `cpq`, `parts`, `read` |
-| **Parameters** | `part_id` (str, required) |
+| **Parameters** | `expand` (str \| None, default None)<br>`exclude_field_types` (str \| None, default None)<br>`only_data` (bool, default True)<br>`part_id` (str, required) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Get a single part by id. |
@@ -1301,7 +1301,7 @@ _3 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/parts` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/parts` |
 | **Tags** | `cpq`, `paginated`, `parts`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`fields` (list[str] \| None, default None) |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
 | **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List parts from the CPQ site. Returns one page of results. If hasMore is true, call again with offset = offset + limit. |
@@ -1525,8 +1525,8 @@ _17 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/productFamilies/.../arraySets/{arraySetVarName}/attributes` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/productFamilies/.../arraySets/{arraySetVarName}/attributes` |
 | **Tags** | `arraySets`, `attributes`, `configuration`, `cpq`, `read` |
-| **Parameters** | `scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None)<br>`array_set_var_name` (str, required)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None)<br>`array_set_var_name` (str, required) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List attributes of an array set at scope family\|line\|model. |
 
@@ -1541,8 +1541,8 @@ _17 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/productFamilies/.../arraySets` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/productFamilies/.../arraySets` |
 | **Tags** | `arraySets`, `configuration`, `cpq`, `read` |
-| **Parameters** | `scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List array sets at scope family\|line\|model. |
 
@@ -1557,8 +1557,8 @@ _17 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/productFamilies/.../attributes` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/productFamilies/.../attributes` |
 | **Tags** | `attributes`, `configuration`, `cpq`, `read` |
-| **Parameters** | `scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List configuration attributes at scope family\|line\|model (composite path under /productFamilies/.../attributes). |
 
@@ -1573,8 +1573,8 @@ _17 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/productFamilies/.../menuItems` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/productFamilies/.../menuItems` |
 | **Tags** | `configuration`, `cpq`, `menuItems`, `read` |
-| **Parameters** | `scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None)<br>`parent_kind` (Literal['attribute', 'array_set_attribute'], required)<br>`attribute_var_name` (str, required)<br>`array_set_var_name` (str \| None, default None)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`scope` (Literal['family', 'line', 'model'], required)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str \| None, default None)<br>`model_var_name` (str \| None, default None)<br>`parent_kind` (Literal['attribute', 'array_set_attribute'], required)<br>`attribute_var_name` (str, required)<br>`array_set_var_name` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List menu items for an attribute or array-set attribute (parent_kind=attribute\|array_set_attribute) at scope family\|line\|model. |
 
@@ -1589,8 +1589,8 @@ _17 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/productFamilies/{prodFamVarName}/productLines/{prodLineVarName}/models` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/productFamilies/{prodFamVarName}/productLines/{prodLineVarName}/models` |
 | **Tags** | `configuration`, `cpq`, `metadata`, `read` |
-| **Parameters** | `prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str, required)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`prod_fam_var_name` (str, required)<br>`prod_line_var_name` (str, required) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List models under a product family/line. |
 
@@ -1605,8 +1605,8 @@ _17 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/productFamilies` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/productFamilies` |
 | **Tags** | `configuration`, `cpq`, `metadata`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List product family metadata via GET /productFamilies. |
 
@@ -1637,8 +1637,8 @@ _17 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/productFamilies/{prodFamVarName}/productLines` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/productFamilies/{prodFamVarName}/productLines` |
 | **Tags** | `configuration`, `cpq`, `metadata`, `read` |
-| **Parameters** | `prod_fam_var_name` (str, required)<br>`limit` (int, default 100)<br>`offset` (int, default 0) |
-| **Filters** | — |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True)<br>`fields` (list[str] \| None, default None)<br>`orderby` (list[str] \| None, default None)<br>`finder` (str \| None, default None)<br>`prod_fam_var_name` (str, required) |
+| **Filters** | `q_expr` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List product lines under a product family. |
 
@@ -1661,7 +1661,7 @@ _1 tool(s)_
 | **CPQ REST URL** | `/rest/{rest_api_version}/metrics` |
 | **Fusion REST URL** | `/cpq/rest/{rest_api_version}/metrics` |
 | **Tags** | `cpq`, `metrics`, `paginated`, `read` |
-| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True) |
+| **Parameters** | `limit` (int, default 100)<br>`offset` (int, default 0)<br>`total_results` (bool, default True)<br>`only_data` (bool, default True) |
 | **Filters** | `name` (str \| None, default None)<br>`start_time` (str \| None, default None)<br>`end_time` (str \| None, default None)<br>`date_modified_from` (str \| None, default None)<br>`date_modified_to` (str \| None, default None)<br>`date_added_from` (str \| None, default None)<br>`date_added_to` (str \| None, default None) |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | List Oracle CPQ site metrics (GET /metrics). Returns one page of items (name, value, startTime, endTime, dateModified, dateAdded). Optional filters: name (exact), start_time/end_time, date_modified_from/to, date_added_f… |
@@ -2785,14 +2785,14 @@ _24 tool(s)_
 
 | | |
 |---|---|
-| **Version** | `1.1.0` |
+| **Version** | `1.2.0` |
 | **CX module** | `meta` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | — |
 | **CPQ REST URL** | — (local / no CPQ REST) |
 | **Fusion REST URL** | — (local / no CPQ REST) |
 | **Tags** | `excel`, `export`, `meta`, `read` |
-| **Parameters** | `title` (str, required)<br>`sheets` (list[ExportResponseSheetInput], required)<br>`notes` (str \| None, default None) |
+| **Parameters** | `title` (str, required)<br>`sheets` (list[ExportResponseSheetInput], required)<br>`notes` (str \| None, default None)<br>`refined_prompt` (str \| None, default None) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Build a multi-sheet Excel (.xlsx) from structured sheets [{name, columns?, rows}] and write under data/{profile}/{env}/exports/. Returns a success envelope with path, absolute_path, and file:// uri (no MCP File attachme… |
@@ -2801,14 +2801,14 @@ _24 tool(s)_
 
 | | |
 |---|---|
-| **Version** | `1.4.0` |
+| **Version** | `1.5.0` |
 | **CX module** | `meta` |
 | **Op / Risk** | `read` / `READ_ONLY` |
 | **Method** | — |
 | **CPQ REST URL** | — (local / no CPQ REST) |
 | **Fusion REST URL** | — (local / no CPQ REST) |
 | **Tags** | `export`, `meta`, `read` |
-| **Parameters** | `title` (str, required)<br>`sheets` (list[ExportResponseSheetInput], required)<br>`notes` (str \| None, default None)<br>`diagrams` (list[ExportResponseDiagramInput] \| None, default None) |
+| **Parameters** | `title` (str, required)<br>`sheets` (list[ExportResponseSheetInput], required)<br>`notes` (str \| None, default None)<br>`refined_prompt` (str \| None, default None)<br>`diagrams` (list[ExportResponseDiagramInput] \| None, default None) |
 | **Filters** | — |
 | **Output** | read envelope `{status, tool, data}` |
 | **Description** | Build a Word (.docx) from structured sheets (optional notes) and optional diagrams [{title, mermaid?, image_path?, caption?}] and write under data/{profile}/{env}/exports/. Mermaid is rasterized locally via mmdc (@merma… |

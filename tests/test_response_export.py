@@ -49,7 +49,12 @@ class FakeClient:
         self.profile = profile
 
 
-def _profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CPQProfile:
+def _profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    include_refined_prompt_in_documents: bool = True,
+) -> CPQProfile:
     monkeypatch.setenv("CPQ_LOCAL_DATA_DIR", str(tmp_path / "data"))
     cfg = tmp_path / ".config"
     cfg.mkdir()
@@ -72,14 +77,24 @@ def _profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CPQProfile:
         company_login_name="_host",
         read_only=True,
         post_response_export="ask",
+        include_refined_prompt_in_documents=include_refined_prompt_in_documents,
     )
 
 
-def _register(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+def _register(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    include_refined_prompt_in_documents: bool = True,
+) -> dict[str, Any]:
     reset_session_tool_calls()
     reset_rate_limits()
     reset_replay_store()
-    profile = _profile(tmp_path, monkeypatch)
+    profile = _profile(
+        tmp_path,
+        monkeypatch,
+        include_refined_prompt_in_documents=include_refined_prompt_in_documents,
+    )
     configure_security(
         profile,
         SecuritySettings(
@@ -452,6 +467,71 @@ def test_export_response_word_writes_file(
     assert content["tables"] >= 1
     assert content["nonempty_text_chars"] > 0
     assert "Content:" in result["data"]["message"]
+
+
+@pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
+def test_export_response_word_prepends_refined_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from docx import Document
+
+    tools = _register(tmp_path, monkeypatch)
+    result = tools["export_response_word"](
+        title="Demo table",
+        sheets=_SHEETS,
+        notes="Body notes",
+        refined_prompt=(
+            "### Refined prompt (Better token usage)\n"
+            "**Title:** Demo table\n"
+            "**Search / CPQ collections:** limit=1; total_results=true\n"
+            "**Variables:** {{limit}}=1\n"
+            "**Tools:** get_datatable_rows\n"
+        ),
+    )
+    assert result["data"]["refined_prompt_included"] is True
+    doc = Document(result["data"]["absolute_path"])
+    texts = [p.text for p in doc.paragraphs if p.text.strip()]
+    joined = "\n".join(texts)
+    assert "Variables" not in joined
+    assert "{{limit}}" not in joined
+    assert "limit=1" in joined
+    assert joined.index("Demo table") < joined.index("Body notes")
+
+
+def test_export_response_excel_prepends_refined_prompt_sheet(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tools = _register(tmp_path, monkeypatch)
+    result = tools["export_response_excel"](
+        title="Demo table",
+        sheets=_SHEETS,
+        refined_prompt="**Title:** Audit\n**Variables:** {{x}}=1\n**Tools:** list_users",
+    )
+    path = Path(result["data"]["absolute_path"])
+    book = load_workbook(path)
+    assert book.sheetnames[0] == "Refined prompt"
+    assert "Variables" not in str(book.active["A2"].value)
+    assert result["data"]["refined_prompt_included"] is True
+
+
+@pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")
+def test_export_response_word_skips_refined_when_flag_false(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from docx import Document
+
+    tools = _register(tmp_path, monkeypatch, include_refined_prompt_in_documents=False)
+    result = tools["export_response_word"](
+        title="Demo table",
+        sheets=_SHEETS,
+        notes="Body notes",
+        refined_prompt="**Title:** Should omit\n**Variables:** z=1",
+    )
+    assert result["data"]["refined_prompt_included"] is False
+    doc = Document(result["data"]["absolute_path"])
+    joined = "\n".join(p.text for p in doc.paragraphs)
+    assert "Should omit" not in joined
+    assert "Body notes" in joined
 
 
 @pytest.mark.skipif(not HAS_DOCX, reason="python-docx not installed")

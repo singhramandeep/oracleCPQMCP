@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Prompt Studio</title>
-  <link rel="stylesheet" href="/static/styles.css?v=0.4.0" />
+  <link rel="stylesheet" href="/static/styles.css?v=0.4.4" />
 </head>
 <body>
   <div class="app-shell">
@@ -71,6 +71,26 @@
             <select id="profileFilter">
               <option value="">All profiles</option>
               <option value="__unscoped__">Unscoped</option>
+            </select>
+          </label>
+          <label class="filter-label" for="productFilter" title="Filter by CPQ vs Fusion CX">
+            Product
+            <select id="productFilter">
+              <option value="">All products</option>
+              <option value="cpq">CPQ</option>
+              <option value="cx">CX</option>
+            </select>
+          </label>
+          <label class="filter-label" for="cxModuleFilter" title="Filter by Fusion CX module">
+            CX module
+            <select id="cxModuleFilter">
+              <option value="">All modules</option>
+              <option value="sales">Sales</option>
+              <option value="prm">PRM</option>
+              <option value="service">Service</option>
+              <option value="field_service">Field Service</option>
+              <option value="subscription">Subscription</option>
+              <option value="incentive_compensation">Incentive Compensation</option>
             </select>
           </label>
           <label class="filter-label" for="ratingFilter" title="Filter by prompt rating">
@@ -378,6 +398,6 @@
 
   <input type="file" id="importFileHidden" class="hidden" accept=".json,application/json" />
 
-  <script src="/static/app.js?v=0.4.0"></script>
+  <script src="/static/app.js?v=0.4.4"></script>
 </body>
 </html>

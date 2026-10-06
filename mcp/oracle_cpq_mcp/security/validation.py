@@ -18,32 +18,141 @@ class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class ListUsersInput(_StrictModel):
+_ORDERBY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(:(asc|desc))?$", re.IGNORECASE)
+_FIELD_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_FINDER_PATTERN = re.compile(r"^[A-Za-z0-9_=;._\-]+$")
+_ACTION_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+class _CpqPaginationFilters(_StrictModel):
+    """Shared CPQ collection pagination (Oracle Paginate Collections)."""
+
     limit: int = Field(
         default=100,
         ge=1,
         le=1000,
-        description="Page size (1–1000). Clamped by the server.",
+        description="Page size (1–1000).",
     )
     offset: int = Field(
         default=0,
         ge=0,
         description="Zero-based offset for pagination.",
     )
-    status_filter: UserStatusFilter = Field(
-        default="active",
-        description="Filter by user status: active, inactive, or all.",
+    total_results: bool = Field(
+        default=True,
+        description="When true, request totalResults from CPQ.",
     )
-    q_expr: str | None = Field(
-        default=None,
-        max_length=2000,
-        description="Optional CPQ MongoDB-style q expression to further filter users.",
+    only_data: bool = Field(
+        default=True,
+        description="When true, request onlyData=true (smaller payloads).",
     )
 
     @field_validator("limit")
     @classmethod
     def clamp_limit_field(cls, v: int) -> int:
         return clamp_limit(v)
+
+
+class _CpqExpandFilters(_StrictModel):
+    """Singular GET expand / field-type filters (Oracle Expand)."""
+
+    expand: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Optional expand relationships string (CPQ expand query param).",
+    )
+    exclude_field_types: str | None = Field(
+        default=None,
+        max_length=256,
+        description="Optional excludeFieldTypes query param.",
+    )
+    only_data: bool = Field(
+        default=True,
+        description="When true, request onlyData=true.",
+    )
+
+    @field_validator("expand")
+    @classmethod
+    def validate_expand(cls, v: str | None) -> str | None:
+        if v is not None and len(v.strip()) == 0:
+            raise ValueError("expand must be non-empty when set")
+        return v
+
+
+class _CpqCollectionFiltersLite(_CpqPaginationFilters):
+    """CPQ list filters without expand (MongoDB q, sort, fields)."""
+
+    q_expr: str | None = Field(
+        default=None,
+        max_length=4000,
+        description="Optional MongoDB-style q filter (CPQ Query Collections).",
+    )
+    fields: list[str] | None = Field(
+        default=None,
+        max_length=80,
+        description="Optional attribute projection (comma-joined for CPQ fields param).",
+    )
+    orderby: list[str] | None = Field(
+        default=None,
+        max_length=10,
+        description="Optional sort specs (e.g. name:asc, lastUpdatedDate_t:desc).",
+    )
+    finder: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Optional CPQ finder (e.g. findByKeyword;keyword=Customer).",
+    )
+
+    @field_validator("fields")
+    @classmethod
+    def validate_fields_lite(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        for name in v:
+            if not name or not _FIELD_NAME_PATTERN.match(name) or len(name) > 128:
+                raise ValueError(f"Invalid fields entry: {name}")
+        return v
+
+    @field_validator("orderby")
+    @classmethod
+    def validate_orderby_lite(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        for spec in v:
+            if not spec or not _ORDERBY_PATTERN.match(spec) or len(spec) > 160:
+                raise ValueError(f"Invalid orderby entry: {spec}")
+        return v
+
+    @field_validator("finder")
+    @classmethod
+    def validate_finder(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not _FINDER_PATTERN.match(v) or len(v) > 512:
+            raise ValueError("Invalid finder format")
+        return v
+
+
+class _CpqCollectionFilters(_CpqCollectionFiltersLite):
+    """Full CPQ collection filters including expand."""
+
+    expand: str | None = Field(
+        default=None,
+        max_length=512,
+        description="Optional expand relationships string (CPQ expand query param).",
+    )
+    exclude_field_types: str | None = Field(
+        default=None,
+        max_length=256,
+        description="Optional excludeFieldTypes query param.",
+    )
+
+
+class ListUsersInput(_CpqCollectionFiltersLite):
+    status_filter: UserStatusFilter = Field(
+        default="active",
+        description="Filter by user status: active, inactive, or all.",
+    )
 
 
 class ExportUsersExcelInput(_StrictModel):
@@ -73,7 +182,7 @@ class ExportUsersExcelInput(_StrictModel):
         return v
 
 
-class GetUserInput(_StrictModel):
+class GetUserInput(_CpqExpandFilters):
     party_number: str = Field(
         ...,
         min_length=1,
@@ -83,24 +192,13 @@ class GetUserInput(_StrictModel):
     )
 
 
-class GetUserGroupsInput(_StrictModel):
+class GetUserGroupsInput(_CpqCollectionFiltersLite):
     party_number: str = Field(
         ...,
         min_length=1,
         max_length=64,
         pattern=CPQ_ID_PATTERN,
         description="CPQ partyNumber for the user (not the login name).",
-    )
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
     )
 
 
@@ -136,18 +234,8 @@ class UpdateUserInput(_StrictModel):
         return v
 
 
-class ListGroupsInput(_StrictModel):
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
+class ListGroupsInput(_CpqCollectionFiltersLite):
+    pass
 
 
 class GetGroupInput(_StrictModel):
@@ -160,24 +248,13 @@ class GetGroupInput(_StrictModel):
     )
 
 
-class ListGroupUsersInput(_StrictModel):
+class ListGroupUsersInput(_CpqCollectionFiltersLite):
     group_var_name: str = Field(
         ...,
         min_length=1,
         max_length=128,
         pattern=CPQ_ID_PATTERN,
         description="Group variableName whose members to list.",
-    )
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
     )
 
 
@@ -209,21 +286,11 @@ class CreateGroupInput(_StrictModel):
         return v
 
 
-class ListDatatablesInput(_StrictModel):
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
+class ListDatatablesInput(_CpqCollectionFiltersLite):
+    pass
 
 
-class GetDatatableInput(_StrictModel):
+class GetDatatableInput(_CpqExpandFilters):
     table_name: str | None = Field(
         default=None,
         max_length=128,
@@ -238,22 +305,11 @@ class GetDatatableInput(_StrictModel):
         return v
 
 
-class GetDatatableRowsInput(_StrictModel):
+class GetDatatableRowsInput(_CpqCollectionFiltersLite):
     table_name: str | None = Field(
         default=None,
         max_length=128,
         description="Data table name. When omitted, uses the profile default table.",
-    )
-    limit: int = Field(
-        default=50,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
     )
 
     @field_validator("table_name")
@@ -462,7 +518,7 @@ class SaveRefinedPromptInput(_StrictModel):
     tags: list[str] | None = Field(
         default=None,
         max_length=20,
-        description="Optional tags (allowlisted domains/intents).",
+        description="Optional tags (allowlisted domains/intents plus cpq/cx and CX module slugs).",
     )
     tools: list[str] | None = Field(
         default=None,
@@ -732,6 +788,16 @@ class ExportResponseExcelInput(_StrictModel):
         max_length=8000,
         description="Optional notes (ignored for Excel; accepted for API symmetry).",
     )
+    refined_prompt: str | None = Field(
+        default=None,
+        max_length=8000,
+        description=(
+            "YES-gate refined prompt with filled search parameters. "
+            "Omit **Variables** and unused {{placeholders}}. "
+            "When include_refined_prompt_in_documents is true (default), "
+            "prepended as Excel sheet 1."
+        ),
+    )
 
 
 class ExportResponseDiagramInput(_StrictModel):
@@ -793,6 +859,16 @@ class ExportResponseWordInput(_StrictModel):
         description=(
             "Optional intro above tables. Use newlines; ## / ### for headings; "
             "- / * for bullets (lightweight — not full Markdown)."
+        ),
+    )
+    refined_prompt: str | None = Field(
+        default=None,
+        max_length=8000,
+        description=(
+            "YES-gate refined prompt with filled search parameters. "
+            "Omit **Variables** and unused {{placeholders}}. "
+            "When include_refined_prompt_in_documents is true (default), "
+            "placed at the start of the Word body (after Title)."
         ),
     )
     diagrams: list[ExportResponseDiagramInput] | None = Field(
@@ -914,27 +990,7 @@ class GetLocalJobInput(_StrictModel):
     )
 
 
-_ORDERBY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(:(asc|desc))?$", re.IGNORECASE)
-_FIELD_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_ACTION_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-
-
-class ListPerformanceLogsInput(_StrictModel):
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000). Clamped by the server.",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
-    total_results: bool = Field(
-        default=True,
-        description="When true, request totalResults from CPQ (may be expensive on large logs).",
-    )
+class ListPerformanceLogsInput(_CpqCollectionFiltersLite):
     q_expr: str | None = Field(
         default=None,
         max_length=4000,
@@ -952,18 +1008,6 @@ class ListPerformanceLogsInput(_StrictModel):
             "Examples: id, event, login, serverTime, browserTime, eventDate, component, url."
         ),
     )
-    orderby: list[str] | None = Field(
-        default=None,
-        max_length=10,
-        description=(
-            "Optional sort specs for CPQ orderby (e.g. serverTime:desc, eventDate:asc)."
-        ),
-    )
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
     @field_validator("fields")
     @classmethod
@@ -992,22 +1036,7 @@ _ISO_TS_DESC = (
 )
 
 
-class ListMetricsInput(_StrictModel):
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000). Clamped by the server.",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
-    total_results: bool = Field(
-        default=True,
-        description="When true, request totalResults from CPQ.",
-    )
+class ListMetricsInput(_CpqPaginationFilters):
     name: str | None = Field(
         default=None,
         max_length=128,
@@ -1074,7 +1103,7 @@ class GetCommerceUiSettingsInput(_StrictModel):
     """No parameters — GET /commerceUISettings."""
 
 
-class ListSavedSearchesInput(_StrictModel):
+class ListSavedSearchesInput(_CpqPaginationFilters):
     resource_var_name: str | None = Field(
         default=None,
         max_length=256,
@@ -1095,26 +1124,6 @@ class ListSavedSearchesInput(_StrictModel):
         default="VISIBLE",
         description="Maps to CPQ showAll query (ALL|HIDDEN|VISIBLE|INACTIVE).",
     )
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
-    total_results: bool = Field(
-        default=True,
-        description="When true, request totalResults from CPQ.",
-    )
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
     @field_validator("resource_var_name", "process_var_name")
     @classmethod
@@ -1721,74 +1730,8 @@ class GetPerformanceLogInput(_StrictModel):
     )
 
 
-class _CommerceCollectionFilters(_StrictModel):
+class _CommerceCollectionFilters(_CpqCollectionFilters):
     """Shared collection query filters for commerce document lists."""
-
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
-    total_results: bool = Field(
-        default=True,
-        description="When true, request totalResults from CPQ.",
-    )
-    q_expr: str | None = Field(
-        default=None,
-        max_length=4000,
-        description="Optional MongoDB-style q filter.",
-    )
-    fields: list[str] | None = Field(
-        default=None,
-        max_length=80,
-        description="Optional attribute projection (comma-joined for CPQ fields param).",
-    )
-    orderby: list[str] | None = Field(
-        default=None,
-        max_length=10,
-        description="Optional sort specs (e.g. lastUpdatedDate_t:desc).",
-    )
-    expand: str | None = Field(
-        default=None,
-        max_length=512,
-        description="Optional expand relationships string (CPQ expand query param).",
-    )
-    exclude_field_types: str | None = Field(
-        default=None,
-        max_length=256,
-        description="Optional excludeFieldTypes query param.",
-    )
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
-
-    @field_validator("fields")
-    @classmethod
-    def validate_fields(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        for name in v:
-            if not name or not _FIELD_NAME_PATTERN.match(name) or len(name) > 128:
-                raise ValueError(f"Invalid fields entry: {name}")
-        return v
-
-    @field_validator("orderby")
-    @classmethod
-    def validate_orderby(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        for spec in v:
-            if not spec or not _ORDERBY_PATTERN.match(spec) or len(spec) > 160:
-                raise ValueError(f"Invalid orderby entry: {spec}")
-        return v
 
 
 class ListTransactionsInput(_CommerceCollectionFilters):
@@ -1811,7 +1754,7 @@ class ListTransactionsInput(_CommerceCollectionFilters):
         return v
 
 
-class GetTransactionInput(_StrictModel):
+class GetTransactionInput(_CpqExpandFilters):
     transaction_id: str = Field(
         ...,
         min_length=1,
@@ -1828,16 +1771,6 @@ class GetTransactionInput(_StrictModel):
         default="transaction",
         max_length=128,
         description="Main document variable name (default: transaction).",
-    )
-    expand: str | None = Field(
-        default=None,
-        max_length=512,
-        description="Optional expand relationships string.",
-    )
-    exclude_field_types: str | None = Field(
-        default=None,
-        max_length=256,
-        description="Optional excludeFieldTypes query param.",
     )
 
     @field_validator("process_var_name", "doc_var_name")
@@ -1875,7 +1808,7 @@ class ListTransactionLinesInput(_CommerceCollectionFilters):
         return v
 
 
-class GetTransactionLineInput(_StrictModel):
+class GetTransactionLineInput(_CpqExpandFilters):
     transaction_id: str = Field(
         ...,
         min_length=1,
@@ -1900,17 +1833,6 @@ class GetTransactionLineInput(_StrictModel):
         max_length=128,
         description="Main document variable name (default: transaction).",
     )
-    expand: str | None = Field(
-        default=None,
-        max_length=512,
-        description="Optional expand relationships string.",
-    )
-    exclude_field_types: str | None = Field(
-        default=None,
-        max_length=256,
-        description="Optional excludeFieldTypes query param.",
-    )
-
     @field_validator("process_var_name", "doc_var_name")
     @classmethod
     def validate_commerce_identifiers(cls, v: str | None) -> str | None:
@@ -2629,23 +2551,8 @@ class GetCommerceActionInput(_StrictModel):
         return v
 
 
-class ListCommerceProcessesInput(_StrictModel):
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
+class ListCommerceProcessesInput(_CpqCollectionFiltersLite):
+    pass
 
 
 class DownloadAttachmentInput(_StrictModel):
@@ -2688,22 +2595,11 @@ class DownloadAttachmentInput(_StrictModel):
         return v
 
 
-class ListDatatableFieldsInput(_StrictModel):
+class ListDatatableFieldsInput(_CpqCollectionFiltersLite):
     table_name: str | None = Field(
         default=None,
         max_length=128,
         description="Data table name. When omitted, uses the profile default table.",
-    )
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
     )
 
     @field_validator("table_name")
@@ -2712,11 +2608,6 @@ class ListDatatableFieldsInput(_StrictModel):
         if v is not None and not re.match(CPQ_ID_PATTERN, v):
             raise ValueError("table_name has invalid format")
         return v
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
 
 class GetDatatableFieldInput(_StrictModel):
@@ -2790,46 +2681,15 @@ class ExportPerformanceLogsInput(_StrictModel):
         return v
 
 
-class ListPartsInput(_StrictModel):
-    limit: int = Field(
-        default=100,
-        ge=1,
-        le=1000,
-        description="Page size (1–1000).",
-    )
-    offset: int = Field(
-        default=0,
-        ge=0,
-        description="Zero-based offset for pagination.",
-    )
-    q_expr: str | None = Field(
-        default=None,
-        max_length=4000,
-        description="Optional MongoDB-style q filter on parts.",
-    )
+class ListPartsInput(_CpqCollectionFiltersLite):
     fields: list[str] | None = Field(
         default=None,
         max_length=50,
         description="Optional attribute projection list.",
     )
 
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
-    @field_validator("fields")
-    @classmethod
-    def validate_fields(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        for name in v:
-            if not name or not _FIELD_NAME_PATTERN.match(name) or len(name) > 128:
-                raise ValueError(f"Invalid field name: {name}")
-        return v
-
-
-class GetPartInput(_StrictModel):
+class GetPartInput(_CpqExpandFilters):
     part_id: str = Field(
         ...,
         min_length=1,
@@ -2917,49 +2777,16 @@ class ExportDatatablesInput(_StrictModel):
         return v
 
 
-class SearchBmlScriptsInput(_StrictModel):
-    q_expr: str | None = Field(
-        default=None,
-        max_length=4000,
-        description="Optional MongoDB-style q filter for BML script search.",
-    )
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-    orderby: str | None = Field(
-        default=None,
-        max_length=256,
-        description="Optional orderby expression.",
-    )
+class SearchBmlScriptsInput(_CpqCollectionFiltersLite):
     fields: list[str] | None = Field(
         default=None,
         max_length=50,
         description="Optional attribute projection list.",
     )
 
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
-    @field_validator("fields")
-    @classmethod
-    def validate_fields(cls, v: list[str] | None) -> list[str] | None:
-        if v is None:
-            return v
-        for name in v:
-            if not name or not _FIELD_NAME_PATTERN.match(name) or len(name) > 128:
-                raise ValueError(f"Invalid field name: {name}")
-        return v
-
-
-class ListBmlCommonFunctionsInput(_StrictModel):
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
+class ListBmlCommonFunctionsInput(_CpqCollectionFiltersLite):
+    pass
 
 
 class GetBmlCommonFunctionInput(_StrictModel):
@@ -2972,14 +2799,8 @@ class GetBmlCommonFunctionInput(_StrictModel):
     )
 
 
-class ListBmlLibraryFoldersInput(_StrictModel):
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
+class ListBmlLibraryFoldersInput(_CpqCollectionFiltersLite):
+    pass
 
 
 class GetBmlDependentAttributesInput(_StrictModel):
@@ -3054,14 +2875,8 @@ class DownloadTaskFileInput(_StrictModel):
         return v
 
 
-class ListProductFamiliesInput(_StrictModel):
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
+class ListProductFamiliesInput(_CpqCollectionFiltersLite):
+    pass
 
 
 class GetProductFamilyInput(_StrictModel):
@@ -3074,7 +2889,7 @@ class GetProductFamilyInput(_StrictModel):
     )
 
 
-class ListProductLinesInput(_StrictModel):
+class ListProductLinesInput(_CpqCollectionFiltersLite):
     prod_fam_var_name: str = Field(
         ...,
         min_length=1,
@@ -3082,13 +2897,6 @@ class ListProductLinesInput(_StrictModel):
         pattern=_CONFIG_VAR_PATTERN,
         description="Product family variable name.",
     )
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
 
 class GetProductLineInput(_StrictModel):
@@ -3108,7 +2916,7 @@ class GetProductLineInput(_StrictModel):
     )
 
 
-class ListModelsInput(_StrictModel):
+class ListModelsInput(_CpqCollectionFiltersLite):
     prod_fam_var_name: str = Field(
         ...,
         min_length=1,
@@ -3123,13 +2931,6 @@ class ListModelsInput(_StrictModel):
         pattern=_CONFIG_VAR_PATTERN,
         description="Product line variable name.",
     )
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
 
 class ListProductHierarchyTableInput(_StrictModel):
@@ -3210,14 +3011,8 @@ class _ConfigScopeBase(_StrictModel):
     )
 
 
-class ListConfigAttributesInput(_ConfigScopeBase):
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
+class ListConfigAttributesInput(_ConfigScopeBase, _CpqCollectionFiltersLite):
+    pass
 
 
 class GetConfigAttributeInput(_ConfigScopeBase):
@@ -3230,14 +3025,8 @@ class GetConfigAttributeInput(_ConfigScopeBase):
     )
 
 
-class ListArraySetsInput(_ConfigScopeBase):
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
+class ListArraySetsInput(_ConfigScopeBase, _CpqCollectionFiltersLite):
+    pass
 
 
 class GetArraySetInput(_ConfigScopeBase):
@@ -3250,7 +3039,7 @@ class GetArraySetInput(_ConfigScopeBase):
     )
 
 
-class ListArraySetAttributesInput(_ConfigScopeBase):
+class ListArraySetAttributesInput(_ConfigScopeBase, _CpqCollectionFiltersLite):
     array_set_var_name: str = Field(
         ...,
         min_length=1,
@@ -3258,13 +3047,6 @@ class ListArraySetAttributesInput(_ConfigScopeBase):
         pattern=_CONFIG_VAR_PATTERN,
         description="Array set variable name.",
     )
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
 
 class GetArraySetAttributeInput(_ConfigScopeBase):
@@ -3284,7 +3066,7 @@ class GetArraySetAttributeInput(_ConfigScopeBase):
     )
 
 
-class ListConfigMenuItemsInput(_ConfigScopeBase):
+class ListConfigMenuItemsInput(_ConfigScopeBase, _CpqCollectionFiltersLite):
     parent_kind: Literal["attribute", "array_set_attribute"] = Field(
         ...,
         description="Menu items under a plain attribute or an array-set attribute.",
@@ -3302,13 +3084,6 @@ class ListConfigMenuItemsInput(_ConfigScopeBase):
         pattern=_CONFIG_VAR_PATTERN,
         description="Required when parent_kind is array_set_attribute.",
     )
-    limit: int = Field(default=100, ge=1, le=1000, description="Page size (1–1000).")
-    offset: int = Field(default=0, ge=0, description="Zero-based offset for pagination.")
-
-    @field_validator("limit")
-    @classmethod
-    def clamp_limit_field(cls, v: int) -> int:
-        return clamp_limit(v)
 
 
 class GetConfigMenuItemInput(_ConfigScopeBase):

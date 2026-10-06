@@ -1,0 +1,14 @@
+---
+description: generates release notes byc hecking what changed
+alwaysApply: true
+---
+# Release Notes Generation Rule
+When asked to generate release notes:
+1. Always inspect the current git diff against HEAD (`git diff HEAD`).
+2. Group changes into:
+   - **Features** (user-facing additions)
+   - **Bug Fixes** (resolved issues)
+   - **Performance & Refactoring** (internal improvements)
+   - **Config / Dependencies** (dependency bumps, environment tweaks)
+3. Reference specific filenames and key functions modified.
+4. Keep entries concise, high-signal, and devoid of vague fluff.

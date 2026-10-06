@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from oracle_cpq_mcp.core.profile_yaml import FUSION_MODULE_SLUGS
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 
 # Fixed intent tags (in addition to tool domains).
 INTENT_TAGS = frozenset({"audit", "export", "write", "discovery", "read"})
+
+PRODUCT_TAGS = frozenset({"cpq", "cx"})
+CX_MODULE_TAGS = frozenset(FUSION_MODULE_SLUGS.values())
 
 ALLOWED_TAGS = frozenset(
     {
@@ -23,6 +27,8 @@ ALLOWED_TAGS = frozenset(
         "admin",
         "sales",
         "meta",
+        *PRODUCT_TAGS,
+        *CX_MODULE_TAGS,
         *INTENT_TAGS,
     }
 )
@@ -35,6 +41,12 @@ def tags_for_tools(tool_names: list[str] | None, *, extra: list[str] | None = No
         spec = TOOL_CATALOG.get(name)
         if spec:
             tags.add(spec.domain)
+            module = spec.cx_module
+            if module == "cpq":
+                tags.add("cpq")
+            elif module in CX_MODULE_TAGS:
+                tags.add("cx")
+                tags.add(module)
             if spec.operation == "write":
                 tags.add("write")
             else:

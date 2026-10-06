@@ -87,6 +87,7 @@ def test_list_saved_searches_uses_profile_process() -> None:
             "offset": 0,
             "totalResults": "true",
             "showAll": "VISIBLE",
+            "onlyData": "true",
         },
     )
 
@@ -112,6 +113,7 @@ def test_list_saved_searches_explicit_resource() -> None:
             "offset": 0,
             "totalResults": "true",
             "showAll": "ALL",
+            "onlyData": "true",
         },
     )
 

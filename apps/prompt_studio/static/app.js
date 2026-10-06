@@ -3,6 +3,8 @@
   const SHOW_DISABLED_KEY = "promptStudio.showDisabled";
   const PROFILE_FILTER_KEY = "promptStudio.profileFilter";
   const RATING_FILTER_KEY = "promptStudio.ratingFilter";
+  const PRODUCT_FILTER_KEY = "promptStudio.productFilter";
+  const CX_MODULE_FILTER_KEY = "promptStudio.cxModuleFilter";
   const LIBRARY_POLL_MS = 30000;
   const UNSCOPED_PROFILE = "__unscoped__";
 
@@ -25,6 +27,8 @@
     q: "",
     profile: localStorage.getItem(PROFILE_FILTER_KEY) || "",
     ratingFilterValue: localStorage.getItem(RATING_FILTER_KEY) || "",
+    product: localStorage.getItem(PRODUCT_FILTER_KEY) || "",
+    cxModule: localStorage.getItem(CX_MODULE_FILTER_KEY) || "",
     layout: localStorage.getItem(LAYOUT_KEY) === "list" ? "list" : "cards",
     showDisabled: localStorage.getItem(SHOW_DISABLED_KEY) === "true",
     prompts: [],
@@ -274,6 +278,8 @@
     if (state.q) params.set("q", state.q);
     if (state.tag) params.set("tag", state.tag);
     if (state.profile) params.set("profile", state.profile);
+    if (state.product === "cpq" || state.product === "cx") params.set("product", state.product);
+    if (state.product !== "cpq" && state.cxModule) params.set("cx_module", state.cxModule);
     const ratingParts = parseRatingFilterValue(state.ratingFilterValue);
     if (ratingParts.ratingFilter) params.set("rating_filter", ratingParts.ratingFilter);
     if (ratingParts.minRating != null) params.set("min_rating", String(ratingParts.minRating));
@@ -1773,6 +1779,36 @@
         loadPrompts().catch(showError);
       });
     }
+    const productFilter = optional("productFilter");
+    const cxModuleFilter = optional("cxModuleFilter");
+    function syncCxModuleFilter() {
+      if (!cxModuleFilter) return;
+      const disable = state.product === "cpq";
+      cxModuleFilter.disabled = disable;
+      if (disable && state.cxModule) {
+        state.cxModule = "";
+        cxModuleFilter.value = "";
+        localStorage.setItem(CX_MODULE_FILTER_KEY, "");
+      }
+    }
+    if (productFilter) {
+      productFilter.value = state.product || "";
+      productFilter.addEventListener("change", () => {
+        state.product = productFilter.value || "";
+        localStorage.setItem(PRODUCT_FILTER_KEY, state.product);
+        syncCxModuleFilter();
+        loadPrompts().catch(showError);
+      });
+    }
+    if (cxModuleFilter) {
+      cxModuleFilter.value = state.cxModule || "";
+      cxModuleFilter.addEventListener("change", () => {
+        state.cxModule = cxModuleFilter.value || "";
+        localStorage.setItem(CX_MODULE_FILTER_KEY, state.cxModule);
+        loadPrompts().catch(showError);
+      });
+    }
+    syncCxModuleFilter();
     const ratingFilter = optional("ratingFilter");
     if (ratingFilter) {
       ratingFilter.value = state.ratingFilterValue || "";

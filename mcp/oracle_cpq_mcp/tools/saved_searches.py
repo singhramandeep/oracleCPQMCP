@@ -6,7 +6,8 @@ from typing import Any
 
 from oracle_cpq_mcp.core.commerce_paths import resolve_search_resource_var_name
 from oracle_cpq_mcp.core.cpq_client import CPQClient
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
 
@@ -23,6 +24,7 @@ def register_saved_search_tools(mcp: Any, client: CPQClient) -> None:
         limit: int = 100,
         offset: int = 0,
         total_results: bool = True,
+        only_data: bool = True,
     ) -> dict[str, Any]:
         resource = resolve_search_resource_var_name(
             client.profile,
@@ -34,10 +36,11 @@ def register_saved_search_tools(mcp: Any, client: CPQClient) -> None:
         show = (show_all or "VISIBLE").strip().upper()
         if show not in _SHOW_ALL_VALUES:
             show = "VISIBLE"
-        params = build_page_params(
+        params = cpq_list_params(
             limit,
             offset,
             total_results=total_results,
+            only_data=only_data,
             extra={"showAll": show},
         )
         response = client.get(f"/searchResources/{resource}", params=params)

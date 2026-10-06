@@ -51,6 +51,8 @@ python scripts/generate_tool_catalog.py
 
 Each tool table in [`TOOL_CATALOG.md`](TOOL_CATALOG.md) lists **CPQ REST URL** and **Fusion REST URL**. For CPQ tools those columns are `/rest/{version}…` vs `/cpq/rest/{version}…` (`CPQClient` from nested `cpq.hosted` / `cpq.auth`). For Sales/PRM tools the Fusion column is the **CRM** path on `cx.url` — either Adaptive Search (`/crmRestApi/searchResources/11.13.18.05/…`) for top-level `list_*`, or ADF (`/crmRestApi/resources/11.13.18.05/…`) for `get_*` / children / LOVs. The CPQ column is marked not-CPQ.
 
+**CPQ collection filters:** Paginated CPQ `list_*` tools share MongoDB-style **`q_expr`**, **`orderby`**, **`fields`**, **`finder`**, **`total_results`**, and **`only_data`** (see Oracle CPQ REST Query/Sort/Paginate docs). Applicable **`get_*`** tools accept **`expand`** / **`exclude_field_types`**. This is separate from Fusion CX Adaptive Search JSON `q`. Refined-prompt YES-gate uses **Search / CPQ collections** vs **Search / Adaptive Search**; saved prompts stamp tags `cpq` / `cx` plus CX module.
+
 ### Fusion CX (Sales and PRM)
 
 Enable a nested `environments.<env>.cx` block (`enabled: true`, `url`, `auth`, required `modules`). `register_cx_tools` always registers **Adaptive Search discovery/suggest** when any module is enabled, then loads Sales/PRM product handlers. `discover_tools(cx_module="sales"|"prm")` filters the catalog. Service / Field Service / Subscription / Incentive Compensation remain **allowlist names only** (no handlers yet).
@@ -123,7 +125,7 @@ Convention: field `PartnerProfilePEO_<suffix>` → `lov_name=PartnerProfilePEO_L
 ### Refined prompts (token-efficient reuse)
 
 - After CPQ-related work (live MCP and/or local cache), agents append **`### Refined prompt (Better token usage)`** with title, tags, **output format**, **cached data**, prose with `{{placeholders}}`, optional **Search / Adaptive Search** (list filters actually used), Variables, and Tools.
-- Profile flags: `REFINED_PROMPT` (default true), `AUTO_SAVE_REFINED_PROMPT` (**example** profile default true; each customer YAML may set false).
+- Profile flags: `REFINED_PROMPT` (default true), `AUTO_SAVE_REFINED_PROMPT` (**example** profile default true; each customer YAML may set false), `include_refined_prompt_in_documents` (default true — Word/Excel start with filled search params, no Variables).
 - Library: `.prompts/saved_prompts.json` (gitignored). Tools: `offer_save_refined_prompt`, `save_refined_prompt`, `list_saved_prompts`, `search_saved_prompts`, `get_saved_prompt`, `record_prompt_use` (optional `duration_ms` + `source=cache|api|mixed`), `set_saved_prompt_enabled`, `start_prompt_picker`, `set_auto_save_refined_prompt`.
 - Cursor: **`/OracleCPQ_SavedPrompts`** or “use a saved prompt”.
 
@@ -152,7 +154,7 @@ Convention: field `PartnerProfilePEO_<suffix>` → `lov_name=PartnerProfilePEO_L
 
 ### Prompt Studio (local UI)
 
-Lightweight FastAPI + static UI (**app 0.4.3+**) to browse/fill saved prompts, inspect **DEBUG_MODE API logs**, and view **redacted profile YAML / workspace paths**. Does **not** call Oracle CPQ. Supports **New**, **Import** (with batch tag; preserves ratings/comments/telemetry), **Export all/selected**, in-app **Help**, **Refresh**, **Profile** and **Rating** filters, **API logs**, **1–10 ratings + comments**, per-source **cache/api/mixed** run telemetry, and **Profiles & Paths**. Header always shows the Studio version. MCP `save_refined_prompt` stamps `profile` from the active customer; `record_prompt_use` records timed completions. See [Prompt Studio](#prompt-studio-enable-and-run) below and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
+Lightweight FastAPI + static UI (**app 0.4.4+**) to browse/fill saved prompts, inspect **DEBUG_MODE API logs**, and view **redacted profile YAML / workspace paths**. Does **not** call Oracle CPQ. Supports **New**, **Import** (with batch tag; preserves ratings/comments/telemetry), **Export all/selected**, in-app **Help**, **Refresh**, **Profile**, **Product** (CPQ/CX), **CX module**, and **Rating** filters, **API logs**, **1–10 ratings + comments**, per-source **cache/api/mixed** run telemetry, and **Profiles & Paths**. Header always shows the Studio version. MCP `save_refined_prompt` stamps `profile` from the active customer and product tags (`cpq`/`cx` + module) from tools; `record_prompt_use` records timed completions. See [Prompt Studio](#prompt-studio-enable-and-run) below and [`apps/prompt_studio/README.md`](../apps/prompt_studio/README.md).
 
 ### Profiles and environments
 

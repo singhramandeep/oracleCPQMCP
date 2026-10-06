@@ -389,6 +389,7 @@ class CustomerProfileDocument(BaseModel):
     debug_mode: bool = True
     refined_prompt: bool = True
     auto_save_refined_prompt: bool = False
+    include_refined_prompt_in_documents: bool = True
     local_data_policy: str = "prefer"
     post_response_export: str = "always_excel"
     http_timeout: float | None = None
@@ -654,6 +655,9 @@ def profile_document_from_flat_env(raw: dict[str, str | None]) -> CustomerProfil
         refined_prompt=parse_bool_env(raw.get("REFINED_PROMPT"), default=True),
         auto_save_refined_prompt=parse_bool_env(
             raw.get("AUTO_SAVE_REFINED_PROMPT"), default=False
+        ),
+        include_refined_prompt_in_documents=parse_bool_env(
+            raw.get("INCLUDE_REFINED_PROMPT_IN_DOCUMENTS"), default=True
         ),
         local_data_policy=(raw.get("LOCAL_DATA_POLICY") or "prefer").strip()
         or "prefer",

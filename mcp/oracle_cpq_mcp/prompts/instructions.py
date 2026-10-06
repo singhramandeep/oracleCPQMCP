@@ -16,6 +16,15 @@ BASE_SERVER_INSTRUCTIONS = (
     "Errors: {status, code, message, hint, details}."
 )
 
+CPQ_COLLECTION_QUERY = (
+    " ## CPQ collection query (not CX Adaptive Search)\n"
+    "For Oracle CPQ REST list/get collections use MCP args mapped to CPQ query params: "
+    "q_expr (MongoDB-style string per Oracle Query Collections), orderby, fields, "
+    "finder, limit/offset/total_results, only_data; expand and exclude_field_types "
+    "on singular GET when supported. Do not pass Adaptive Search JSON q to CPQ tools. "
+    "Fusion CX top-level list_* → Adaptive Search; CX child list_* → ADF q string.\n"
+)
+
 CAPABILITY_CARD = (
     " ## Capability card\n"
     "Out of scope without tools: pricing engines, Document Designer deep edit, "
@@ -67,6 +76,13 @@ DOCUMENT_TEMPLATES = (
     "MCP instructions beat .cursor/rules.\n"
 )
 
+DOCUMENTS_INCLUDE_REFINED_PROMPT = (
+    " include_refined_prompt_in_documents (default true): pass YES-gate footer "
+    "as refined_prompt on export_response_word/excel — filled Search/AS and/or "
+    "Search/CPQ collection params only; omit **Variables** and unused {{ }}. "
+    "Tool prepends Word start / Excel sheet 1.\n"
+)
+
 REFINED_PROMPT_GATE = (
     " Refined prompt gate: YES only for real site/cache CPQ data "
     "(list_*/get_*/sync_*/load_local_data or data/{profile}/{env}/ answers). "
@@ -77,17 +93,23 @@ REFINED_PROMPT_GATE = (
 REFINED_PROMPT_CORE = (
     REFINED_PROMPT_GATE
     + " YES → append '### Refined prompt (Better token usage)': "
-    "**Title**; **Tags** (domains+intent); **Output format** (chat text|json|excel download) "
+    "**Title**; **Tags** (product cpq and/or cx + CX module slug sales|prm|… + domains+intent); "
+    "**Output format** (chat text|json|excel download) "
     "+ {{output_format}}=chat_text|json|excel_download; **Cached data** yes|no|mixed; "
     "1–3 prose paras with {{snake_case}}; "
-    "when list_*/suggest_adaptive_search/Adaptive Search discovery used filters → "
-    "**Search / Adaptive Search** (entity; q as AS JSON for top-level CX lists or ADF string "
-    "for ADF children; keywords; fields; order_by/sort; finder ADF-only; limit; offset; "
-    "Preference transient|recommend|n/a; other filter args actually passed) — omit unused keys; "
-    "omit whole section if no search params; "
-    "**Variables** (incl. {{output_format}} and search placeholders used: "
-    "{{entity}} {{q}} {{keywords}} {{fields}} {{order_by}} {{limit}} {{offset}} {{preference}}); "
+    "emit **Search / Adaptive Search** only when CX list_*/suggest_adaptive_search/"
+    "Adaptive Search discovery or CX ADF children used filters — entity; Adaptive Search JSON "
+    "{{q}} or ADF {{q}} string; keywords; fields; order_by; finder ADF-only; limit; offset; "
+    "Preference transient|recommend — omit unused keys; "
+    "emit **Search / CPQ collections** only when CPQ list_*/get_* used collection params — "
+    "{{q_expr}} MongoDB string; {{orderby}}; {{fields}}; {{expand}}; {{finder}}; {{limit}}; "
+    "{{offset}}; {{total_results}}; {{only_data}} — never Adaptive Search JSON or CX Preference; "
+    "omit a section if unused; omit both if no search params; mixed turns may emit both; "
+    "**Variables** (incl. {{output_format}} and placeholders used: "
+    "{{entity}} {{q}} {{q_expr}} {{keywords}} {{fields}} {{order_by}} {{orderby}} {{expand}} "
+    "{{finder}} {{limit}} {{offset}} {{preference}} {{total_results}} {{only_data}}); "
     "**Tools** exact MCP names (or 'none (local file read only)'); "
+    "save_refined_prompt tags must include cpq and/or cx (+ module); "
     "**Turn metrics:** **Elapsed** only — Do not include token counts. "
     "Saved-prompt runs: record_prompt_use(prompt_id, duration_ms, source=cache|api|mixed). "
 )
@@ -246,6 +268,7 @@ def build_server_instructions(
     auto_save_refined_prompt: bool = False,
     local_data_policy: str = "ask",
     post_response_export: str = "ask",
+    include_refined_prompt_in_documents: bool = True,
     frugal_mode: bool = False,
     fusion_modules: list[str] | None = None,
     shared_knowledge: str = "",
@@ -281,7 +304,7 @@ def build_server_instructions(
         text += _format_knowledge_section("Customer knowledge", customer_knowledge)
         return text
 
-    text += ASYNC_AGENT_LOOP + PICKER_INSTRUCTIONS + LOCAL_DATA_CORE
+    text += ASYNC_AGENT_LOOP + CPQ_COLLECTION_QUERY + PICKER_INSTRUCTIONS + LOCAL_DATA_CORE
     policy = (local_data_policy or "ask").strip().lower()
     if policy == "prefer":
         text += LOCAL_DATA_PREFER
@@ -305,6 +328,8 @@ def build_server_instructions(
             text += REFINED_PROMPT_SAVE_AUTO
         else:
             text += REFINED_PROMPT_SAVE_ASK
+        if include_refined_prompt_in_documents:
+            text += DOCUMENTS_INCLUDE_REFINED_PROMPT
     text += _format_alias_section(
         commerce_process_aliases=commerce_process_aliases,
         custom_data_table_aliases=custom_data_table_aliases,

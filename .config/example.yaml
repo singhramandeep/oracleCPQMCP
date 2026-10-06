@@ -65,6 +65,11 @@ refined_prompt: true
 # Example default is true; each live customer profile may set false.
 auto_save_refined_prompt: true
 
+# When true (default), Word/Excel exports prepend the YES-gate refined prompt
+# with filled search parameters (no **Variables** / unused {{placeholders}}).
+# Override with host CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS.
+include_refined_prompt_in_documents: true
+
 # Before large list/export (users, groups, BML, commerce metadata, datatables):
 #   ask    — if a local snapshot exists, offer use_cache / fetch_fresh / prefer / never
 #   prefer — load local data/{profile}/{env}/ when present (recommended default)

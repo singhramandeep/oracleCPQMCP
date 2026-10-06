@@ -13,7 +13,8 @@ from oracle_cpq_mcp.core.config_paths import (
     layout_cache_attributes_path,
 )
 from oracle_cpq_mcp.core.cpq_client import CPQClient
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
 
@@ -24,8 +25,26 @@ MenuParentKind = Literal["attribute", "array_set_attribute"]
 def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
     """Register productFamilies / layoutcache configuration tools."""
 
-    def list_product_families(limit: int = 100, offset: int = 0) -> dict[str, Any]:
-        params = build_page_params(limit, offset)
+    def list_product_families(
+        limit: int = 100,
+        offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
+    ) -> dict[str, Any]:
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get("/productFamilies", params=params)
         return enrich_pagination_hint(response, "list_product_families")
 
@@ -42,8 +61,23 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         prod_fam_var_name: str,
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(
             f"/productFamilies/{prod_fam_var_name}/productLines",
             params=params,
@@ -69,8 +103,23 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         prod_line_var_name: str,
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(
             f"/productFamilies/{prod_fam_var_name}/productLines/"
             f"{prod_line_var_name}/models",
@@ -111,6 +160,12 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         model_var_name: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
         path = config_attributes_path(
             scope,
@@ -120,7 +175,16 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         )
         if isinstance(path, dict):
             return path
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(path, params=params)
         return enrich_pagination_hint(response, "list_config_attributes")
 
@@ -155,6 +219,12 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         model_var_name: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
         path = config_array_sets_path(
             scope,
@@ -164,7 +234,16 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         )
         if isinstance(path, dict):
             return path
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(path, params=params)
         return enrich_pagination_hint(response, "list_array_sets")
 
@@ -200,6 +279,12 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         model_var_name: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
         path = config_array_set_attributes_path(
             scope,
@@ -210,7 +295,16 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         )
         if isinstance(path, dict):
             return path
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(path, params=params)
         return enrich_pagination_hint(response, "list_array_set_attributes")
 
@@ -250,6 +344,12 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         array_set_var_name: str | None = None,
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
         path = config_menu_items_path(
             scope,
@@ -262,7 +362,16 @@ def register_configuration_tools(mcp: Any, client: CPQClient) -> None:
         )
         if isinstance(path, dict):
             return path
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(path, params=params)
         return enrich_pagination_hint(response, "list_config_menu_items")
 

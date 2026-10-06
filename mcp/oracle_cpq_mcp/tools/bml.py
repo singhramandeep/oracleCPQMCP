@@ -18,7 +18,8 @@ from oracle_cpq_mcp.core.local_data import (
     profile_env_root,
 )
 from oracle_cpq_mcp.core.local_jobs import start_background_job, update_job
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 from oracle_cpq_mcp.core.preflight import (
     resolve_write_execution,
     run_export_bml_library_preflight,
@@ -260,17 +261,22 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
         q_expr: str | None = None,
         limit: int = 100,
         offset: int = 0,
-        orderby: str | None = None,
+        total_results: bool = True,
+        only_data: bool = True,
+        orderby: list[str] | None = None,
         fields: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
-        extra: dict[str, Any] = {}
-        if q_expr:
-            extra["q"] = q_expr
-        if orderby:
-            extra["orderby"] = orderby
-        if fields:
-            extra["fields"] = ",".join(fields)
-        params = build_page_params(limit, offset, extra=extra or None)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get("/bml/scripts", params=params)
         return enrich_pagination_hint(response, "search_bml_scripts")
 
@@ -280,8 +286,23 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
     def list_bml_common_functions(
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get("/bml/common/functions", params=params)
         return enrich_pagination_hint(response, "list_bml_common_functions")
 
@@ -297,8 +318,23 @@ def register_bml_tools(mcp: Any, client: CPQClient) -> None:
     def list_bml_library_folders(
         limit: int = 100,
         offset: int = 0,
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
-        params = build_page_params(limit, offset)
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get("/bml/library/folders", params=params)
         return enrich_pagination_hint(response, "list_bml_library_folders")
 

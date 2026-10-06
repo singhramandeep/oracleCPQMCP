@@ -48,6 +48,9 @@ def test_build_instructions_ask_mode() -> None:
     assert "output_format" in text
     assert "Refined prompt gate" in text
     assert "Search / Adaptive Search" in text
+    assert "Search / CPQ collections" in text
+    assert "Search / query" not in text
+    assert "CPQ collection query" in text
     assert "{{entity}}" in text or "{{q}}" in text
     assert "Turn metrics" in text
     assert "Elapsed" in text
@@ -55,8 +58,9 @@ def test_build_instructions_ask_mode() -> None:
     assert "**Tokens:**" not in text
     assert "Document templates" in text
     assert "ensure_prompt_studio" in text
+    assert "include_refined_prompt_in_documents" in text
     # Compression target: full refined instructions under ~2000 tokens (~8000 chars)
-    assert len(text) < 9500
+    assert len(text) < 9800
 
 
 def test_build_instructions_includes_prompt_studio_when_refined_off() -> None:
@@ -66,6 +70,7 @@ def test_build_instructions_includes_prompt_studio_when_refined_off() -> None:
     )
     assert "ensure_prompt_studio" in text
     assert "Refined prompt" not in text
+    assert "include_refined_prompt_in_documents" not in text
 
 
 def test_build_instructions_auto_save_mode() -> None:
@@ -80,6 +85,7 @@ def test_build_instructions_auto_save_mode() -> None:
     assert "LOCAL_DATA_POLICY=prefer" in text
     assert "POST_RESPONSE_EXPORT=always_excel" in text
     assert "export_response_excel" in text
+    assert "include_refined_prompt_in_documents" in text
 
 
 def test_build_instructions_never_local_data() -> None:
@@ -108,7 +114,9 @@ def test_build_instructions_frugal_mode() -> None:
     assert "Do NOT emit refined-prompt footer" in text
     assert "Document templates" not in text
     assert "Refined prompt gate" not in text
+    assert "Search / query" not in text
     assert "Search / Adaptive Search" not in text
+    assert "Search / CPQ collections" not in text
     assert "POST_RESPONSE_EXPORT=always_excel" not in text
     assert "Prompt Studio (YES-gate only)" not in text
     assert "Profile credentials" in text

@@ -28,8 +28,39 @@ from apps.prompt_studio.placeholders import (
 )
 from oracle_cpq_mcp.core.prompt_studio_process import activation_commands
 from oracle_cpq_mcp.prompts import saved_library
+from oracle_cpq_mcp.prompts.tags import CX_MODULE_TAGS, PRODUCT_TAGS
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+_CX_MODULE_FILTER = Literal[
+    "sales",
+    "prm",
+    "service",
+    "field_service",
+    "subscription",
+    "incentive_compensation",
+]
+
+
+def _filter_product_module(
+    entries: list[Any],
+    *,
+    product: str | None,
+    cx_module: str | None,
+) -> list[Any]:
+    """AND-filter saved prompts by product (cpq/cx) and CX module slug tags."""
+    out = entries
+    if product:
+        needle = product.strip().lower()
+        if needle not in PRODUCT_TAGS:
+            return []
+        out = [e for e in out if needle in (e.tags or [])]
+    if cx_module:
+        slug = cx_module.strip().lower()
+        if slug not in CX_MODULE_TAGS:
+            return []
+        out = [e for e in out if slug in (e.tags or [])]
+    return out
 
 
 class _StrictModel(BaseModel):
@@ -285,8 +316,10 @@ def create_app() -> FastAPI:
                         "Toggle Cards / List in the toolbar (persisted). List columns: title, "
                         "rating, format, runs, last run, actions.\n\n"
                         "Filters: search box, sidebar tags, Profile (All / Unscoped / stamped), "
+                        "Product (All / CPQ / CX), CX module (Sales / PRM / …), "
                         "Rating (All / Unrated / Rated / 7+ / 8+ / 9+ / 10), Favorites, "
-                        "Show disabled. Result count shows when any filter is active."
+                        "Show disabled. Result count shows when any filter is active. "
+                        "Product/CX tags are stamped by save_refined_prompt from tools used."
                     ),
                 },
                 {
@@ -451,6 +484,8 @@ def create_app() -> FastAPI:
         q: str | None = Query(default=None),
         tag: str | None = Query(default=None),
         profile: str | None = Query(default=None),
+        product: Literal["cpq", "cx"] | None = Query(default=None),
+        cx_module: _CX_MODULE_FILTER | None = Query(default=None),
         rating_filter: Literal["unrated", "rated"] | None = Query(default=None),
         min_rating: int | None = Query(default=None, ge=1, le=10),
         favorites_only: bool = Query(default=False),
@@ -458,7 +493,15 @@ def create_app() -> FastAPI:
         sort: Literal["recent", "title"] = Query(default="recent"),
     ) -> dict[str, Any]:
         favorites = set(studio_store.load_store().get("favorites") or [])
-        use_search = bool(q or tag or profile or rating_filter or min_rating is not None)
+        use_search = bool(
+            q
+            or tag
+            or profile
+            or product
+            or cx_module
+            or rating_filter
+            or min_rating is not None
+        )
         if use_search:
             try:
                 entries = saved_library.search_entries(
@@ -505,6 +548,7 @@ def create_app() -> FastAPI:
                 if needle in hay:
                     extra.append(e)
             entries = list(entries) + extra
+        entries = _filter_product_module(entries, product=product, cx_module=cx_module)
         entries = saved_library.sort_entries(entries, sort=sort)
         return {
             "count": len(entries),

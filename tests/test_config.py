@@ -110,6 +110,7 @@ def config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("CPQ_READ_ONLY", raising=False)
     monkeypatch.delenv("CPQ_REFINED_PROMPT", raising=False)
     monkeypatch.delenv("CPQ_AUTO_SAVE_REFINED_PROMPT", raising=False)
+    monkeypatch.delenv("CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS", raising=False)
     monkeypatch.delenv("CPQ_POST_RESPONSE_EXPORT", raising=False)
     monkeypatch.delenv("CPQ_DEBUG_MODE", raising=False)
 
@@ -150,6 +151,7 @@ def test_load_profile_dev_defaults(config_dir: Path) -> None:
     assert profile.credential_index == 0
     assert profile.read_only is True
     assert profile.refined_prompt is True
+    assert profile.include_refined_prompt_in_documents is True
     assert profile.auto_save_refined_prompt is False
     assert profile.debug_mode is True
     assert profile.rest_base == "https://dev.example.com/rest/v18"
@@ -332,7 +334,12 @@ def test_load_profile_refined_prompt_env_override(
     assert profile.refined_prompt is False
 
 
-def test_load_profile_auto_save_refined_prompt_defaults_false(config_dir: Path) -> None:
+def test_load_profile_include_refined_prompt_in_documents_env_override(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CPQ_INCLUDE_REFINED_PROMPT_IN_DOCUMENTS", "false")
+    profile = load_profile("acme")
+    assert profile.include_refined_prompt_in_documents is False
     profile = load_profile("acme")
     assert profile.auto_save_refined_prompt is False
 

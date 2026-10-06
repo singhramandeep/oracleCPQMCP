@@ -6,7 +6,8 @@ from typing import Any
 
 from oracle_cpq_mcp.core.cpq_client import CPQClient
 from oracle_cpq_mcp.core.metrics_filters import build_metrics_q, normalize_metric_name
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 from oracle_cpq_mcp.tools._register import register_tool
 
@@ -50,6 +51,7 @@ def register_metrics_tools(mcp: Any, client: CPQClient) -> None:
         date_modified_to: str | None = None,
         date_added_from: str | None = None,
         date_added_to: str | None = None,
+        only_data: bool = True,
     ) -> dict[str, Any]:
         q = build_metrics_q(
             name=name,
@@ -60,14 +62,12 @@ def register_metrics_tools(mcp: Any, client: CPQClient) -> None:
             date_added_from=date_added_from,
             date_added_to=date_added_to,
         )
-        extra: dict[str, Any] = {}
-        if q:
-            extra["q"] = q
-        params = build_page_params(
+        params = cpq_list_params(
             limit,
             offset,
             total_results=total_results,
-            extra=extra or None,
+            q_expr=q,
+            only_data=only_data,
         )
         response = client.get("/metrics", params=params)
         if not isinstance(response, dict):

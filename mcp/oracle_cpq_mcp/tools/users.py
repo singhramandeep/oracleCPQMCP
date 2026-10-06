@@ -28,7 +28,8 @@ from oracle_cpq_mcp.exporters.users_excel import (
 )
 
 from oracle_cpq_mcp.core.responses import build_attachment_lead_envelope
-from oracle_cpq_mcp.core.pagination import build_page_params, enrich_pagination_hint
+from oracle_cpq_mcp.core.cpq_collection import cpq_expand_params, cpq_list_params
+from oracle_cpq_mcp.core.pagination import enrich_pagination_hint
 
 from oracle_cpq_mcp.registry.tool_registry import TOOL_CATALOG
 
@@ -49,29 +50,28 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
 
     def list_users(
-
         limit: int = 100,
-
         offset: int = 0,
-
+        total_results: bool = True,
+        only_data: bool = True,
         status_filter: UserStatusFilter = "active",
-
         q_expr: str | None = None,
-
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
-
-        extra: dict[str, Any] = {}
-
         q = build_users_q(status_filter, q_expr)
-
-        if q:
-
-            extra["q"] = q
-
-        params = build_page_params(limit, offset, extra=extra)
-
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get("/users", params=params)
-
         return enrich_pagination_hint(response, "list_users")
 
 
@@ -188,9 +188,18 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
 
 
-    def get_user(party_number: str) -> dict[str, Any]:
-
-        return client.get(f"/users/{party_number}")
+    def get_user(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
+        params = cpq_expand_params(
+            expand=expand,
+            exclude_field_types=exclude_field_types,
+            only_data=only_data,
+        )
+        return client.get(f"/users/{party_number}", params=params)
 
 
 
@@ -201,19 +210,27 @@ def register_user_tools(mcp: Any, client: CPQClient) -> None:
 
 
     def get_user_groups(
-
         party_number: str,
-
         limit: int = 100,
-
         offset: int = 0,
-
+        total_results: bool = True,
+        only_data: bool = True,
+        q_expr: str | None = None,
+        fields: list[str] | None = None,
+        orderby: list[str] | None = None,
+        finder: str | None = None,
     ) -> dict[str, Any]:
-
-        params = build_page_params(limit, offset)
-
+        params = cpq_list_params(
+            limit,
+            offset,
+            total_results=total_results,
+            q_expr=q_expr,
+            fields=fields,
+            orderby=orderby,
+            finder=finder,
+            only_data=only_data,
+        )
         response = client.get(f"/users/{party_number}/groups", params=params)
-
         return enrich_pagination_hint(response, "get_user_groups")
 
 

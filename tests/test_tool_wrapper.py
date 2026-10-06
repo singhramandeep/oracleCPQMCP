@@ -82,7 +82,12 @@ def test_register_tool_wraps_success_payload() -> None:
 
             return decorator
 
-    def ok_tool(party_number: str) -> dict[str, Any]:
+    def ok_tool(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
         return {"partyNumber": party_number}
 
     ok_tool.__doc__ = "test"
@@ -104,7 +109,12 @@ def test_register_tool_stamps_error_envelope() -> None:
 
             return decorator
 
-    def boom(party_number: str) -> dict[str, Any]:
+    def boom(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
         raise CPQAPIError(
             "CPQ API error 404 for GET /users/x",
             status_code=404,
@@ -138,7 +148,12 @@ def test_register_tool_passes_output_schema() -> None:
 
             return decorator
 
-    def ok_tool(party_number: str) -> dict[str, Any]:
+    def ok_tool(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
         return {"partyNumber": party_number}
 
     ok_tool.__doc__ = "test"
@@ -157,7 +172,12 @@ def test_register_tool_catches_cpq_api_error() -> None:
 
             return decorator
 
-    def failing_tool(party_number: str) -> dict[str, Any]:
+    def failing_tool(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
         raise CPQAPIError(
             "CPQ API error 404 for GET /users/x",
             status_code=404,
@@ -180,7 +200,12 @@ def test_register_tool_catches_value_error() -> None:
 
             return decorator
 
-    def bad_input(party_number: str) -> dict[str, Any]:
+    def bad_input(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
         raise ValueError("party_number is required")
 
     bad_input.__doc__ = "test"
@@ -198,7 +223,12 @@ def test_register_tool_catches_unexpected_exception() -> None:
 
             return decorator
 
-    def boom(party_number: str) -> dict[str, Any]:
+    def boom(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
         raise RuntimeError("unexpected")
 
     boom.__doc__ = "test"
@@ -216,7 +246,12 @@ def test_register_tool_returns_internal_error_on_output_validation_failure() -> 
 
             return decorator
 
-    def bad_error_tool(party_number: str) -> dict[str, Any]:
+    def bad_error_tool(
+        party_number: str,
+        expand: str | None = None,
+        exclude_field_types: str | None = None,
+        only_data: bool = True,
+    ) -> dict[str, Any]:
         return {
             "status": "error",
             "message": "CPQ failure with secret partyNumber must-not-leak-12345",

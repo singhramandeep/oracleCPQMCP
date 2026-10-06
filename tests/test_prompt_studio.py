@@ -85,7 +85,7 @@ def studio_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         original_user_prompt="list users",
         refined_prompt="List users for {{customer}} as {{output_format}}",
         variables={"customer": "focalpoint", "output_format": "chat_text"},
-        tags=["users", "read"],
+        tags=["users", "read", "cpq"],
         tools=["list_users"],
         output_format="chat_text",
         path=prompts_path,
@@ -110,6 +110,11 @@ def test_api_list_search_favorite_generate(studio_client):
     tagged = client.get("/api/prompts", params={"tag": "users"})
     assert tagged.json()["count"] >= 1
 
+    cpq_only = client.get("/api/prompts", params={"product": "cpq"})
+    assert any(p["id"] == entry.id for p in cpq_only.json()["prompts"])
+    cx_only = client.get("/api/prompts", params={"product": "cx"})
+    assert all(p["id"] != entry.id for p in cx_only.json()["prompts"])
+
     fav = client.post(f"/api/prompts/{entry.id}/favorite")
     assert fav.json()["favorited"] is True
     fav_only = client.get("/api/prompts", params={"favorites_only": True})
@@ -132,6 +137,29 @@ def test_api_list_search_favorite_generate(studio_client):
 
     hist = client.get("/api/variable-history").json()["variable_history"]
     assert hist["customer"][0] == "acme"
+
+
+def test_api_prompts_product_and_cx_module(studio_client):
+    client, entry = studio_client
+    created = client.post(
+        "/api/prompts",
+        json={
+            "title": "List partners",
+            "original_user_prompt": "list partners",
+            "refined_prompt": "List partners as {{output_format}}",
+            "tags": ["cx", "prm", "partners"],
+            "tools": ["list_partners"],
+            "output_format": "chat_text",
+        },
+    )
+    assert created.status_code == 200
+    partner_id = created.json()["id"]
+    prm = client.get("/api/prompts", params={"product": "cx", "cx_module": "prm"})
+    ids = {p["id"] for p in prm.json()["prompts"]}
+    assert partner_id in ids
+    assert entry.id not in ids
+    sales = client.get("/api/prompts", params={"cx_module": "sales"})
+    assert all(p["id"] != partner_id for p in sales.json()["prompts"])
 
 
 def test_api_health(studio_client):

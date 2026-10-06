@@ -1,3 +1,3 @@
 """Lightweight local Prompt Studio (FastAPI + static UI)."""
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"
